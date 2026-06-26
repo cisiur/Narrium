@@ -51,6 +51,7 @@ interface CanvasStore {
   deleteDialoguePage: (sceneId: string, pageId: string) => void;
   addChoice: (sceneId: string) => void;
   updateChoiceText: (sceneId: string, choiceId: string, text: string) => void;
+  updateChoiceTarget: (sceneId: string, choiceId: string, targetSceneId: string | null) => void;
   deleteChoice: (sceneId: string, choiceId: string) => void;
 }
 
@@ -415,6 +416,21 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
               ...scene,
               choices: scene.choices.map((choice) =>
                 choice.id === choiceId ? { ...choice, text } : choice,
+              ),
+            }
+          : scene,
+      ),
+    );
+    get().syncFromProject();
+  },
+  updateChoiceTarget: (sceneId: string, choiceId: string, targetSceneId: string | null) => {
+    updateActiveProject((scenes) =>
+      scenes.map((scene) =>
+        scene.id === sceneId
+          ? {
+              ...scene,
+              choices: scene.choices.map((choice) =>
+                choice.id === choiceId ? { ...choice, targetSceneId } : choice,
               ),
             }
           : scene,

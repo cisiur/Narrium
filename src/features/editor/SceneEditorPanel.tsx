@@ -522,13 +522,16 @@ function DialoguePageItem({ page, scene, isOnlyPage }: DialoguePageItemProps) {
 interface ChoiceItemProps {
   choice: Choice;
   scene: Scene;
+  scenes: Scene[];
   targetSceneName: string;
 }
 
-function ChoiceItem({ choice, scene, targetSceneName }: ChoiceItemProps) {
+function ChoiceItem({ choice, scene, scenes, targetSceneName }: ChoiceItemProps) {
   const updateChoiceText = useCanvasStore((state) => state.updateChoiceText);
+  const updateChoiceTarget = useCanvasStore((state) => state.updateChoiceTarget);
   const deleteChoice = useCanvasStore((state) => state.deleteChoice);
   const [isEditing, setIsEditing] = useState(false);
+  const targetScenes = scenes.filter((candidate) => candidate.id !== scene.id);
 
   return (
     <div className="rounded-md border border-gray-700 bg-gray-800/70 p-3">
@@ -567,6 +570,21 @@ function ChoiceItem({ choice, scene, targetSceneName }: ChoiceItemProps) {
           placeholder="Choice text"
         />
       ) : null}
+      <label className="mt-3 block text-xs font-semibold text-gray-300">
+        Target Scene
+        <select
+          value={choice.targetSceneId ?? ''}
+          onChange={(event) => updateChoiceTarget(scene.id, choice.id, event.target.value || null)}
+          className="mt-1 w-full rounded bg-gray-950 px-2 py-2 text-sm font-normal text-gray-100 outline-none ring-1 ring-gray-700 focus:ring-blue-500"
+        >
+          <option value="">None</option>
+          {targetScenes.map((targetScene) => (
+            <option key={targetScene.id} value={targetScene.id}>
+              {targetScene.name}
+            </option>
+          ))}
+        </select>
+      </label>
     </div>
   );
 }
@@ -642,6 +660,7 @@ export function SceneEditorPanel() {
                       key={choice.id}
                       choice={choice}
                       scene={scene}
+                      scenes={activeProject?.scenes ?? []}
                       targetSceneName={targetScene ? `→ ${targetScene.name}` : '→ not connected'}
                     />
                   );

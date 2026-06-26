@@ -150,7 +150,7 @@
 
 ## General Progress
 
-```
+```text
 EPIC 0  Documentation & Foundation       ██░░░░░░░░   20%  (E0-01, E0-02 done)
 EPIC 1  Workspace & Canvas Foundations   ░░░░░░░░░░    0%
 EPIC 2  Scene Editor Panel               ░░░░░░░░░░    0%

@@ -99,23 +99,22 @@ interface Scene {
 }
 
 interface SceneBackground {
-  // mode determines which field is active
   mode: 'upload' | 'url' | 'asset' | 'scene_reference' | 'none';
-  assetId: string | null;          // mode='asset': references AssetLibraryItem.id
-  sourceSceneId: string | null;    // mode='scene_reference': copies background from another scene
-  url: string;                     // mode='url': external URL; mode='upload': data URL (base64)
+  assetId: string | null;
+  sourceSceneId: string | null;
+  url: string;
 }
 
 interface DialoguePage {
   id: string;
-  speakerId: string | null;        // null = narrator
+  speakerId: string | null;
   text: string;
 }
 
 interface Choice {
   id: string;
-  text: string;                    // button label shown to reader
-  targetSceneId: string | null;    // null = unconnected (flagged in validation)
+  text: string;
+  targetSceneId: string | null;
   conditions: Condition[];
   effects: Effect[];
 }
@@ -123,11 +122,11 @@ interface Choice {
 interface Condition {
   id: string;
   type: 'resource' | 'character_attr';
-  targetId: string;                // resourceId or characterId
-  attribute?: string;              // character attribute key, only for type='character_attr'
+  targetId: string;
+  attribute?: string;
   operator: '>=' | '<=' | '==' | '>' | '<' | '!=';
   value: number;
-  hintText: string;                // shown to reader when condition is not met (choice greyed out)
+  hintText: string;
 }
 
 interface Effect {
@@ -146,23 +145,23 @@ interface Character {
 }
 
 interface CharacterAttribute {
-  key: string;                     // e.g. "reputation"
+  key: string;
   defaultValue: number;
 }
 
 interface Resource {
   id: string;
-  name: string;                    // e.g. "gold"
+  name: string;
   defaultValue: number;
 }
 
 interface SceneGroup {
   id: string;
   name: string;
-  color: string;                   // hex, used for group border/label on canvas
+  color: string;
   position: { x: number; y: number };
   size: { width: number; height: number };
-  collapsed: boolean;              // post-MVP: collapse to single tile; field reserved now
+  collapsed: boolean;
 }
 
 interface AssetLibraryItem {
@@ -170,13 +169,12 @@ interface AssetLibraryItem {
   kind: 'background';
   name: string;
   sourceType: 'upload' | 'url';
-  // For 'upload': url contains data URL (base64). For 'url': url is external URL.
   url: string;
   createdAt: string;
 }
 
 interface ProjectSettings {
-  allowSessionSaveLoad: boolean;   // exported HTML player supports save/load via localStorage
+  allowSessionSaveLoad: boolean;
 }
 ```
 
@@ -189,10 +187,10 @@ interface RuntimeState {
   currentSceneId: string;
   currentPageIndex: number;
   variables: {
-    resources: Record<string, number>;                         // resourceId → current value
-    characterAttrs: Record<string, Record<string, number>>;    // characterId → attr key → value
+    resources: Record<string, number>;
+    characterAttrs: Record<string, Record<string, number>>;
   };
-  saveSlots?: RuntimeSaveSlot[];   // only present when ProjectSettings.allowSessionSaveLoad = true
+  saveSlots?: RuntimeSaveSlot[];
 }
 
 interface RuntimeSaveSlot {
@@ -235,7 +233,7 @@ Narrium has a **"My Projects"** start screen (Figma-style). The user works on **
 | First scene | `Project.startSceneId`; set to first created scene by default |
 | Scene groups | Named visual containers on canvas in MVP; `collapsed` field reserved for post-MVP |
 | Group collapse to tile | Post-MVP (backlog) |
-| Free-tier limit | Counts **scenes only** (simplest, most legible to user) |
+| Free-tier limit | Counts **scenes only** |
 | Freemium enforcement | **Not enforced in MVP code** — documented only; hooks added in E6-08 |
 | Monetization direction | Freemium → one-time per project or SaaS subscription later |
 | Project thumbnail | Auto-generated from `startSceneId` background; user can manually override |
@@ -262,8 +260,6 @@ Narrium has a **"My Projects"** start screen (Figma-style). The user works on **
 ---
 
 ## Perplexity Workflow Instructions
-
-> These instructions apply to every new Perplexity session working on this project.
 
 1. **Verify repo state first** — check latest commits on `dev` via GitHub API before starting any task.
 2. **Deliver ready-to-paste prompts** — for [AI] / [BOTH] tasks: a complete English prompt for Codex/Claude Code, self-contained with types, component names, and acceptance criteria.

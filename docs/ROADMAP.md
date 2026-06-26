@@ -172,4 +172,4 @@ EPIC 6  Polish & UX                      █░░░░░░░░░   12%  (
 4. **[AI]** — fixes and refactors
 5. **[MANUAL]** — product decision, acceptance, merge to main
 
-> After every completed task: update status in ROADMAP.md and CONTEXT.md, commit to `dev`.
+> Active development happens directly on `main`. Do not use a `dev` branch. After every completed task: update status in ROADMAP.md and CONTEXT.md, commit to `main`.

@@ -1,0 +1,364 @@
+import {
+  applyEdgeChanges,
+  applyNodeChanges,
+  type Connection,
+  type Edge,
+  type EdgeChange,
+  type Node,
+  type NodeChange,
+  type OnConnect,
+  type OnEdgesChange,
+  type OnNodesChange,
+} from 'reactflow';
+import { create } from 'zustand';
+import type { Choice, DialoguePage, Scene } from '../types';
+import { useWorkspaceStore } from './workspaceStore';
+
+export type CanvasView = 'canvas' | 'editor';
+
+export interface SceneNodeData {
+  scene: Scene;
+}
+
+interface CanvasStore {
+  nodes: Node<SceneNodeData>[];
+  edges: Edge[];
+  selectedSceneId: string | null;
+  activeView: CanvasView;
+  onNodesChange: OnNodesChange;
+  onEdgesChange: OnEdgesChange;
+  onConnect: OnConnect;
+  addScene: (name: string) => void;
+  deleteScene: (id: string) => void;
+  selectScene: (id: string | null) => void;
+  openEditor: (id: string) => void;
+  syncFromProject: () => void;
+  updateSceneName: (sceneId: string, name: string) => void;
+  addDialoguePage: (sceneId: string) => void;
+  updateDialoguePage: (sceneId: string, pageId: string, text: string) => void;
+  deleteDialoguePage: (sceneId: string, pageId: string) => void;
+  addChoice: (sceneId: string) => void;
+  updateChoiceText: (sceneId: string, choiceId: string, text: string) => void;
+  deleteChoice: (sceneId: string, choiceId: string) => void;
+}
+
+function createId(prefix: string) {
+  return `${prefix}_${crypto.randomUUID()}`;
+}
+
+function createDialoguePage(text = ''): DialoguePage {
+  return {
+    id: createId('page'),
+    speakerId: null,
+    text,
+  };
+}
+
+function createChoice(text = 'New choice', targetSceneId: string | null = null): Choice {
+  return {
+    id: createId('choice'),
+    text,
+    targetSceneId,
+    conditions: [],
+    effects: [],
+  };
+}
+
+function createScene(name: string, position: { x: number; y: number }): Scene {
+  return {
+    id: createId('scene'),
+    name,
+    background: {
+      mode: 'none',
+      assetId: null,
+      sourceSceneId: null,
+      url: '',
+    },
+    position,
+    dialoguePages: [createDialoguePage('')],
+    choices: [],
+    groupId: null,
+  };
+}
+
+function buildNodes(scenes: Scene[], selectedSceneId: string | null): Node<SceneNodeData>[] {
+  return scenes.map((scene) => ({
+    id: scene.id,
+    type: 'scene',
+    position: scene.position,
+    selected: scene.id === selectedSceneId,
+    data: {
+      scene,
+    },
+  }));
+}
+
+function buildEdges(scenes: Scene[]): Edge[] {
+  return scenes.flatMap((scene) =>
+    scene.choices
+      .filter((choice) => choice.targetSceneId)
+      .map((choice) => ({
+        id: `${scene.id}:${choice.id}`,
+        source: scene.id,
+        target: choice.targetSceneId as string,
+        label: choice.text || 'Choice',
+        animated: false,
+        className: 'text-gray-200',
+      })),
+  );
+}
+
+function updateActiveProject(mutator: (scenes: Scene[]) => Scene[]) {
+  useWorkspaceStore.getState().updateActiveProject((project) => ({
+    ...project,
+    scenes: mutator(project.scenes),
+  }));
+}
+
+export const useCanvasStore = create<CanvasStore>((set, get) => ({
+  nodes: [],
+  edges: [],
+  selectedSceneId: null,
+  activeView: 'canvas',
+  onNodesChange: (changes: NodeChange[]) => {
+    set((state) => ({
+      nodes: applyNodeChanges(changes, state.nodes),
+    }));
+
+    const positionChanges = changes.filter(
+      (change): change is NodeChange & { id: string; position: { x: number; y: number } } =>
+        change.type === 'position' && Boolean(change.position),
+    );
+
+    if (positionChanges.length > 0) {
+      updateActiveProject((scenes) =>
+        scenes.map((scene) => {
+          const change = positionChanges.find((item) => item.id === scene.id);
+
+          return change ? { ...scene, position: change.position } : scene;
+        }),
+      );
+    }
+  },
+  onEdgesChange: (changes: EdgeChange[]) => {
+    const removedEdgeIds = changes
+      .filter((change) => change.type === 'remove')
+      .map((change) => change.id);
+
+    if (removedEdgeIds.length > 0) {
+      updateActiveProject((scenes) =>
+        scenes.map((scene) => ({
+          ...scene,
+          choices: scene.choices.map((choice) =>
+            removedEdgeIds.includes(`${scene.id}:${choice.id}`)
+              ? { ...choice, targetSceneId: null }
+              : choice,
+          ),
+        })),
+      );
+    }
+
+    set((state) => ({
+      edges: applyEdgeChanges(changes, state.edges),
+    }));
+    get().syncFromProject();
+  },
+  onConnect: (connection: Connection) => {
+    if (!connection.source || !connection.target) {
+      return;
+    }
+
+    updateActiveProject((scenes) =>
+      scenes.map((scene) => {
+        if (scene.id !== connection.source) {
+          return scene;
+        }
+
+        const openChoice = scene.choices.find((choice) => !choice.targetSceneId);
+
+        if (openChoice) {
+          return {
+            ...scene,
+            choices: scene.choices.map((choice) =>
+              choice.id === openChoice.id ? { ...choice, targetSceneId: connection.target } : choice,
+            ),
+          };
+        }
+
+        return {
+          ...scene,
+          choices: [...scene.choices, createChoice('New choice', connection.target)],
+        };
+      }),
+    );
+    get().syncFromProject();
+  },
+  addScene: (name: string) => {
+    const activeProject = useWorkspaceStore.getState().activeProject;
+
+    if (!activeProject) {
+      return;
+    }
+
+    const existingScenes = activeProject.scenes;
+    const nextIndex = existingScenes.length;
+    const scene = createScene(name, {
+      x: 80 + (nextIndex % 4) * 280,
+      y: 80 + Math.floor(nextIndex / 4) * 190,
+    });
+
+    useWorkspaceStore.getState().updateActiveProject((project) => ({
+      ...project,
+      startSceneId: project.startSceneId || scene.id,
+      scenes: [...project.scenes, scene],
+    }));
+
+    set({
+      selectedSceneId: scene.id,
+      activeView: 'editor',
+    });
+    get().syncFromProject();
+  },
+  deleteScene: (id: string) => {
+    updateActiveProject((scenes) =>
+      scenes
+        .filter((scene) => scene.id !== id)
+        .map((scene) => ({
+          ...scene,
+          choices: scene.choices.map((choice) =>
+            choice.targetSceneId === id ? { ...choice, targetSceneId: null } : choice,
+          ),
+        })),
+    );
+
+    set({
+      selectedSceneId: null,
+      activeView: 'canvas',
+    });
+    get().syncFromProject();
+  },
+  selectScene: (id: string | null) => {
+    set((state) => ({
+      selectedSceneId: id,
+      activeView: id ? 'editor' : 'canvas',
+      nodes: state.nodes.map((node) => ({
+        ...node,
+        selected: node.id === id,
+      })),
+    }));
+  },
+  openEditor: (id: string) => {
+    set((state) => ({
+      selectedSceneId: id,
+      activeView: 'editor',
+      nodes: state.nodes.map((node) => ({
+        ...node,
+        selected: node.id === id,
+      })),
+    }));
+  },
+  syncFromProject: () => {
+    const activeProject = useWorkspaceStore.getState().activeProject;
+    const selectedSceneId = get().selectedSceneId;
+
+    if (!activeProject) {
+      set({
+        nodes: [],
+        edges: [],
+        selectedSceneId: null,
+        activeView: 'canvas',
+      });
+      return;
+    }
+
+    const selectedSceneExists = activeProject.scenes.some((scene) => scene.id === selectedSceneId);
+    const nextSelectedSceneId = selectedSceneExists ? selectedSceneId : null;
+
+    set({
+      nodes: buildNodes(activeProject.scenes, nextSelectedSceneId),
+      edges: buildEdges(activeProject.scenes),
+      selectedSceneId: nextSelectedSceneId,
+      activeView: nextSelectedSceneId ? get().activeView : 'canvas',
+    });
+  },
+  updateSceneName: (sceneId: string, name: string) => {
+    updateActiveProject((scenes) =>
+      scenes.map((scene) => (scene.id === sceneId ? { ...scene, name } : scene)),
+    );
+    get().syncFromProject();
+  },
+  addDialoguePage: (sceneId: string) => {
+    updateActiveProject((scenes) =>
+      scenes.map((scene) =>
+        scene.id === sceneId
+          ? { ...scene, dialoguePages: [...scene.dialoguePages, createDialoguePage('')] }
+          : scene,
+      ),
+    );
+    get().syncFromProject();
+  },
+  updateDialoguePage: (sceneId: string, pageId: string, text: string) => {
+    updateActiveProject((scenes) =>
+      scenes.map((scene) =>
+        scene.id === sceneId
+          ? {
+              ...scene,
+              dialoguePages: scene.dialoguePages.map((page) =>
+                page.id === pageId ? { ...page, text } : page,
+              ),
+            }
+          : scene,
+      ),
+    );
+    get().syncFromProject();
+  },
+  deleteDialoguePage: (sceneId: string, pageId: string) => {
+    updateActiveProject((scenes) =>
+      scenes.map((scene) =>
+        scene.id === sceneId && scene.dialoguePages.length > 1
+          ? {
+              ...scene,
+              dialoguePages: scene.dialoguePages.filter((page) => page.id !== pageId),
+            }
+          : scene,
+      ),
+    );
+    get().syncFromProject();
+  },
+  addChoice: (sceneId: string) => {
+    updateActiveProject((scenes) =>
+      scenes.map((scene) =>
+        scene.id === sceneId ? { ...scene, choices: [...scene.choices, createChoice('New choice')] } : scene,
+      ),
+    );
+    get().syncFromProject();
+  },
+  updateChoiceText: (sceneId: string, choiceId: string, text: string) => {
+    updateActiveProject((scenes) =>
+      scenes.map((scene) =>
+        scene.id === sceneId
+          ? {
+              ...scene,
+              choices: scene.choices.map((choice) =>
+                choice.id === choiceId ? { ...choice, text } : choice,
+              ),
+            }
+          : scene,
+      ),
+    );
+    get().syncFromProject();
+  },
+  deleteChoice: (sceneId: string, choiceId: string) => {
+    updateActiveProject((scenes) =>
+      scenes.map((scene) =>
+        scene.id === sceneId
+          ? {
+              ...scene,
+              choices: scene.choices.filter((choice) => choice.id !== choiceId),
+            }
+          : scene,
+      ),
+    );
+    get().syncFromProject();
+  },
+}));

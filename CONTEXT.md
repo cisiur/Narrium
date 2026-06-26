@@ -45,8 +45,9 @@ Platform: **web app (browser only)**. No mobile app for now.
 
 - ✅ GitHub repo created
 - ✅ README.md written
-- ✅ ROADMAP.md written (docs/ROADMAP.md)
+- ✅ ROADMAP.md written (`docs/ROADMAP.md`)
 - ✅ CONTEXT.md written
+- ✅ All MVP product decisions resolved
 - ⏳ DATA_MODEL.md (E0-03) — pending
 - ⏳ SCREENS.md (E0-04) — pending
 - ⏳ Vite + React + TS scaffold (E0-05) — pending
@@ -54,7 +55,7 @@ Platform: **web app (browser only)**. No mobile app for now.
 - ⏳ Zustand store skeleton (E0-07) — pending
 - ⏳ TypeScript types (E0-08) — pending
 
-**Next task:** E0-03 DATA_MODEL.md (spec by Perplexity) → then E0-05 project scaffold (AI implementation).
+**Next task:** E0-03 DATA_MODEL.md (spec by Perplexity) → E0-04 SCREENS.md → E0-05 scaffold.
 
 **No code has been written yet.**
 
@@ -68,9 +69,9 @@ Platform: **web app (browser only)**. No mobile app for now.
 interface WorkspaceProjectMeta {
   id: string;
   name: string;
-  createdAt: string;
-  updatedAt: string;
-  thumbnailDataUrl?: string | null;
+  createdAt: string;             // ISO 8601
+  updatedAt: string;             // ISO 8601
+  thumbnailDataUrl: string | null; // auto-generated from startScene background; user can override
 }
 
 interface Project {
@@ -98,22 +99,23 @@ interface Scene {
 }
 
 interface SceneBackground {
-  mode: 'upload' | 'url' | 'project_asset' | 'scene_reference' | 'none';
-  assetId: string | null;
-  sourceSceneId: string | null;
-  url: string;
+  // mode determines which field is active
+  mode: 'upload' | 'url' | 'asset' | 'scene_reference' | 'none';
+  assetId: string | null;          // mode='asset': references AssetLibraryItem.id
+  sourceSceneId: string | null;    // mode='scene_reference': copies background from another scene
+  url: string;                     // mode='url': external URL; mode='upload': data URL (base64)
 }
 
 interface DialoguePage {
   id: string;
-  speakerId: string | null;
+  speakerId: string | null;        // null = narrator
   text: string;
 }
 
 interface Choice {
   id: string;
-  text: string;
-  targetSceneId: string | null;
+  text: string;                    // button label shown to reader
+  targetSceneId: string | null;    // null = unconnected (flagged in validation)
   conditions: Condition[];
   effects: Effect[];
 }
@@ -121,11 +123,11 @@ interface Choice {
 interface Condition {
   id: string;
   type: 'resource' | 'character_attr';
-  targetId: string;
-  attribute?: string;
+  targetId: string;                // resourceId or characterId
+  attribute?: string;              // character attribute key, only for type='character_attr'
   operator: '>=' | '<=' | '==' | '>' | '<' | '!=';
   value: number;
-  hintText: string;
+  hintText: string;                // shown to reader when condition is not met (choice greyed out)
 }
 
 interface Effect {
@@ -144,23 +146,23 @@ interface Character {
 }
 
 interface CharacterAttribute {
-  key: string;
+  key: string;                     // e.g. "reputation"
   defaultValue: number;
 }
 
 interface Resource {
   id: string;
-  name: string;
+  name: string;                    // e.g. "gold"
   defaultValue: number;
 }
 
 interface SceneGroup {
   id: string;
   name: string;
-  color: string;
+  color: string;                   // hex, used for group border/label on canvas
   position: { x: number; y: number };
   size: { width: number; height: number };
-  collapsed: boolean;
+  collapsed: boolean;              // post-MVP: collapse to single tile; field reserved now
 }
 
 interface AssetLibraryItem {
@@ -168,12 +170,13 @@ interface AssetLibraryItem {
   kind: 'background';
   name: string;
   sourceType: 'upload' | 'url';
+  // For 'upload': url contains data URL (base64). For 'url': url is external URL.
   url: string;
   createdAt: string;
 }
 
 interface ProjectSettings {
-  allowSessionSaveLoad: boolean;
+  allowSessionSaveLoad: boolean;   // exported HTML player supports save/load via localStorage
 }
 ```
 
@@ -186,9 +189,16 @@ interface RuntimeState {
   currentSceneId: string;
   currentPageIndex: number;
   variables: {
-    resources: Record<string, number>;
-    characterAttrs: Record<string, Record<string, number>>;
+    resources: Record<string, number>;                         // resourceId → current value
+    characterAttrs: Record<string, Record<string, number>>;    // characterId → attr key → value
   };
+  saveSlots?: RuntimeSaveSlot[];   // only present when ProjectSettings.allowSessionSaveLoad = true
+}
+
+interface RuntimeSaveSlot {
+  id: string;
+  savedAt: string;
+  snapshot: Omit<RuntimeState, 'saveSlots'>;
 }
 ```
 
@@ -203,46 +213,38 @@ interface WorkspaceState {
 }
 ```
 
-Narrium MVP includes a **"My Projects"** start screen similar to Figma-style project selection. The user works on **one active project at a time**, but the app must manage multiple projects stored locally.
+Narrium has a **"My Projects"** start screen (Figma-style). The user works on **one active project at a time**; all projects are stored in localStorage. Full project data lives under key `narrium_project_{id}`; the workspace index lives under `narrium_workspace`.
 
 ---
 
-## Key Design Decisions
+## Product Decisions (all resolved)
 
 | Topic | Decision |
 |---|---|
-| Canvas library | React Flow — node-based graph, edge routing, built-in drag/pan/zoom |
-| State | Zustand — workspace/project/UI split recommended |
-| Storage MVP | localStorage auto-save; JSON export/import for portability |
-| Condition unmet | Choice is rendered greyed-out with `hintText` — never hidden |
-| Multiple speakers | DialoguePage has `speakerId`; null = narrator voice |
-| Player exported | Standalone HTML file with embedded JS + project JSON — no server needed |
-| Exported player session save/load | Supported in MVP |
-| No scripting | No custom scripting language; all logic is declarative conditions and effects |
-| First scene | `Project.startSceneId` defines entry point; set to first created scene by default |
-| Background sources | Local upload, external URL, project asset library, or reuse from another scene |
-| Scene groups | Supported in MVP as named visual containers on canvas; collapsing whole group into one tile is post-MVP |
-| Project model | Multiple local projects with a "My Projects" screen; one project open at a time |
-| Monetization direction | Freemium: limited number of scenes/groups for free; later unlock via per-project payment or SaaS subscription |
+| Canvas library | React Flow — node-based graph, edge routing, drag/pan/zoom |
+| State | Zustand — `WorkspaceStore` + `ProjectStore` + `UIStore` |
+| Storage | localStorage auto-save; JSON export/import |
+| Multiple projects | Yes, "My Projects" screen; one active project at a time |
+| Background sources | Local upload (base64 data URL in JSON) + external URL + asset library reuse + scene reference |
+| Uploaded assets storage | Stored as base64 data URL inside project JSON — no separate file storage in MVP |
+| Condition unmet | Choice is greyed-out with `hintText` — never hidden |
+| Multiple speakers | `DialoguePage.speakerId`; null = narrator |
+| Player exported | Standalone HTML with embedded JS + project JSON |
+| Exported player save/load | Supported via localStorage; persists through browser refresh |
+| No scripting language | All logic is declarative conditions and effects |
+| First scene | `Project.startSceneId`; set to first created scene by default |
+| Scene groups | Named visual containers on canvas in MVP; `collapsed` field reserved for post-MVP |
+| Group collapse to tile | Post-MVP (backlog) |
+| Free-tier limit | Counts **scenes only** (simplest, most legible to user) |
+| Freemium enforcement | **Not enforced in MVP code** — documented only; hooks added in E6-08 |
+| Monetization direction | Freemium → one-time per project or SaaS subscription later |
+| Project thumbnail | Auto-generated from `startSceneId` background; user can manually override |
 
 ---
 
-## Open Questions (to be decided)
+## Open Questions
 
-- [x] Scene backgrounds: local upload + URL + reuse from other scenes/assets
-- [x] Scene groups / folders: yes, named canvas containers in MVP; collapse later
-- [x] Exported HTML player save/load within session: yes
-- [x] Monetization: freemium, later one-time per project or SaaS
-- [x] Multiple projects: yes, "My Projects" screen; one active project at a time
-
-### Remaining product questions before build starts
-
-- [ ] Should free-tier limits count only **scenes**, or scenes + groups + assets together?
-- [ ] Should exported HTML save/load persist only during tab lifetime, or also after browser refresh using localStorage?
-- [ ] For local image uploads: should Narrium store them as base64/data URLs in project JSON for MVP, or keep them separately and reference them?
-- [ ] Should project thumbnails on the "My Projects" screen be auto-generated from the first/start scene background, or manually chosen?
-- [ ] Should scene groups affect only organization on canvas, or also optionally appear in analytics / validation reports later?
-- [ ] Do you want a hard MVP limit now for free users, e.g. 10 scenes / 2 groups, or should monetization stay only documented for now without enforcement?
+*All MVP product questions resolved. No open items.*
 
 ---
 
@@ -263,19 +265,11 @@ Narrium MVP includes a **"My Projects"** start screen similar to Figma-style pro
 
 > These instructions apply to every new Perplexity session working on this project.
 
-1. **Verify repo state first** — before starting any task, check the latest commits on `dev` via GitHub API to confirm what was actually implemented.
-
-2. **Deliver ready-to-paste AI prompts, not specs** — when a task is [AI] or [BOTH], provide a complete prompt in English that can be pasted directly into Codex or Claude Code without editing. Format: markdown code block with context header, existing type inventory, task description with exact interface/component signatures, requirements, and test or acceptance criteria list. The prompt IS the spec.
-
-3. **Ask before every step if there are doubts** — before generating a prompt for the next task, check:
-   - Are there design decisions to clarify?
-   - Does anything in the previous implementation look unexpected?
-   - Are there naming or architecture concerns?
-   If yes, ask the project owner first. Do not assume.
-
-4. **Update CONTEXT.md and ROADMAP.md after every completed task** — commit both files to `dev` after a task is confirmed done.
-
-5. **Keep prompts self-contained** — every AI prompt must include enough context (types, existing component names, relevant store fields) that the AI does not need to read any other file to complete the task.
+1. **Verify repo state first** — check latest commits on `dev` via GitHub API before starting any task.
+2. **Deliver ready-to-paste prompts** — for [AI] / [BOTH] tasks: a complete English prompt for Codex/Claude Code, self-contained with types, component names, and acceptance criteria.
+3. **Ask before assuming** — if design decisions are unclear, ask the project owner first.
+4. **Update both files after every task** — commit CONTEXT.md + ROADMAP.md to `dev` after each confirmed task.
+5. **Keep prompts self-contained** — include enough context that the AI needs no other file to complete the task.
 
 ---
 
@@ -284,7 +278,7 @@ Narrium MVP includes a **"My Projects"** start screen similar to Figma-style pro
 | Milestone | Goal | Status |
 |---|---|---|
 | M0 | Documentation & Foundation | 🔲 In progress |
-| M1 | Workspace & Canvas foundations | 🔲 Pending |
+| M1 | Workspace & Canvas Foundations | 🔲 Pending |
 | M2 | Scene Editor Panel | 🔲 Pending |
 | M3 | Characters & Resources | 🔲 Pending |
 | M4 | Story Player | 🔲 Pending |
@@ -295,10 +289,8 @@ Narrium MVP includes a **"My Projects"** start screen similar to Figma-style pro
 
 ## Next Up
 
-**E0-03** [ME] — Write `docs/DATA_MODEL.md` (detailed data model documentation for AI sessions)  
-**E0-04** [ME] — Write `docs/SCREENS.md` (editor screen breakdown)  
+**E0-03** [ME] — Write `docs/DATA_MODEL.md`  
+**E0-04** [ME] — Write `docs/SCREENS.md`  
 **E0-05** [AI] — Scaffold Vite + React + TypeScript project
 
-When resuming:
-1. Paste this file as the first message in a new Perplexity session
-2. Tell Perplexity which task to start (e.g. „Start E0-05”)
+When resuming: paste this file as the first message, then tell Perplexity which task to start.

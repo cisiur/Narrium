@@ -18,6 +18,8 @@ export type CanvasView = 'canvas' | 'editor';
 
 export interface SceneNodeData {
   scene: Scene;
+  scenes: Scene[];
+  assetLibrary: AssetLibraryItem[];
 }
 
 interface AddBackgroundAssetInput {
@@ -91,7 +93,11 @@ function createScene(name: string, position: { x: number; y: number }): Scene {
   };
 }
 
-function buildNodes(scenes: Scene[], selectedSceneId: string | null): Node<SceneNodeData>[] {
+function buildNodes(
+  scenes: Scene[],
+  assetLibrary: AssetLibraryItem[],
+  selectedSceneId: string | null,
+): Node<SceneNodeData>[] {
   return scenes.map((scene) => ({
     id: scene.id,
     type: 'scene',
@@ -99,6 +105,8 @@ function buildNodes(scenes: Scene[], selectedSceneId: string | null): Node<Scene
     selected: scene.id === selectedSceneId,
     data: {
       scene,
+      scenes,
+      assetLibrary,
     },
   }));
 }
@@ -305,7 +313,7 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
     const nextSelectedSceneId = selectedSceneExists ? selectedSceneId : null;
 
     set({
-      nodes: buildNodes(activeProject.scenes, nextSelectedSceneId),
+      nodes: buildNodes(activeProject.scenes, activeProject.assetLibrary, nextSelectedSceneId),
       edges: buildEdges(activeProject.scenes),
       selectedSceneId: nextSelectedSceneId,
       activeView: nextSelectedSceneId ? get().activeView : 'canvas',

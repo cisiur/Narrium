@@ -1,11 +1,74 @@
 import { Handle, Position, type NodeProps } from 'reactflow';
 import { useCanvasStore, type SceneNodeData } from '../../store/useCanvasStore';
+import type { Scene } from '../../types';
+
+interface ThumbnailResult {
+  imageUrl: string | null;
+  placeholder: string;
+}
+
+function resolveDirectSceneImage(scene: Scene, data: SceneNodeData): ThumbnailResult {
+  if (scene.background.mode === 'url' || scene.background.mode === 'upload') {
+    return {
+      imageUrl: scene.background.url || null,
+      placeholder: 'No Background',
+    };
+  }
+
+  if (scene.background.mode === 'asset') {
+    if (!scene.background.assetId) {
+      return {
+        imageUrl: null,
+        placeholder: 'No Background',
+      };
+    }
+
+    const asset = data.assetLibrary.find((item) => item.id === scene.background.assetId);
+
+    return {
+      imageUrl: asset?.url ?? null,
+      placeholder: asset ? 'No Background' : 'Missing Asset',
+    };
+  }
+
+  return {
+    imageUrl: null,
+    placeholder: 'No Background',
+  };
+}
+
+function resolveThumbnail(data: SceneNodeData): ThumbnailResult {
+  const scene = data.scene;
+
+  if (scene.background.mode === 'scene_reference') {
+    const referencedScene = data.scenes.find((item) => item.id === scene.background.sourceSceneId);
+
+    if (!referencedScene) {
+      return {
+        imageUrl: null,
+        placeholder: 'Scene Reference',
+      };
+    }
+
+    const referencedImage = resolveDirectSceneImage(referencedScene, data);
+
+    return referencedImage.imageUrl
+      ? referencedImage
+      : {
+          imageUrl: null,
+          placeholder: 'Scene Reference',
+        };
+  }
+
+  return resolveDirectSceneImage(scene, data);
+}
 
 export function SceneNode({ id, data, selected }: NodeProps<SceneNodeData>) {
   const selectScene = useCanvasStore((state) => state.selectScene);
   const openEditor = useCanvasStore((state) => state.openEditor);
   const pageCount = data.scene.dialoguePages.length;
   const choiceCount = data.scene.choices.length;
+  const thumbnail = resolveThumbnail(data);
 
   return (
     <div
@@ -24,6 +87,20 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneNodeData>) {
       ].join(' ')}
     >
       <Handle type="target" position={Position.Top} className="!h-2 !w-2 !border-gray-300 !bg-gray-500" />
+      <div className="mb-2 h-20 overflow-hidden rounded-md border border-gray-700 bg-gray-900">
+        {thumbnail.imageUrl ? (
+          <img
+            src={thumbnail.imageUrl}
+            alt=""
+            className="h-full w-full object-cover"
+            draggable={false}
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center px-2 text-center text-[11px] font-medium text-gray-500">
+            {thumbnail.placeholder}
+          </div>
+        )}
+      </div>
       <div className="text-sm font-semibold">{data.scene.name}</div>
       <div className="mt-2 flex items-center gap-2 text-xs text-gray-400">
         <span>

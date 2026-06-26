@@ -34,8 +34,8 @@ Platform: **web app (browser only)**. No mobile app for now.
 ## Repository
 
 - **URL:** https://github.com/cisiur/Narrium
-- **Branch main:** documentation + stable releases
-- **Branch dev:** active development
+- **Branch main:** active development, documentation, and stable project state
+- **Branch dev:** not used; do not create or target a `dev` branch unless the project owner changes the workflow
 - **Source:** `/src/`
 - **Documents:** `/docs/`
 
@@ -71,7 +71,7 @@ Platform: **web app (browser only)**. No mobile app for now.
 
 ### ⏳ Next up
 
-**E2 — Background System** (E2-02, E2-03): background picker (URL / local upload / asset library), asset library panel, background preview on SceneNode thumbnail.
+**E2 — Background System** (E2-05, E2-06, E2-07): background picker (URL / local upload / asset library), asset library panel, background preview on SceneNode thumbnail.
 
 ---
 
@@ -96,7 +96,7 @@ src/
     player/                   ← empty, E4
     characters/               ← empty, E3
     resources/                ← empty, E3
-    assets/                   ← empty, E2-03
+    assets/                   ← empty, E2-06
   store/
     workspaceStore.ts         ← Zustand: projects[], activeProject, createProject, updateActiveProject
     useCanvasStore.ts         ← Zustand: nodes, edges, selectedSceneId, all scene/page/choice mutations
@@ -341,22 +341,23 @@ interface CanvasStore {
 
 | Symbol | Who | When |
 |---|---|---|
-| [ME] | Perplexity (planning) | Architecture, specs, data model, task breakdown, UX review |
+| [ME] | Perplexity replacement / PM planning | Architecture, specs, data model, task breakdown, UX review |
 | [AI] | Codex / Claude Code (implementation) | TypeScript/React code, components, store, tests, repo files |
-| [BOTH] | Perplexity spec → AI impl | Complex mechanics (condition logic, effect engine, player runtime) |
+| [BOTH] | PM spec → AI impl | Complex mechanics (condition logic, effect engine, player runtime) |
 | [MANUAL] | Project owner | Product decisions, UX acceptance, asset choices, priorities, publishing |
 
 **All prompts and instructions to Codex / Claude Code must be written in English.**
 
 ---
 
-## Perplexity Workflow Instructions
+## PM Workflow Instructions
 
 1. **Verify repo state first** — check latest commits via GitHub API before starting any task.
-2. **Deliver ready-to-paste prompts** — for [AI] / [BOTH] tasks: a complete English prompt for Codex/Claude Code, self-contained with types, component names, and acceptance criteria.
-3. **Ask before assuming** — if design decisions are unclear, ask the project owner first.
-4. **Update both files after every confirmed task** — commit CONTEXT.md + ROADMAP.md.
-5. **Keep prompts self-contained** — include enough context that the AI needs no other file to complete the task.
+2. **Work directly on `main`** — do not use, create, or target a `dev` branch unless the project owner explicitly changes the workflow.
+3. **Deliver ready-to-paste prompts** — for [AI] / [BOTH] tasks: a complete English prompt for Codex/Claude Code, self-contained with types, component names, and acceptance criteria.
+4. **Ask before assuming** — if design decisions are unclear, ask the project owner first.
+5. **Update both files after every confirmed task** — commit CONTEXT.md + ROADMAP.md to `main`.
+6. **Keep prompts self-contained** — include enough context that the AI needs no other file to complete the task.
 
 ---
 
@@ -376,6 +377,6 @@ interface CanvasStore {
 
 ## Next Up
 
-**E2-02 + E2-03** [BOTH] — Background picker (URL / upload / asset library) + Asset Library panel + SceneNode background thumbnail preview.
+**E2-05 + E2-06 + E2-07** [BOTH/AI] — Background picker (URL / upload / asset library) + Asset Library panel + SceneNode background thumbnail preview.
 
-When resuming: paste this file as the first message, then tell Perplexity which task to start.
+When resuming: paste this file as the first message, then tell the PM which task to start.

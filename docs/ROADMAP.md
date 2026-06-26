@@ -21,26 +21,29 @@
 | E0-04 | Editor screens description (`docs/SCREENS.md`) | [ME] | ⏳ Pending |
 | E0-05 | Vite + React + TypeScript project scaffold | [AI] | ⏳ Pending |
 | E0-06 | Tailwind CSS setup + base tokens | [AI] | ⏳ Pending |
-| E0-07 | Zustand store skeleton: `ProjectStore`, `UIStore` | [BOTH] | ⏳ Pending |
-| E0-08 | TypeScript types: `Scene`, `DialoguePage`, `Choice`, `Condition`, `Effect`, `Character`, `Resource` | [BOTH] | ⏳ Pending |
+| E0-07 | Workspace store skeleton: `WorkspaceStore`, `ProjectStore`, `UIStore` | [BOTH] | ⏳ Pending |
+| E0-08 | TypeScript types: `Project`, `Scene`, `SceneGroup`, `DialoguePage`, `Choice`, `Condition`, `Effect`, `Character`, `Resource`, `AssetLibraryItem` | [BOTH] | ⏳ Pending |
 
 ---
 
-## EPIC 1 — Canvas (M1)
+## EPIC 1 — Workspace & Canvas Foundations (M1)
 
-> Goal: author can add, move, connect, and delete scene tiles on a canvas.
+> Goal: user can manage multiple local projects and edit one active project on a visual canvas.
 
 | ID | Task | Who | Status |
 |---|---|---|---|
-| E1-01 | Integrate React Flow; render empty canvas with toolbar | [AI] | ⏳ Pending |
-| E1-02 | `SceneNode` component: tile with scene name, background thumbnail, choice count | [BOTH] | ⏳ Pending |
-| E1-03 | Add scene: click „+” → new tile placed on canvas | [AI] | ⏳ Pending |
-| E1-04 | Connect scenes: drag from choice port → target scene port | [AI] | ⏳ Pending |
-| E1-05 | Delete scene tile (with confirmation if has connections) | [AI] | ⏳ Pending |
-| E1-06 | Select scene: click tile → opens editor panel | [AI] | ⏳ Pending |
-| E1-07 | Scene tile shows unconnected choice indicators (orange dot) | [AI] | ⏳ Pending |
-| E1-08 | Canvas: zoom, pan, fit-to-screen | [AI] | ⏳ Pending |
-| E1-09 | Zustand: persist canvas layout (node positions) | [AI] | ⏳ Pending |
+| E1-01 | "My Projects" start screen: create, rename, open, delete project cards | [BOTH] | ⏳ Pending |
+| E1-02 | Workspace persistence in localStorage for multiple projects | [AI] | ⏳ Pending |
+| E1-03 | Integrate React Flow; render empty canvas with toolbar | [AI] | ⏳ Pending |
+| E1-04 | `SceneNode` component: tile with scene name, background thumbnail, choice count | [BOTH] | ⏳ Pending |
+| E1-05 | Add scene: click "+" → new tile placed on canvas | [AI] | ⏳ Pending |
+| E1-06 | Connect scenes: drag from choice port → target scene port | [AI] | ⏳ Pending |
+| E1-07 | Delete scene tile (with confirmation if has connections) | [AI] | ⏳ Pending |
+| E1-08 | Select scene: click tile → opens editor panel | [AI] | ⏳ Pending |
+| E1-09 | Scene tile shows unconnected choice indicators (orange dot) | [AI] | ⏳ Pending |
+| E1-10 | Canvas: zoom, pan, fit-to-screen | [AI] | ⏳ Pending |
+| E1-11 | Persist canvas layout (node positions) | [AI] | ⏳ Pending |
+| E1-12 | Scene groups / containers: create named group area on canvas and assign scenes to it | [BOTH] | ⏳ Pending |
 
 ---
 
@@ -51,14 +54,15 @@
 | ID | Task | Who | Status |
 |---|---|---|---|
 | E2-01 | Right sidebar panel: opens when scene is selected | [AI] | ⏳ Pending |
-| E2-02 | Scene meta: name input, background image picker (URL or upload) | [AI] | ⏳ Pending |
-| E2-03 | Dialogue pages list: add page, delete page, reorder pages | [AI] | ⏳ Pending |
-| E2-04 | Dialogue page editor: speaker selector (from Characters list), text field | [AI] | ⏳ Pending |
-| E2-05 | Choices list: add choice, delete choice | [AI] | ⏳ Pending |
-| E2-06 | Choice editor: choice text, target scene selector | [BOTH] | ⏳ Pending |
-| E2-07 | Choice editor: conditions (add/remove/edit `resource >= N`, `character_attr >= N`) | [BOTH] | ⏳ Pending |
-| E2-08 | Choice editor: effects (add/remove/edit `resource += N`, `character_attr += N`) | [BOTH] | ⏳ Pending |
-| E2-09 | Validation: warn if choice has no target scene set | [AI] | ⏳ Pending |
+| E2-02 | Scene meta: name input, background picker with URL, local upload, project asset selection, and reuse from another scene | [BOTH] | ⏳ Pending |
+| E2-03 | Asset library panel for reusable project backgrounds | [BOTH] | ⏳ Pending |
+| E2-04 | Dialogue pages list: add page, delete page, reorder pages | [AI] | ⏳ Pending |
+| E2-05 | Dialogue page editor: speaker selector (from Characters list), text field | [AI] | ⏳ Pending |
+| E2-06 | Choices list: add choice, delete choice | [AI] | ⏳ Pending |
+| E2-07 | Choice editor: choice text, target scene selector | [BOTH] | ⏳ Pending |
+| E2-08 | Choice editor: conditions (add/remove/edit `resource >= N`, `character_attr >= N`) | [BOTH] | ⏳ Pending |
+| E2-09 | Choice editor: effects (add/remove/edit `resource += N`, `character_attr += N`) | [BOTH] | ⏳ Pending |
+| E2-10 | Validation: warn if choice has no target scene set | [AI] | ⏳ Pending |
 
 ---
 
@@ -92,6 +96,7 @@
 | E4-06 | End state: detect scene with no outgoing choices → show End screen | [AI] | ⏳ Pending |
 | E4-07 | Preview button on canvas: opens player in modal/overlay | [AI] | ⏳ Pending |
 | E4-08 | Player: restart button | [AI] | ⏳ Pending |
+| E4-09 | Exported player save/load within session | [BOTH] | ⏳ Pending |
 
 ---
 
@@ -101,11 +106,12 @@
 
 | ID | Task | Who | Status |
 |---|---|---|---|
-| E5-01 | Auto-save to localStorage on every change | [AI] | ⏳ Pending |
-| E5-02 | Export project as JSON (full project file) | [AI] | ⏳ Pending |
+| E5-01 | Auto-save active project to localStorage on every change | [AI] | ⏳ Pending |
+| E5-02 | Export project as JSON (full project file, including assets references/settings) | [BOTH] | ⏳ Pending |
 | E5-03 | Import project from JSON file | [AI] | ⏳ Pending |
 | E5-04 | Export story as standalone HTML player (self-contained file) | [BOTH] | ⏳ Pending |
-| E5-05 | New project: clear canvas with confirmation | [AI] | ⏳ Pending |
+| E5-05 | New project flow from "My Projects" screen | [AI] | ⏳ Pending |
+| E5-06 | Project thumbnail + updatedAt metadata on project cards | [BOTH] | ⏳ Pending |
 
 ---
 
@@ -119,9 +125,11 @@
 | E6-02 | Canvas: minimap for large projects | [AI] | ⏳ Pending |
 | E6-03 | Undo/redo for scene edits | [BOTH] | ⏳ Pending |
 | E6-04 | Onboarding: empty state with 3-step tutorial overlay | [BOTH] | ⏳ Pending |
-| E6-05 | Validate entire project: report all unconnected choices, missing targets | [BOTH] | ⏳ Pending |
+| E6-05 | Validate entire project: report all unconnected choices, missing targets, asset issues | [BOTH] | ⏳ Pending |
 | E6-06 | Dark / light mode toggle | [AI] | ⏳ Pending |
-| E6-07 | Responsive layout (min. usable on 1280px width) | [AI] | ⏳ Pending |
+| E6-07 | Responsive layout (desktop-first, minimum usable width 1280px) | [AI] | ⏳ Pending |
+| E6-08 | Freemium limit hooks in UI (documented or enforced depending on decision) | [BOTH] | ⏳ Pending |
+| E6-09 | Group collapse UX for scene containers (post-MVP candidate) | [BOTH] | 📦 Backlog |
 
 ---
 
@@ -129,11 +137,10 @@
 
 | Task | Who (preliminary) |
 |---|---|
-| Multiple projects (project list screen) | [BOTH] |
+| Group collapse into one tile/card on canvas | [BOTH] |
 | Cloud save (Supabase or Firebase) | [BOTH] |
 | Collaborative editing | [BOTH] |
 | Character portrait images in player | [AI] |
-| Scene background image upload (vs. URL-only) | [AI] |
 | Sound / music per scene | [BOTH] |
 | Localization / multi-language stories | [BOTH] |
 | Publish story to sharable URL | [BOTH] |
@@ -145,13 +152,13 @@
 ## General Progress
 
 ```
-EPIC 0  Documentation & Foundation  ██░░░░░░░░   20%  (E0-01, E0-02 done)
-EPIC 1  Canvas                       ░░░░░░░░░░    0%
-EPIC 2  Scene Editor Panel           ░░░░░░░░░░    0%
-EPIC 3  Characters & Resources       ░░░░░░░░░░    0%
-EPIC 4  Story Player                 ░░░░░░░░░░    0%
-EPIC 5  Save, Load, Export           ░░░░░░░░░░    0%
-EPIC 6  Polish & UX                  ░░░░░░░░░░    0%
+EPIC 0  Documentation & Foundation       ██░░░░░░░░   20%  (E0-01, E0-02 done)
+EPIC 1  Workspace & Canvas Foundations   ░░░░░░░░░░    0%
+EPIC 2  Scene Editor Panel               ░░░░░░░░░░    0%
+EPIC 3  Characters & Resources           ░░░░░░░░░░    0%
+EPIC 4  Story Player                     ░░░░░░░░░░    0%
+EPIC 5  Save, Load, Export               ░░░░░░░░░░    0%
+EPIC 6  Polish & UX                      ░░░░░░░░░░    0%
 ```
 
 ---

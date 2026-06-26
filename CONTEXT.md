@@ -65,6 +65,14 @@ Platform: **web app (browser only)**. No mobile app for now.
 > This is the authoritative reference. All code must use these exact field names.
 
 ```typescript
+interface WorkspaceProjectMeta {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  thumbnailDataUrl?: string | null;
+}
+
 interface Project {
   id: string;
   name: string;
@@ -72,27 +80,40 @@ interface Project {
   scenes: Scene[];
   characters: Character[];
   resources: Resource[];
+  groups: SceneGroup[];
+  assetLibrary: AssetLibraryItem[];
+  settings: ProjectSettings;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface Scene {
   id: string;
   name: string;
-  backgroundUrl: string;
-  position: { x: number; y: number };   // canvas position
+  background: SceneBackground;
+  position: { x: number; y: number };
   dialoguePages: DialoguePage[];
   choices: Choice[];
+  groupId: string | null;
+}
+
+interface SceneBackground {
+  mode: 'upload' | 'url' | 'project_asset' | 'scene_reference' | 'none';
+  assetId: string | null;
+  sourceSceneId: string | null;
+  url: string;
 }
 
 interface DialoguePage {
   id: string;
-  speakerId: string | null;             // null = narrator
+  speakerId: string | null;
   text: string;
 }
 
 interface Choice {
   id: string;
-  text: string;                         // button label
-  targetSceneId: string | null;         // null = unconnected
+  text: string;
+  targetSceneId: string | null;
   conditions: Condition[];
   effects: Effect[];
 }
@@ -100,11 +121,11 @@ interface Choice {
 interface Condition {
   id: string;
   type: 'resource' | 'character_attr';
-  targetId: string;                     // resourceId or characterId
-  attribute?: string;                   // for character_attr: attribute name
+  targetId: string;
+  attribute?: string;
   operator: '>=' | '<=' | '==' | '>' | '<' | '!=';
   value: number;
-  hintText: string;                     // shown to player when condition is not met
+  hintText: string;
 }
 
 interface Effect {
@@ -123,14 +144,36 @@ interface Character {
 }
 
 interface CharacterAttribute {
-  key: string;                          // e.g. "reputation"
+  key: string;
   defaultValue: number;
 }
 
 interface Resource {
   id: string;
-  name: string;                         // e.g. "gold"
+  name: string;
   defaultValue: number;
+}
+
+interface SceneGroup {
+  id: string;
+  name: string;
+  color: string;
+  position: { x: number; y: number };
+  size: { width: number; height: number };
+  collapsed: boolean;
+}
+
+interface AssetLibraryItem {
+  id: string;
+  kind: 'background';
+  name: string;
+  sourceType: 'upload' | 'url';
+  url: string;
+  createdAt: string;
+}
+
+interface ProjectSettings {
+  allowSessionSaveLoad: boolean;
 }
 ```
 
@@ -143,11 +186,24 @@ interface RuntimeState {
   currentSceneId: string;
   currentPageIndex: number;
   variables: {
-    resources: Record<string, number>;        // resourceId → current value
-    characterAttrs: Record<string, Record<string, number>>;  // characterId → attr → value
+    resources: Record<string, number>;
+    characterAttrs: Record<string, Record<string, number>>;
   };
 }
 ```
+
+---
+
+## Workspace Model (My Projects)
+
+```typescript
+interface WorkspaceState {
+  projects: WorkspaceProjectMeta[];
+  activeProjectId: string | null;
+}
+```
+
+Narrium MVP includes a **"My Projects"** start screen similar to Figma-style project selection. The user works on **one active project at a time**, but the app must manage multiple projects stored locally.
 
 ---
 
@@ -156,23 +212,37 @@ interface RuntimeState {
 | Topic | Decision |
 |---|---|
 | Canvas library | React Flow — node-based graph, edge routing, built-in drag/pan/zoom |
-| State | Zustand — single `ProjectStore` (project data) + `UIStore` (selected scene, panel state) |
+| State | Zustand — workspace/project/UI split recommended |
 | Storage MVP | localStorage auto-save; JSON export/import for portability |
 | Condition unmet | Choice is rendered greyed-out with `hintText` — never hidden |
 | Multiple speakers | DialoguePage has `speakerId`; null = narrator voice |
 | Player exported | Standalone HTML file with embedded JS + project JSON — no server needed |
+| Exported player session save/load | Supported in MVP |
 | No scripting | No custom scripting language; all logic is declarative conditions and effects |
 | First scene | `Project.startSceneId` defines entry point; set to first created scene by default |
+| Background sources | Local upload, external URL, project asset library, or reuse from another scene |
+| Scene groups | Supported in MVP as named visual containers on canvas; collapsing whole group into one tile is post-MVP |
+| Project model | Multiple local projects with a "My Projects" screen; one project open at a time |
+| Monetization direction | Freemium: limited number of scenes/groups for free; later unlock via per-project payment or SaaS subscription |
 
 ---
 
 ## Open Questions (to be decided)
 
-- [ ] Should scene backgrounds support local file upload (MVP) or URL-only?
-- [ ] Should the canvas support scene groups / folders for large projects?
-- [ ] Should the exported HTML player support save/load within a session?
-- [ ] What's the target monetization model (SaaS subscription, one-time, free)?
-- [ ] Should Narrium support multiple simultaneous projects, or one project per session (MVP)?
+- [x] Scene backgrounds: local upload + URL + reuse from other scenes/assets
+- [x] Scene groups / folders: yes, named canvas containers in MVP; collapse later
+- [x] Exported HTML player save/load within session: yes
+- [x] Monetization: freemium, later one-time per project or SaaS
+- [x] Multiple projects: yes, "My Projects" screen; one active project at a time
+
+### Remaining product questions before build starts
+
+- [ ] Should free-tier limits count only **scenes**, or scenes + groups + assets together?
+- [ ] Should exported HTML save/load persist only during tab lifetime, or also after browser refresh using localStorage?
+- [ ] For local image uploads: should Narrium store them as base64/data URLs in project JSON for MVP, or keep them separately and reference them?
+- [ ] Should project thumbnails on the "My Projects" screen be auto-generated from the first/start scene background, or manually chosen?
+- [ ] Should scene groups affect only organization on canvas, or also optionally appear in analytics / validation reports later?
+- [ ] Do you want a hard MVP limit now for free users, e.g. 10 scenes / 2 groups, or should monetization stay only documented for now without enforcement?
 
 ---
 
@@ -214,7 +284,7 @@ interface RuntimeState {
 | Milestone | Goal | Status |
 |---|---|---|
 | M0 | Documentation & Foundation | 🔲 In progress |
-| M1 | Canvas (scene tiles, connections) | 🔲 Pending |
+| M1 | Workspace & Canvas foundations | 🔲 Pending |
 | M2 | Scene Editor Panel | 🔲 Pending |
 | M3 | Characters & Resources | 🔲 Pending |
 | M4 | Story Player | 🔲 Pending |

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useCanvasStore } from '../../store/useCanvasStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
-import type { Choice, DialoguePage, Scene, SceneBackground } from '../../types';
+import type { AssetLibraryItem, Choice, DialoguePage, Scene, SceneBackground } from '../../types';
 
 interface CollapsibleSectionProps {
   title: string;
@@ -79,27 +79,49 @@ function SceneNameEditor({ scene }: SceneNameEditorProps) {
 interface BackgroundEditorProps {
   scene: Scene;
   scenes: Scene[];
+  assets: AssetLibraryItem[];
 }
 
-function BackgroundEditor({ scene, scenes }: BackgroundEditorProps) {
+function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
   const updateSceneBackground = useCanvasStore((state) => state.updateSceneBackground);
+  const addBackgroundAsset = useCanvasStore((state) => state.addBackgroundAsset);
+  const deleteBackgroundAsset = useCanvasStore((state) => state.deleteBackgroundAsset);
   const availableReferenceScenes = scenes.filter((candidate) => candidate.id !== scene.id);
   const referencedScene =
     availableReferenceScenes.find((candidate) => candidate.id === scene.background.sourceSceneId) ?? null;
+  const backgroundAssets = assets.filter((asset) => asset.kind === 'background');
+  const selectedAsset =
+    backgroundAssets.find((asset) => asset.id === scene.background.assetId) ?? null;
+  const [urlAssetName, setUrlAssetName] = useState('');
+  const [urlAssetUrl, setUrlAssetUrl] = useState('');
+  const [uploadAssetName, setUploadAssetName] = useState('');
 
   const updateBackground = (background: SceneBackground) => {
     updateSceneBackground(scene.id, background);
   };
 
   const selectMode = (mode: SceneBackground['mode']) => {
-    if (mode === 'asset') {
-      return;
-    }
-
     if (mode === 'none') {
       updateBackground({
         mode: 'none',
         assetId: null,
+        sourceSceneId: null,
+        url: '',
+      });
+      return;
+    }
+
+    if (mode === 'asset') {
+      const assetId =
+        scene.background.mode === 'asset' &&
+        scene.background.assetId &&
+        backgroundAssets.some((asset) => asset.id === scene.background.assetId)
+          ? scene.background.assetId
+          : backgroundAssets[0]?.id ?? null;
+
+      updateBackground({
+        mode: 'asset',
+        assetId,
         sourceSceneId: null,
         url: '',
       });
@@ -180,6 +202,48 @@ function BackgroundEditor({ scene, scenes }: BackgroundEditorProps) {
     reader.readAsDataURL(file);
   };
 
+  const useAsset = (assetId: string) => {
+    updateBackground({
+      mode: 'asset',
+      assetId,
+      sourceSceneId: null,
+      url: '',
+    });
+  };
+
+  const addUrlAsset = () => {
+    addBackgroundAsset({
+      name: urlAssetName || 'Untitled Background',
+      sourceType: 'url',
+      url: urlAssetUrl,
+    });
+    setUrlAssetName('');
+    setUrlAssetUrl('');
+  };
+
+  const addUploadedAsset = (file: File | undefined) => {
+    if (!file) {
+      return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      if (typeof reader.result !== 'string') {
+        return;
+      }
+
+      addBackgroundAsset({
+        name: uploadAssetName || file.name || 'Uploaded Background',
+        sourceType: 'upload',
+        url: reader.result,
+      });
+      setUploadAssetName('');
+    };
+
+    reader.readAsDataURL(file);
+  };
+
   return (
     <div className="space-y-4">
       <div>
@@ -190,6 +254,7 @@ function BackgroundEditor({ scene, scenes }: BackgroundEditorProps) {
             { label: 'URL', mode: 'url' },
             { label: 'Upload', mode: 'upload' },
             { label: 'Scene Reference', mode: 'scene_reference' },
+            { label: 'Asset Library', mode: 'asset' },
           ].map((option) => (
             <label key={option.mode} className="flex items-center gap-2 text-sm text-gray-300">
               <input
@@ -202,20 +267,6 @@ function BackgroundEditor({ scene, scenes }: BackgroundEditorProps) {
               {option.label}
             </label>
           ))}
-
-          <label className="flex items-start gap-2 text-sm text-gray-500">
-            <input
-              type="radio"
-              name={`background-source-${scene.id}`}
-              checked={scene.background.mode === 'asset'}
-              disabled
-              className="mt-0.5 h-3.5 w-3.5"
-            />
-            <span>
-              Asset Library
-              <span className="block text-xs text-gray-600">Available in E2-06</span>
-            </span>
-          </label>
         </div>
       </div>
 
@@ -266,6 +317,98 @@ function BackgroundEditor({ scene, scenes }: BackgroundEditorProps) {
         </label>
       ) : null}
 
+      <div className="rounded-md border border-gray-700 bg-gray-800/60 p-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Asset Library</p>
+
+        <div className="mt-3 space-y-3">
+          <div className="space-y-2 rounded-md border border-gray-700 bg-gray-900 p-3">
+            <div className="text-xs font-semibold text-gray-300">Add asset by URL</div>
+            <input
+              type="text"
+              value={urlAssetName}
+              onChange={(event) => setUrlAssetName(event.target.value)}
+              className="w-full rounded bg-gray-950 px-2 py-1.5 text-xs text-gray-100 outline-none ring-1 ring-gray-700 focus:ring-blue-500"
+              placeholder="Asset name"
+            />
+            <input
+              type="text"
+              value={urlAssetUrl}
+              onChange={(event) => setUrlAssetUrl(event.target.value)}
+              className="w-full rounded bg-gray-950 px-2 py-1.5 text-xs text-gray-100 outline-none ring-1 ring-gray-700 focus:ring-blue-500"
+              placeholder="Image URL"
+            />
+            <button
+              type="button"
+              onClick={addUrlAsset}
+              className="rounded bg-gray-700 px-2 py-1 text-xs font-medium text-gray-100 hover:bg-gray-600"
+            >
+              Add URL Asset
+            </button>
+          </div>
+
+          <div className="space-y-2 rounded-md border border-gray-700 bg-gray-900 p-3">
+            <div className="text-xs font-semibold text-gray-300">Add asset by upload</div>
+            <input
+              type="text"
+              value={uploadAssetName}
+              onChange={(event) => setUploadAssetName(event.target.value)}
+              className="w-full rounded bg-gray-950 px-2 py-1.5 text-xs text-gray-100 outline-none ring-1 ring-gray-700 focus:ring-blue-500"
+              placeholder="Asset name"
+            />
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(event) => {
+                addUploadedAsset(event.target.files?.[0]);
+                event.currentTarget.value = '';
+              }}
+              className="block w-full text-xs text-gray-300 file:mr-3 file:rounded file:border-0 file:bg-gray-700 file:px-2 file:py-1 file:text-xs file:font-medium file:text-gray-100 hover:file:bg-gray-600"
+            />
+          </div>
+        </div>
+
+        <div className="mt-4 space-y-2">
+          <div className="text-xs font-semibold text-gray-300">Project background assets</div>
+          {backgroundAssets.length === 0 ? (
+            <p className="rounded-md border border-dashed border-gray-700 px-3 py-3 text-xs text-gray-500">
+              No assets yet. Add a URL or uploaded image to use it as a scene background.
+            </p>
+          ) : (
+            backgroundAssets.map((asset) => (
+              <div
+                key={asset.id}
+                className="grid grid-cols-[3rem_1fr_auto] items-center gap-2 rounded-md border border-gray-700 bg-gray-900 p-2"
+              >
+                <img src={asset.url} alt="" className="h-10 w-12 rounded bg-gray-950 object-cover" />
+                <div className="min-w-0">
+                  <div className="truncate text-xs font-semibold text-gray-100">{asset.name}</div>
+                  <div className="text-[11px] text-gray-500">
+                    {asset.sourceType === 'url' ? 'URL' : 'Upload'}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => useAsset(asset.id)}
+                    className="rounded bg-gray-700 px-2 py-1 text-xs text-gray-100 hover:bg-gray-600"
+                  >
+                    Use
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteBackgroundAsset(asset.id)}
+                    className="rounded px-2 py-1 text-xs text-gray-400 hover:bg-gray-700 hover:text-gray-100"
+                    aria-label={`Delete ${asset.name}`}
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
       <div className="overflow-hidden rounded-md border border-gray-700 bg-gray-950">
         {scene.background.mode === 'none' ? (
           <div className="flex h-28 items-center justify-center px-3 text-center text-sm text-gray-500">
@@ -305,6 +448,20 @@ function BackgroundEditor({ scene, scenes }: BackgroundEditorProps) {
           <div className="flex h-28 items-center justify-center px-3 text-center text-sm text-gray-400">
             {referencedScene ? `Uses background from: ${referencedScene.name}` : 'Choose a scene reference'}
           </div>
+        ) : null}
+
+        {scene.background.mode === 'asset' ? (
+          selectedAsset ? (
+            <img
+              src={selectedAsset.url}
+              alt="Asset background preview"
+              className="h-32 w-full object-cover"
+            />
+          ) : (
+            <div className="flex h-28 items-center justify-center px-3 text-center text-sm text-gray-500">
+              {scene.background.assetId ? 'Missing asset' : 'Choose an asset from the library'}
+            </div>
+          )
         ) : null}
       </div>
     </div>
@@ -446,7 +603,11 @@ export function SceneEditorPanel() {
 
           <div className="min-h-0 flex-1 overflow-y-auto">
             <CollapsibleSection title="Background">
-              <BackgroundEditor scene={scene} scenes={activeProject?.scenes ?? []} />
+              <BackgroundEditor
+                scene={scene}
+                scenes={activeProject?.scenes ?? []}
+                assets={activeProject?.assetLibrary ?? []}
+              />
             </CollapsibleSection>
 
             <CollapsibleSection title="Dialogue Pages">

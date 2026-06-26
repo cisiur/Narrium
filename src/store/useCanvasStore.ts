@@ -11,13 +11,19 @@ import {
   type OnNodesChange,
 } from 'reactflow';
 import { create } from 'zustand';
-import type { Choice, DialoguePage, Scene, SceneBackground } from '../types';
+import type { AssetLibraryItem, Choice, DialoguePage, Scene, SceneBackground } from '../types';
 import { useWorkspaceStore } from './workspaceStore';
 
 export type CanvasView = 'canvas' | 'editor';
 
 export interface SceneNodeData {
   scene: Scene;
+}
+
+interface AddBackgroundAssetInput {
+  name: string;
+  sourceType: 'upload' | 'url';
+  url: string;
 }
 
 interface CanvasStore {
@@ -35,6 +41,9 @@ interface CanvasStore {
   syncFromProject: () => void;
   updateSceneName: (sceneId: string, name: string) => void;
   updateSceneBackground: (sceneId: string, background: SceneBackground) => void;
+  addBackgroundAsset: (input: AddBackgroundAssetInput) => void;
+  deleteBackgroundAsset: (assetId: string) => void;
+  updateBackgroundAssetName: (assetId: string, name: string) => void;
   addDialoguePage: (sceneId: string) => void;
   updateDialoguePage: (sceneId: string, pageId: string, text: string) => void;
   deleteDialoguePage: (sceneId: string, pageId: string) => void;
@@ -114,6 +123,26 @@ function updateActiveProject(mutator: (scenes: Scene[]) => Scene[]) {
     ...project,
     scenes: mutator(project.scenes),
   }));
+}
+
+function createEmptyBackground(): SceneBackground {
+  return {
+    mode: 'none',
+    assetId: null,
+    sourceSceneId: null,
+    url: '',
+  };
+}
+
+function createBackgroundAsset(input: AddBackgroundAssetInput): AssetLibraryItem {
+  return {
+    id: createId('asset'),
+    kind: 'background',
+    name: input.name.trim() || 'Untitled Background',
+    sourceType: input.sourceType,
+    url: input.url,
+    createdAt: new Date().toISOString(),
+  };
 }
 
 export const useCanvasStore = create<CanvasStore>((set, get) => ({
@@ -292,6 +321,36 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
     updateActiveProject((scenes) =>
       scenes.map((scene) => (scene.id === sceneId ? { ...scene, background } : scene)),
     );
+    get().syncFromProject();
+  },
+  addBackgroundAsset: (input) => {
+    const asset = createBackgroundAsset(input);
+
+    useWorkspaceStore.getState().updateActiveProject((project) => ({
+      ...project,
+      assetLibrary: [...project.assetLibrary, asset],
+    }));
+    get().syncFromProject();
+  },
+  deleteBackgroundAsset: (assetId) => {
+    useWorkspaceStore.getState().updateActiveProject((project) => ({
+      ...project,
+      assetLibrary: project.assetLibrary.filter((asset) => asset.id !== assetId),
+      scenes: project.scenes.map((scene) =>
+        scene.background.mode === 'asset' && scene.background.assetId === assetId
+          ? { ...scene, background: createEmptyBackground() }
+          : scene,
+      ),
+    }));
+    get().syncFromProject();
+  },
+  updateBackgroundAssetName: (assetId, name) => {
+    useWorkspaceStore.getState().updateActiveProject((project) => ({
+      ...project,
+      assetLibrary: project.assetLibrary.map((asset) =>
+        asset.id === assetId ? { ...asset, name: name.trim() || 'Untitled Background' } : asset,
+      ),
+    }));
     get().syncFromProject();
   },
   addDialoguePage: (sceneId: string) => {

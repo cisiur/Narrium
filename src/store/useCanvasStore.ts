@@ -11,7 +11,7 @@ import {
   type OnNodesChange,
 } from 'reactflow';
 import { create } from 'zustand';
-import type { Choice, DialoguePage, Scene } from '../types';
+import type { Choice, DialoguePage, Scene, SceneBackground } from '../types';
 import { useWorkspaceStore } from './workspaceStore';
 
 export type CanvasView = 'canvas' | 'editor';
@@ -34,6 +34,7 @@ interface CanvasStore {
   openEditor: (id: string) => void;
   syncFromProject: () => void;
   updateSceneName: (sceneId: string, name: string) => void;
+  updateSceneBackground: (sceneId: string, background: SceneBackground) => void;
   addDialoguePage: (sceneId: string) => void;
   updateDialoguePage: (sceneId: string, pageId: string, text: string) => void;
   deleteDialoguePage: (sceneId: string, pageId: string) => void;
@@ -284,6 +285,12 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
   updateSceneName: (sceneId: string, name: string) => {
     updateActiveProject((scenes) =>
       scenes.map((scene) => (scene.id === sceneId ? { ...scene, name } : scene)),
+    );
+    get().syncFromProject();
+  },
+  updateSceneBackground: (sceneId: string, background: SceneBackground) => {
+    updateActiveProject((scenes) =>
+      scenes.map((scene) => (scene.id === sceneId ? { ...scene, background } : scene)),
     );
     get().syncFromProject();
   },

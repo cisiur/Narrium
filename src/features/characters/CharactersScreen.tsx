@@ -51,6 +51,11 @@ export function CharactersScreen() {
   const [expandedCharacterIds, setExpandedCharacterIds] = useState<Set<string>>(new Set());
   const [editingAttribute, setEditingAttribute] = useState<{ characterId: string; index: number } | null>(null);
   const [draftAttributeKey, setDraftAttributeKey] = useState('');
+  const [editingAttributeValue, setEditingAttributeValue] = useState<{
+    characterId: string;
+    index: number;
+    value: string;
+  } | null>(null);
 
   const addCharacter = () => {
     const character = createCharacter();
@@ -97,6 +102,10 @@ export function CharactersScreen() {
 
     if (editingAttribute?.characterId === characterId) {
       cancelAttributeRename();
+    }
+
+    if (editingAttributeValue?.characterId === characterId) {
+      cancelAttributeValueEdit();
     }
 
     setExpandedCharacterIds((currentIds) => {
@@ -208,8 +217,26 @@ export function CharactersScreen() {
     }
   };
 
+  const startAttributeValueEdit = (characterId: string, index: number, value: number) => {
+    setEditingAttributeValue({
+      characterId,
+      index,
+      value: String(value),
+    });
+  };
+
+  const cancelAttributeValueEdit = () => {
+    setEditingAttributeValue(null);
+  };
+
   const updateAttributeDefaultValue = (characterId: string, attributeIndex: number, value: string) => {
     const nextValue = Number(value);
+
+    setEditingAttributeValue({
+      characterId,
+      index: attributeIndex,
+      value,
+    });
 
     updateActiveProject((project) => ({
       ...project,
@@ -251,6 +278,17 @@ export function CharactersScreen() {
         setEditingAttribute({
           characterId,
           index: editingAttribute.index - 1,
+        });
+      }
+    }
+
+    if (editingAttributeValue?.characterId === characterId) {
+      if (editingAttributeValue.index === attributeIndex) {
+        cancelAttributeValueEdit();
+      } else if (editingAttributeValue.index > attributeIndex) {
+        setEditingAttributeValue({
+          ...editingAttributeValue,
+          index: editingAttributeValue.index - 1,
         });
       }
     }
@@ -373,7 +411,16 @@ export function CharactersScreen() {
                               )}
                               <input
                                 type="number"
-                                value={attribute.defaultValue}
+                                value={
+                                  editingAttributeValue?.characterId === character.id &&
+                                  editingAttributeValue.index === attributeIndex
+                                    ? editingAttributeValue.value
+                                    : attribute.defaultValue
+                                }
+                                onFocus={() =>
+                                  startAttributeValueEdit(character.id, attributeIndex, attribute.defaultValue)
+                                }
+                                onBlur={cancelAttributeValueEdit}
                                 onChange={(event) =>
                                   updateAttributeDefaultValue(character.id, attributeIndex, event.target.value)
                                 }

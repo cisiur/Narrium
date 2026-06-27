@@ -1,6 +1,8 @@
 import { useState, type KeyboardEvent } from 'react';
-import type { Character } from '../../types';
+import type { Character, CharacterAttribute } from '../../types';
 import { useWorkspaceStore } from '../../store/workspaceStore';
+
+const DEFAULT_ATTRIBUTE_KEY = 'New Attribute';
 
 function createCharacter(): Character {
   return {
@@ -10,12 +12,45 @@ function createCharacter(): Character {
   };
 }
 
+function createAttribute(key = DEFAULT_ATTRIBUTE_KEY): CharacterAttribute {
+  return {
+    key,
+    defaultValue: 0,
+  };
+}
+
+function resolveAttributeKey(attributes: CharacterAttribute[], nextKey: string, currentIndex: number) {
+  const baseKey = nextKey.trim() || 'attribute';
+  const usedKeys = new Set(
+    attributes
+      .filter((_, index) => index !== currentIndex)
+      .map((attribute) => attribute.key),
+  );
+
+  if (!usedKeys.has(baseKey)) {
+    return baseKey;
+  }
+
+  let suffix = 2;
+  let candidate = `${baseKey}_${suffix}`;
+
+  while (usedKeys.has(candidate)) {
+    suffix += 1;
+    candidate = `${baseKey}_${suffix}`;
+  }
+
+  return candidate;
+}
+
 export function CharactersScreen() {
   const activeProject = useWorkspaceStore((state) => state.activeProject);
   const updateActiveProject = useWorkspaceStore((state) => state.updateActiveProject);
   const characters = activeProject?.characters ?? [];
   const [editingCharacterId, setEditingCharacterId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState('');
+  const [expandedCharacterIds, setExpandedCharacterIds] = useState<Set<string>>(new Set());
+  const [editingAttribute, setEditingAttribute] = useState<{ characterId: string; index: number } | null>(null);
+  const [draftAttributeKey, setDraftAttributeKey] = useState('');
 
   const addCharacter = () => {
     const character = createCharacter();
@@ -59,6 +94,16 @@ export function CharactersScreen() {
     if (editingCharacterId === characterId) {
       cancelRenaming();
     }
+
+    if (editingAttribute?.characterId === characterId) {
+      cancelAttributeRename();
+    }
+
+    setExpandedCharacterIds((currentIds) => {
+      const nextIds = new Set(currentIds);
+      nextIds.delete(characterId);
+      return nextIds;
+    });
   };
 
   const handleRenameKeyDown = (event: KeyboardEvent<HTMLInputElement>, characterId: string) => {
@@ -70,6 +115,144 @@ export function CharactersScreen() {
     if (event.key === 'Escape') {
       event.preventDefault();
       cancelRenaming();
+    }
+  };
+
+  const toggleAttributes = (characterId: string) => {
+    setExpandedCharacterIds((currentIds) => {
+      const nextIds = new Set(currentIds);
+
+      if (nextIds.has(characterId)) {
+        nextIds.delete(characterId);
+      } else {
+        nextIds.add(characterId);
+      }
+
+      return nextIds;
+    });
+  };
+
+  const addAttribute = (characterId: string) => {
+    let nextIndex = 0;
+    let nextKey = DEFAULT_ATTRIBUTE_KEY;
+
+    updateActiveProject((project) => ({
+      ...project,
+      characters: project.characters.map((character) => {
+        if (character.id !== characterId) {
+          return character;
+        }
+
+        nextIndex = character.attributes.length;
+        nextKey = resolveAttributeKey(character.attributes, DEFAULT_ATTRIBUTE_KEY, -1);
+
+        return {
+          ...character,
+          attributes: [...character.attributes, createAttribute(nextKey)],
+        };
+      }),
+    }));
+
+    setExpandedCharacterIds((currentIds) => new Set(currentIds).add(characterId));
+    setEditingAttribute({ characterId, index: nextIndex });
+    setDraftAttributeKey(nextKey);
+  };
+
+  const startAttributeRename = (characterId: string, index: number, key: string) => {
+    setEditingAttribute({ characterId, index });
+    setDraftAttributeKey(key);
+  };
+
+  const cancelAttributeRename = () => {
+    setEditingAttribute(null);
+    setDraftAttributeKey('');
+  };
+
+  const saveAttributeRename = (characterId: string, attributeIndex: number) => {
+    updateActiveProject((project) => ({
+      ...project,
+      characters: project.characters.map((character) => {
+        if (character.id !== characterId) {
+          return character;
+        }
+
+        return {
+          ...character,
+          attributes: character.attributes.map((attribute, index) =>
+            index === attributeIndex
+              ? {
+                  ...attribute,
+                  key: resolveAttributeKey(character.attributes, draftAttributeKey, attributeIndex),
+                }
+              : attribute,
+          ),
+        };
+      }),
+    }));
+    cancelAttributeRename();
+  };
+
+  const handleAttributeKeyDown = (
+    event: KeyboardEvent<HTMLInputElement>,
+    characterId: string,
+    attributeIndex: number,
+  ) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      saveAttributeRename(characterId, attributeIndex);
+    }
+
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      cancelAttributeRename();
+    }
+  };
+
+  const updateAttributeDefaultValue = (characterId: string, attributeIndex: number, value: string) => {
+    const nextValue = Number(value);
+
+    updateActiveProject((project) => ({
+      ...project,
+      characters: project.characters.map((character) =>
+        character.id === characterId
+          ? {
+              ...character,
+              attributes: character.attributes.map((attribute, index) =>
+                index === attributeIndex
+                  ? {
+                      ...attribute,
+                      defaultValue: Number.isFinite(nextValue) ? nextValue : 0,
+                    }
+                  : attribute,
+              ),
+            }
+          : character,
+      ),
+    }));
+  };
+
+  const deleteAttribute = (characterId: string, attributeIndex: number) => {
+    updateActiveProject((project) => ({
+      ...project,
+      characters: project.characters.map((character) =>
+        character.id === characterId
+          ? {
+              ...character,
+              attributes: character.attributes.filter((_, index) => index !== attributeIndex),
+            }
+          : character,
+      ),
+    }));
+
+    if (editingAttribute?.characterId === characterId) {
+      if (editingAttribute.index === attributeIndex) {
+        cancelAttributeRename();
+      } else if (editingAttribute.index > attributeIndex) {
+        setEditingAttribute({
+          characterId,
+          index: editingAttribute.index - 1,
+        });
+      }
     }
   };
 
@@ -99,42 +282,118 @@ export function CharactersScreen() {
         ) : (
           <ul className="mt-8 divide-y divide-gray-800 rounded-md border border-gray-800 bg-gray-900/70">
             {characters.map((character) => (
-              <li key={character.id} className="flex items-center gap-3 px-4 py-3">
-                <div className="min-w-0 flex-1">
-                  {editingCharacterId === character.id ? (
-                    <input
-                      type="text"
-                      value={draftName}
-                      onChange={(event) => setDraftName(event.target.value)}
-                      onBlur={() => saveRename(character.id)}
-                      onKeyDown={(event) => handleRenameKeyDown(event, character.id)}
-                      className="w-full rounded border border-blue-500 bg-gray-950 px-2 py-1 text-sm font-medium text-gray-100 outline-none focus:ring-2 focus:ring-blue-500/40"
-                      autoFocus
-                    />
-                  ) : (
+              <li key={character.id} className="px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    {editingCharacterId === character.id ? (
+                      <input
+                        type="text"
+                        value={draftName}
+                        onChange={(event) => setDraftName(event.target.value)}
+                        onBlur={() => saveRename(character.id)}
+                        onKeyDown={(event) => handleRenameKeyDown(event, character.id)}
+                        className="w-full rounded border border-blue-500 bg-gray-950 px-2 py-1 text-sm font-medium text-gray-100 outline-none focus:ring-2 focus:ring-blue-500/40"
+                        autoFocus
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => startRenaming(character)}
+                        className="max-w-full truncate text-left text-sm font-medium text-gray-100 hover:text-blue-300"
+                      >
+                        {character.name || 'Unnamed Character'}
+                      </button>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => startRenaming(character)}
+                    className="rounded bg-gray-800 px-2 py-1 text-xs font-medium text-gray-200 hover:bg-gray-700"
+                  >
+                    Rename
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteCharacter(character.id)}
+                    className="rounded bg-red-950/70 px-2 py-1 text-xs font-medium text-red-200 hover:bg-red-900"
+                  >
+                    Delete
+                  </button>
+                </div>
+
+                <div className="mt-3 border-t border-gray-800 pt-3">
+                  <div className="flex items-center justify-between gap-3">
                     <button
                       type="button"
-                      onClick={() => startRenaming(character)}
-                      className="max-w-full truncate text-left text-sm font-medium text-gray-100 hover:text-blue-300"
+                      onClick={() => toggleAttributes(character.id)}
+                      className="text-xs font-semibold uppercase tracking-wide text-gray-400 hover:text-gray-200"
+                      aria-expanded={expandedCharacterIds.has(character.id)}
                     >
-                      {character.name || 'Unnamed Character'}
+                      {expandedCharacterIds.has(character.id) ? 'Hide Attributes' : 'Attributes'} (
+                      {character.attributes.length})
                     </button>
-                  )}
+                    <button
+                      type="button"
+                      onClick={() => addAttribute(character.id)}
+                      className="rounded bg-gray-800 px-2 py-1 text-xs font-medium text-gray-200 hover:bg-gray-700"
+                    >
+                      Add Attribute
+                    </button>
+                  </div>
+
+                  {expandedCharacterIds.has(character.id) ? (
+                    <div className="mt-3">
+                      {character.attributes.length === 0 ? (
+                        <div className="rounded border border-dashed border-gray-700 px-3 py-3 text-xs text-gray-500">
+                          No attributes yet.
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {character.attributes.map((attribute, attributeIndex) => (
+                            <div key={`${character.id}:${attributeIndex}`} className="grid grid-cols-[1fr_7rem_auto] items-center gap-2">
+                              {editingAttribute?.characterId === character.id &&
+                              editingAttribute.index === attributeIndex ? (
+                                <input
+                                  type="text"
+                                  value={draftAttributeKey}
+                                  onChange={(event) => setDraftAttributeKey(event.target.value)}
+                                  onBlur={() => saveAttributeRename(character.id, attributeIndex)}
+                                  onKeyDown={(event) => handleAttributeKeyDown(event, character.id, attributeIndex)}
+                                  className="min-w-0 rounded border border-blue-500 bg-gray-950 px-2 py-1 text-sm text-gray-100 outline-none focus:ring-2 focus:ring-blue-500/40"
+                                  autoFocus
+                                />
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => startAttributeRename(character.id, attributeIndex, attribute.key)}
+                                  className="min-w-0 truncate rounded bg-gray-950 px-2 py-1 text-left text-sm text-gray-100 hover:text-blue-300"
+                                >
+                                  {attribute.key || 'attribute'}
+                                </button>
+                              )}
+                              <input
+                                type="number"
+                                value={attribute.defaultValue}
+                                onChange={(event) =>
+                                  updateAttributeDefaultValue(character.id, attributeIndex, event.target.value)
+                                }
+                                className="w-full rounded border border-gray-700 bg-gray-950 px-2 py-1 text-sm text-gray-100 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
+                                aria-label={`${attribute.key} default value`}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => deleteAttribute(character.id, attributeIndex)}
+                                className="rounded bg-red-950/70 px-2 py-1 text-xs font-medium text-red-200 hover:bg-red-900"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => startRenaming(character)}
-                  className="rounded bg-gray-800 px-2 py-1 text-xs font-medium text-gray-200 hover:bg-gray-700"
-                >
-                  Rename
-                </button>
-                <button
-                  type="button"
-                  onClick={() => deleteCharacter(character.id)}
-                  className="rounded bg-red-950/70 px-2 py-1 text-xs font-medium text-red-200 hover:bg-red-900"
-                >
-                  Delete
-                </button>
               </li>
             ))}
           </ul>

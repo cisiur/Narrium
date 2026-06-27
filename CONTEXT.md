@@ -1,7 +1,7 @@
 # Context — Narrium
 
-> This file is used to resume work on the project in a new AI session (Claude Code, Codex, Perplexity, ChatGPT, etc.).
-> Paste the contents of this file at the beginning of a new conversation.
+> This file is used to resume work on Narrium in a new AI session.  
+> Paste this file at the beginning of a new conversation before asking for planning, review, or implementation prompts.
 
 ---
 
@@ -9,11 +9,35 @@
 
 Narrium is a **no-code, browser-based visual novel editor**.
 
-Authors build branching interactive stories by connecting scene tiles on a visual canvas — no programming required. Each scene has a background image, dialogue pages (speaker + text), and response choices. Each choice can carry conditions (e.g. `gold >= 10`) and effects (e.g. `reputation_guard += 3`). The finished story can be played in the browser or exported as a standalone HTML file.
+Authors build branching interactive stories by connecting scene tiles on a visual canvas — no programming required. Each scene can contain a background image, dialogue pages, and response choices. Each choice can later carry declarative conditions and effects.
 
-Target user: non-technical authors (writers, game designers, hobbyists) who want to create branching narratives without code.
+The finished story should eventually be playable in the browser and exportable as a standalone HTML file.
 
-Platform: **web app (browser only)**. No mobile app for now.
+Target user:
+- non-technical authors
+- writers
+- game designers
+- hobbyists
+- people who want to create branching narratives without coding
+
+Platform:
+- browser-only web app for MVP
+- no mobile app for now
+
+---
+
+## Repository
+
+- **URL:** https://github.com/cisiur/Narrium
+- **Active branch:** `main`
+- **Do not use:** `dev` branch
+- **Source:** `/src/`
+- **Docs:** `/docs/`
+
+Workflow:
+- Active development happens directly on `main`.
+- Do not create or target a `dev` branch unless the project owner explicitly changes the workflow.
+- After confirmed task batches, update both `ROADMAP.md` and `CONTEXT.md`.
 
 ---
 
@@ -25,101 +49,257 @@ Platform: **web app (browser only)**. No mobile app for now.
 | Canvas / graph | React Flow (`reactflow` ^11) |
 | State management | Zustand |
 | Styling | Tailwind CSS v3 |
-| Storage | localStorage (MVP); JSON export/import |
-| Runtime player | Embedded React component |
+| Storage | localStorage for MVP |
+| Project format | JSON-compatible `Project` object |
+| Runtime player | Future embedded React player |
 | Bundler | Vite |
 
 ---
 
-## Repository
+## Current Implementation Status
 
-- **URL:** https://github.com/cisiur/Narrium
-- **Branch main:** active development, documentation, and stable project state
-- **Branch dev:** not used; do not create or target a `dev` branch unless the project owner changes the workflow
-- **Source:** `/src/`
-- **Documents:** `/docs/`
+### Completed
+
+#### Workspace / Projects
+
+- My Projects screen.
+- Create local project.
+- Open existing local project.
+- Return from canvas to My Projects.
+- Rename project from My Projects.
+- Active project name displayed in canvas header.
+- Workspace persistence:
+  - `narrium_workspace`
+  - `narrium_project_{id}`
+- Multiple local projects.
+
+#### Canvas Graph Editor
+
+- React Flow canvas.
+- Background dots.
+- Controls.
+- MiniMap.
+- Empty state.
+- Scene nodes.
+- Node drag persists `scene.position`.
+- Add scene from toolbar.
+- Edge creation.
+- Edge deletion.
+- Left-to-right handles:
+  - input / target: left
+  - output / source: right
+- Dragging an edge always creates a new Choice.
+- Edge label comes from Choice text.
+- Clicking an edge opens the corresponding Choice inside Scene Editor.
+
+#### Scene Editor
+
+- Right sidebar panel.
+- Scene name inline editing.
+- Dialogue pages:
+  - add
+  - edit
+  - delete
+  - last page cannot be deleted
+- Choices:
+  - add
+  - edit text
+  - delete
+  - show target scene
+  - target scene dropdown
+  - edge-click highlight + scroll into view
+
+#### Background System
+
+- Background picker modes:
+  - `none`
+  - `url`
+  - `upload`
+  - `asset`
+  - `scene_reference`
+- External image URL preview.
+- Local upload stored as Data URL.
+- Scene reference background mode.
+- Project Asset Library:
+  - add URL asset
+  - add upload asset
+  - list background assets
+  - use asset as scene background
+  - delete asset
+  - reset scenes using deleted asset
+- SceneNode background thumbnails:
+  - URL
+  - upload
+  - asset
+  - one-level scene reference
+  - placeholders for missing/no background
 
 ---
 
-## Current project status
+## Next Milestone
 
-### ✅ Completed
+### EPIC 5 — Characters & Resources
 
-| Task | Notes |
-|---|---|
-| E0-01 GitHub repo, README.md | Done |
-| E0-02 ROADMAP.md, CONTEXT.md | Done |
-| E0-03 `docs/DATA_MODEL.md` | Done |
-| E0-04 `docs/SCREENS.md` | Done |
-| E0-05 Vite + React + TS scaffold | Done — `npm run dev` works, full folder structure |
-| E0-06 Tailwind CSS setup | Done — `tailwind.config.ts`, `postcss.config.cjs`, base CSS |
-| E0-07 Zustand store skeleton | Done — `workspaceStore.ts`, `useCanvasStore.ts` |
-| E0-08 TypeScript types | Done — `src/types/index.ts` (all canonical interfaces) |
-| E1 My Projects screen | Done — `MyProjectsScreen.tsx`, create/open project, card grid |
-| E1 Workspace persistence | Done — `narrium_workspace` + `narrium_project_{id}` in localStorage |
-| E1 React Flow canvas | Done — `SceneCanvas.tsx`, Background, Controls, MiniMap, empty state overlay |
-| E1 SceneNode component | Done — `SceneNode.tsx`, page count, choice count, selected state |
-| E1 Add scene | Done — "+ Add Scene" toolbar button, auto-positioned nodes |
-| E1 Connect scenes | Done — drag edge → `targetSceneId` set on choice; first free choice reused |
-| E1 Delete edge | Done — removes `targetSceneId` from corresponding choice |
-| E1 Select scene | Done — click node → `selectedSceneId` set, editor panel opens |
-| E1 Canvas persist layout | Done — node drag updates `scene.position` in store + localStorage |
-| E2 Scene editor panel | Done — `SceneEditorPanel.tsx`, slide-in, collapsible sections |
-| E2 Scene name edit | Done — inline editable, Enter/blur to save |
-| E2 Dialogue pages | Done — add, edit (textarea), delete (disabled on last page) |
-| E2 Choices | Done — add, edit text, delete; shows target scene name or "→ not connected" |
+Goal:
+Complete the data model and UI foundation required for later Story Logic.
 
-### ⏳ Next up
+Next recommended work:
+1. Characters tab/screen foundation.
+2. Character list.
+3. Add/edit/delete character.
+4. Character attributes.
+5. Resources tab/screen foundation.
+6. Resource list.
+7. Add/edit/delete resource.
 
-**E2 — Background System** (E2-05, E2-06, E2-07): background picker (URL / local upload / asset library), asset library panel, background preview on SceneNode thumbnail.
+Important:
+- Do **not** start Conditions or Effects until Characters and Resources are implemented.
+- Story Logic is now a separate epic because it is more complex than the basic data setup.
 
 ---
 
-## Source structure
+## Core Architecture Principles
 
+These rules are important. Future agents should preserve them.
+
+### 1. Project is the single source of truth
+
+All meaningful story data belongs to the `Project` object.
+
+React state, React Flow nodes, and UI selections are derived from project state where possible.
+
+### 2. React Flow is a projection
+
+React Flow nodes and edges are generated from `Project.scenes`.
+
+Do not store domain data in React Flow nodes/edges as the source of truth.
+
+### 3. Choice is the source of truth for connections
+
+A React Flow edge is not a domain object.
+
+Edges are projections of:
+
+```typescript
+Choice.targetSceneId
 ```
+
+Current edge id format:
+
+```typescript
+`${scene.id}:${choice.id}`
+```
+
+Clicking an edge should navigate to the corresponding Choice editor.
+
+Deleting an edge clears `choice.targetSceneId`.
+
+Dragging a new edge creates a new Choice.
+
+### 4. Editors modify Project data
+
+Editor panels should call store actions that update the active Project.
+
+Do not duplicate persistence logic inside UI components.
+
+### 5. Persistence lives in workspaceStore
+
+`workspaceStore.updateActiveProject()` is responsible for:
+- updating active project
+- updating `updatedAt`
+- persisting full project to `narrium_project_{id}`
+- updating project metadata in `narrium_workspace`
+
+### 6. Canvas store synchronizes from Project
+
+`useCanvasStore.syncFromProject()` rebuilds:
+- nodes
+- edges
+- selection validity
+
+After a mutation that changes scene graph data, call `syncFromProject()`.
+
+### 7. Keep implementation prompts scoped
+
+Each Codex prompt should:
+- work directly on `main`
+- avoid unrelated refactors
+- list relevant files
+- include acceptance criteria
+- say whether docs should or should not be updated
+
+---
+
+## Source Structure
+
+```text
 src/
   app/
-    App.tsx                   ← root component, routes between MyProjects and canvas
+    App.tsx
     index.ts
+
   components/
-    AppShell.tsx              ← top toolbar, left nav strip (48px), right panel slot
+    AppShell.tsx
+
   features/
     workspace/
-      MyProjectsScreen.tsx    ← "My Projects" grid, create project button
-      index.ts
+      MyProjectsScreen.tsx
+
     canvas/
-      SceneCanvas.tsx         ← React Flow canvas, empty state overlay
-      SceneNode.tsx           ← custom node: name, page count, choice count
+      SceneCanvas.tsx
+      SceneNode.tsx
+
     editor/
-      SceneEditorPanel.tsx    ← right panel: name, background (stub), pages, choices
-    player/                   ← empty, E4
-    characters/               ← empty, E3
-    resources/                ← empty, E3
-    assets/                   ← empty, E2-06
+      SceneEditorPanel.tsx
+
+    player/
+      empty / future E7
+
+    characters/
+      empty / future E5
+
+    resources/
+      empty / future E5
+
+    assets/
+      empty or future extraction area
+
   store/
-    workspaceStore.ts         ← Zustand: projects[], activeProject, createProject, updateActiveProject
-    useCanvasStore.ts         ← Zustand: nodes, edges, selectedSceneId, all scene/page/choice mutations
+    workspaceStore.ts
+    useCanvasStore.ts
+
   types/
-    index.ts                  ← all canonical TypeScript interfaces
+    index.ts
+
   styles/
-    index.css                 ← Tailwind directives + base reset
+    index.css
+
   main.tsx
 ```
 
+Notes:
+- The background asset management UI currently lives inside `SceneEditorPanel.tsx`.
+- This is acceptable for MVP but may later be extracted into smaller components.
+- The right sidebar is currently used for scene editing and choice editing.
+
 ---
 
-## Data Model (canonical)
+## Data Model — Canonical Summary
 
-> This is the authoritative reference. All code must use these exact field names and types.
-> Defined in `src/types/index.ts`.
+The authoritative TypeScript definitions live in:
+
+```text
+src/types/index.ts
+```
+
+Important structures:
 
 ```typescript
 interface WorkspaceProjectMeta {
   id: string;
   name: string;
-  createdAt: string;             // ISO 8601
-  updatedAt: string;             // ISO 8601
+  createdAt: string;
+  updatedAt: string;
   thumbnailDataUrl: string | null;
 }
 
@@ -131,7 +311,7 @@ interface WorkspaceState {
 interface Project {
   id: string;
   name: string;
-  startSceneId: string;          // '' when no scenes yet; set to first scene's id on addScene
+  startSceneId: string;
   scenes: Scene[];
   characters: Character[];
   resources: Resource[];
@@ -154,14 +334,14 @@ interface Scene {
 
 interface SceneBackground {
   mode: 'upload' | 'url' | 'asset' | 'scene_reference' | 'none';
-  assetId: string | null;        // ref to AssetLibraryItem.id when mode='asset'
-  sourceSceneId: string | null;  // ref to Scene.id when mode='scene_reference'
-  url: string;                   // data URL (upload) or external URL (url mode)
+  assetId: string | null;
+  sourceSceneId: string | null;
+  url: string;
 }
 
 interface DialoguePage {
   id: string;
-  speakerId: string | null;      // null = Narrator
+  speakerId: string | null;
   text: string;
 }
 
@@ -173,129 +353,214 @@ interface Choice {
   effects: Effect[];
 }
 
-interface Condition {
-  id: string;
-  type: 'resource' | 'character_attr';
-  targetId: string;
-  attribute?: string;            // required when type='character_attr'
-  operator: '>=' | '<=' | '==' | '>' | '<' | '!=';
-  value: number;
-  hintText: string;
-}
-
-interface Effect {
-  id: string;
-  type: 'resource' | 'character_attr';
-  targetId: string;
-  attribute?: string;
-  operation: '+=' | '-=' | '=';
-  value: number;
-}
-
-interface Character {
-  id: string;
-  name: string;
-  attributes: CharacterAttribute[];
-}
-
-interface CharacterAttribute {
-  key: string;
-  defaultValue: number;
-}
-
-interface Resource {
-  id: string;
-  name: string;
-  defaultValue: number;
-}
-
-interface SceneGroup {
-  id: string;
-  name: string;
-  color: string;
-  position: { x: number; y: number };
-  size: { width: number; height: number };
-  collapsed: boolean;            // reserved for post-MVP
-}
-
 interface AssetLibraryItem {
   id: string;
   kind: 'background';
   name: string;
   sourceType: 'upload' | 'url';
-  url: string;                   // data URL (upload) or external URL
+  url: string;
   createdAt: string;
 }
-
-interface ProjectSettings {
-  allowSessionSaveLoad: boolean;
-}
-
-interface RuntimeState {
-  currentSceneId: string;
-  currentPageIndex: number;
-  variables: {
-    resources: Record<string, number>;
-    characterAttrs: Record<string, Record<string, number>>;
-  };
-  saveSlots?: RuntimeSaveSlot[];
-}
-
-interface RuntimeSaveSlot {
-  id: string;
-  savedAt: string;
-  snapshot: Omit<RuntimeState, 'saveSlots'>;
-}
 ```
+
+Future structures already planned:
+- `Character`
+- `CharacterAttribute`
+- `Resource`
+- `Condition`
+- `Effect`
+- `RuntimeState`
+- `RuntimeSaveSlot`
 
 ---
 
 ## Store Architecture
 
-### `workspaceStore.ts` — `useWorkspaceStore`
+### `workspaceStore.ts`
 
-```typescript
-interface WorkspaceStore extends WorkspaceState {
-  activeProject: Project | null;
-  createProject: () => WorkspaceProjectMeta;
-  updateActiveProject: (updater: (project: Project) => Project) => void;
-}
+Responsibilities:
+- project list
+- active project
+- create project
+- open project
+- close project
+- rename project
+- update active project
+- persistence
+
+Known actions:
+- `createProject()`
+- `openProject(projectId)`
+- `closeProject()`
+- `renameProject(projectId, newName)`
+- `updateActiveProject(updater)`
+
+Persistence:
+- workspace metadata saved to `narrium_workspace`
+- full project saved to `narrium_project_{id}`
+
+### `useCanvasStore.ts`
+
+Responsibilities:
+- React Flow nodes and edges
+- selected scene
+- selected choice
+- active view
+- scene mutations
+- dialogue mutations
+- choice mutations
+- background mutations
+- asset library mutations
+- sync from project
+
+Known actions include:
+- `syncFromProject()`
+- `addScene(name)`
+- `deleteScene(id)`
+- `selectScene(id | null)`
+- `selectChoice(sceneId, choiceId)`
+- `clearSelectedChoice()`
+- `openEditor(id)`
+- `updateSceneName(sceneId, name)`
+- `updateSceneBackground(sceneId, background)`
+- `addDialoguePage(sceneId)`
+- `updateDialoguePage(sceneId, pageId, text)`
+- `deleteDialoguePage(sceneId, pageId)`
+- `addChoice(sceneId)`
+- `updateChoiceText(sceneId, choiceId, text)`
+- `updateChoiceTarget(sceneId, choiceId, targetSceneId | null)`
+- `deleteChoice(sceneId, choiceId)`
+- `addBackgroundAsset(input)`
+- `deleteBackgroundAsset(assetId)`
+- `updateBackgroundAssetName(assetId, name)`
+
+---
+
+## Canvas Interaction Rules
+
+### Scene click
+
+Clicking a SceneNode:
+- selects scene
+- opens Scene Editor
+
+### Edge drag
+
+Dragging from source scene to target scene:
+- creates a new Choice in source scene
+- sets `targetSceneId`
+- choice text becomes `Go to {target scene name}` when possible
+
+### Edge delete
+
+Deleting an edge:
+- clears corresponding `choice.targetSceneId`
+- does not delete the Choice
+
+### Edge click
+
+Clicking an edge:
+- parses edge id as `sceneId:choiceId`
+- selects source scene
+- selects the corresponding Choice
+- opens Scene Editor
+- highlights and scrolls the Choice into view
+
+### Choice Target dropdown
+
+Changing target in Choice dropdown:
+- updates `choice.targetSceneId`
+- React Flow edge updates automatically after `syncFromProject()`
+
+---
+
+## Background System Rules
+
+### Supported modes
+
+```text
+none
+url
+upload
+asset
+scene_reference
 ```
 
-- Persists `narrium_workspace` (project metas list) + `narrium_project_{id}` (full project) to localStorage on every mutation.
-- `updateActiveProject` auto-updates `updatedAt`.
+### URL
 
-### `useCanvasStore.ts` — `useCanvasStore`
+Stores external URL in:
 
 ```typescript
-interface CanvasStore {
-  nodes: Node<SceneNodeData>[];
-  edges: Edge[];
-  selectedSceneId: string | null;
-  activeView: 'canvas' | 'editor';
-  onNodesChange: OnNodesChange;
-  onEdgesChange: OnEdgesChange;
-  onConnect: OnConnect;
-  addScene(name: string): void;
-  deleteScene(id: string): void;
-  selectScene(id: string | null): void;
-  openEditor(id: string): void;
-  syncFromProject(): void;
-  updateSceneName(sceneId: string, name: string): void;
-  addDialoguePage(sceneId: string): void;
-  updateDialoguePage(sceneId: string, pageId: string, text: string): void;
-  deleteDialoguePage(sceneId: string, pageId: string): void;
-  addChoice(sceneId: string): void;
-  updateChoiceText(sceneId: string, choiceId: string, text: string): void;
-  deleteChoice(sceneId: string, choiceId: string): void;
-}
+scene.background.url
 ```
 
-- All mutations call `updateActiveProject()` then `syncFromProject()`.
-- `syncFromProject()` rebuilds `nodes[]` and `edges[]` from `activeProject.scenes`.
-- Node drag updates `scene.position` via `onNodesChange`.
-- Edge removal clears `choice.targetSceneId` via `onEdgesChange`.
-- `onConnect` reuses first unconnected choice; otherwise creates new choice.
+### Upload
+
+Stores base64 Data URL in:
+
+```typescript
+scene.background.url
+```
+
+No compression/resizing yet.
+
+### Asset
+
+Stores reference only:
+
+```typescript
+scene.background.assetId
+```
+
+Asset data lives in:
+
+```typescript
+project.assetLibrary
+```
+
+### Scene Reference
+
+Stores:
+
+```typescript
+scene.background.sourceSceneId
+```
+
+Thumbnail preview resolves only one level.
+
+Do not implement recursive scene-reference resolution unless explicitly requested.
+
+### Deleted asset behavior
+
+When a background asset is deleted:
+- remove it from `project.assetLibrary`
+- reset any scene using that asset to background mode `none`
+
+---
+
+## Product Decisions
+
+| Topic | Decision |
+|---|---|
+| Canvas library | React Flow |
+| State | Zustand |
+| Storage | localStorage for MVP |
+| Multiple projects | Yes |
+| Active project navigation | My Projects is the hub; project can be closed without deletion |
+| Project rename | From My Projects screen |
+| Canvas header | Shows active project name |
+| Edge model | Edge is projection of Choice, not a domain object |
+| New edge behavior | Always creates a new Choice |
+| Edge click behavior | Opens corresponding Choice editor |
+| Choice target editing | Dropdown in Choice editor |
+| Background sources | none, URL, upload, asset, scene reference |
+| Asset storage | Project-level Asset Library |
+| Uploaded image storage | Data URL inside project JSON for MVP |
+| Scene reference thumbnails | One level only |
+| Conditions/effects | Declarative, future Story Logic epic |
+| First scene | `Project.startSceneId`; set to first created scene |
+| Free-tier limit | Counts scenes only, future |
+| Exported player | Future standalone HTML with embedded project JSON |
 
 ---
 
@@ -303,80 +568,86 @@ interface CanvasStore {
 
 | Issue | Severity | Notes |
 |---|---|---|
-| `startSceneId: ''` on new project | Low | Empty string instead of `null`; fine for now but consider `string \| null` in type |
-| `activeView` not used in App.tsx routing | Low | Currently layout is driven by `selectedSceneId`; `activeView` is redundant until E4+ |
+| `startSceneId: ''` | Low | Empty string instead of `null`; acceptable for now |
+| Large uploads can fill localStorage | Medium | Future compression/resizing or storage strategy needed |
+| Background editor is large | Low/Medium | Consider extracting components or tabs later |
+| Asset Library always visible inside Background section | Low | Acceptable for MVP |
+| No project delete | Medium | Needed soon for workspace management |
+| No JSON import/export yet | Medium | Planned in Save/Export epic |
+| No validation panel | Medium | Planned after Story Logic |
+| No undo/redo | Medium | Future Polish epic |
+| Scene groups not implemented | Low/Medium | Can wait until larger graphs |
+| AppShell sidebar placeholders are basic | Low | Polish later |
 
 ---
 
-## Product Decisions (all resolved)
+## Recommended Next Tasks
 
-| Topic | Decision |
-|---|---|
-| Canvas library | React Flow — node-based graph, edge routing, drag/pan/zoom |
-| State | Zustand — `useWorkspaceStore` + `useCanvasStore` |
-| Storage | localStorage auto-save; JSON export/import |
-| Multiple projects | Yes, "My Projects" screen; one active project at a time |
-| Background sources | Local upload (base64 data URL) + external URL + asset library reuse + scene reference |
-| Uploaded assets storage | Stored as base64 data URL inside project JSON — no separate file storage in MVP |
-| Condition unmet | Choice is greyed-out with `hintText` — never hidden |
-| Multiple speakers | `DialoguePage.speakerId`; null = narrator |
-| Player exported | Standalone HTML with embedded JS + project JSON |
-| Exported player save/load | Supported via localStorage |
-| No scripting language | All logic is declarative conditions and effects |
-| First scene | `Project.startSceneId`; set to first created scene's id by `addScene` |
-| Scene groups | Named visual containers on canvas; `collapsed` reserved for post-MVP |
-| Free-tier limit | Counts scenes only |
-| Freemium enforcement | Not enforced in MVP code — hooks added in E6-08 |
-| Project thumbnail | Auto-generated from `startSceneId` background; user can manually override |
+### Immediate next task
 
----
+Start **EPIC 5 — Characters & Resources**.
 
-## Open Questions
+Recommended first implementation task:
 
-*All MVP product questions resolved. No open items.*
+```text
+E5-01 — Characters tab/screen foundation
+```
 
----
+Goal:
+- Add a place in the app shell / sidebar to switch between Canvas and Characters.
+- Create basic Characters screen.
+- Do not implement conditions/effects yet.
 
-## AI Role Breakdown
+### After that
 
-| Symbol | Who | When |
-|---|---|---|
-| [ME] | Perplexity replacement / PM planning | Architecture, specs, data model, task breakdown, UX review |
-| [AI] | Codex / Claude Code (implementation) | TypeScript/React code, components, store, tests, repo files |
-| [BOTH] | PM spec → AI impl | Complex mechanics (condition logic, effect engine, player runtime) |
-| [MANUAL] | Project owner | Product decisions, UX acceptance, asset choices, priorities, publishing |
+1. Character list.
+2. Add/edit/delete character.
+3. Character attributes.
+4. Resources screen.
+5. Resource list.
+6. Add/edit/delete resource.
 
-**All prompts and instructions to Codex / Claude Code must be written in English.**
+Only then start **EPIC 6 — Story Logic**.
 
 ---
 
 ## PM Workflow Instructions
 
-1. **Verify repo state first** — check latest commits via GitHub API before starting any task.
-2. **Work directly on `main`** — do not use, create, or target a `dev` branch unless the project owner explicitly changes the workflow.
-3. **Deliver ready-to-paste prompts** — for [AI] / [BOTH] tasks: a complete English prompt for Codex/Claude Code, self-contained with types, component names, and acceptance criteria.
-4. **Ask before assuming** — if design decisions are unclear, ask the project owner first.
-5. **Update both files after every confirmed task** — commit CONTEXT.md + ROADMAP.md to `main`.
-6. **Keep prompts self-contained** — include enough context that the AI needs no other file to complete the task.
+1. Verify repo state first.
+2. Work directly on `main`.
+3. Do not use, create, or target `dev`.
+4. For implementation tasks, provide a complete English prompt for Codex/Claude Code.
+5. Keep prompts self-contained.
+6. Ask the owner before making product assumptions.
+7. Review implementation after each push.
+8. Update docs after confirmed task batches.
+9. Do not duplicate UI or data models unless explicitly justified.
+10. Keep `Project` as the central source of truth.
 
 ---
 
-## Roadmap Summary
+## Prompt Style for Codex
 
-| Milestone | Goal | Status |
-|---|---|---|
-| M0 | Documentation & Foundation | ✅ Done |
-| M1 | Workspace & Canvas Foundations | ✅ Done |
-| M2 | Scene Editor Panel | 🔲 In progress (background system next) |
-| M3 | Characters & Resources | 🔲 Pending |
-| M4 | Story Player | 🔲 Pending |
-| M5 | Save, Load, Export | 🔲 Pending |
-| M6 | Polish & UX | 🔲 Pending |
+Every Codex prompt should include:
 
----
+```text
+You are working on the Narrium repository.
 
-## Next Up
+Role: implementation agent.
 
-**E2-05 + E2-06 + E2-07** [BOTH/AI] — Background picker (URL / upload / asset library) + Asset Library panel + SceneNode background thumbnail preview.
+Important workflow:
+- Work directly on the `main` branch.
+- Do not create or target a `dev` branch.
+- Keep this task focused.
+- Do not implement unrelated roadmap items.
+```
 
-When resuming: paste this file as the first message, then tell the PM which task to start.
+Then include:
+- Task name
+- Goal
+- Context
+- Relevant files
+- Requirements
+- Out of scope
+- Acceptance criteria
+- Suggested commit message

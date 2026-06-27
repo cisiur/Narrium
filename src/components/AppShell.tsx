@@ -1,22 +1,32 @@
 import type { ReactNode } from 'react';
+import type { ProjectView } from '../store/useProjectViewStore';
 
 interface AppShellProps {
   children: ReactNode;
   isProjectOpen?: boolean;
   projectName?: string;
+  activeProjectView?: ProjectView;
   rightPanel?: ReactNode;
   onAddScene?: () => void;
   onBackToProjects?: () => void;
+  onProjectViewChange?: (view: ProjectView) => void;
 }
 
 export function AppShell({
   children,
   isProjectOpen = false,
   projectName,
+  activeProjectView = 'canvas',
   rightPanel,
   onAddScene,
   onBackToProjects,
+  onProjectViewChange,
 }: AppShellProps) {
+  const projectNavItems: { view: ProjectView; label: string; title: string }[] = [
+    { view: 'canvas', label: 'C', title: 'Canvas' },
+    { view: 'characters', label: 'Ch', title: 'Characters' },
+  ];
+
   return (
     <div className={isProjectOpen ? 'min-h-screen bg-gray-950 text-gray-100' : 'min-h-screen bg-parchment-50 text-ink-950'}>
       <header
@@ -56,6 +66,7 @@ export function AppShell({
               <button
                 type="button"
                 onClick={onAddScene}
+                disabled={activeProjectView !== 'canvas'}
                 className="rounded bg-gray-700 px-2 py-1 text-xs font-medium text-gray-100 hover:bg-gray-600"
               >
                 + Add Scene
@@ -73,21 +84,40 @@ export function AppShell({
       </header>
 
       {isProjectOpen ? (
-        <div className="grid min-h-[calc(100vh-3.5rem)] grid-cols-[3rem_minmax(0,1fr)_360px] overflow-hidden">
+        <div
+          className={
+            rightPanel
+              ? 'grid min-h-[calc(100vh-3.5rem)] grid-cols-[3rem_minmax(0,1fr)_360px] overflow-hidden'
+              : 'grid min-h-[calc(100vh-3.5rem)] grid-cols-[3rem_minmax(0,1fr)] overflow-hidden'
+          }
+        >
           <nav className="flex flex-col items-center gap-3 border-r border-gray-800 bg-gray-900 py-3">
-            <button
-              type="button"
-              className="flex h-9 w-9 items-center justify-center rounded bg-gray-800 text-xs font-semibold text-gray-200"
-              aria-label="Canvas"
-              title="Canvas"
-            >
-              C
-            </button>
+            {projectNavItems.map((item) => {
+              const isActive = item.view === activeProjectView;
+
+              return (
+                <button
+                  key={item.view}
+                  type="button"
+                  onClick={() => onProjectViewChange?.(item.view)}
+                  className={
+                    isActive
+                      ? 'flex h-9 w-9 items-center justify-center rounded bg-blue-500 text-xs font-semibold text-white shadow-sm shadow-blue-950/40'
+                      : 'flex h-9 w-9 items-center justify-center rounded bg-gray-800 text-xs font-semibold text-gray-300 hover:bg-gray-700 hover:text-white'
+                  }
+                  aria-label={item.title}
+                  aria-current={isActive ? 'page' : undefined}
+                  title={item.title}
+                >
+                  {item.label}
+                </button>
+              );
+            })}
           </nav>
 
           <main className="min-w-0">{children}</main>
 
-          <div className="overflow-hidden bg-gray-950">{rightPanel}</div>
+          {rightPanel ? <div className="overflow-hidden bg-gray-950">{rightPanel}</div> : null}
         </div>
       ) : (
         <div className="grid min-h-[calc(100vh-3.5rem)] grid-cols-[14rem_1fr_18rem]">

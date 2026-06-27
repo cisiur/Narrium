@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 interface AppShellProps {
   children: ReactNode;
   isProjectOpen?: boolean;
+  projectName?: string;
   rightPanel?: ReactNode;
   onAddScene?: () => void;
   onBackToProjects?: () => void;
@@ -11,6 +12,7 @@ interface AppShellProps {
 export function AppShell({
   children,
   isProjectOpen = false,
+  projectName,
   rightPanel,
   onAddScene,
   onBackToProjects,
@@ -33,6 +35,12 @@ export function AppShell({
             }
           >
             Narrium
+            {isProjectOpen && projectName ? (
+              <>
+                <span className="mx-2 text-gray-600">/</span>
+                <span className="normal-case tracking-normal text-gray-300">{projectName}</span>
+              </>
+            ) : null}
           </p>
         </div>
         <div className="flex items-center gap-2">

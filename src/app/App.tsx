@@ -14,6 +14,7 @@ export function App() {
     return (
       <AppShell
         isProjectOpen
+        projectName={activeProject.name}
         onAddScene={() => addScene('New Scene')}
         onBackToProjects={closeProject}
         rightPanel={<SceneEditorPanel />}

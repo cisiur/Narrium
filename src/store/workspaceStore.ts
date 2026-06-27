@@ -9,6 +9,7 @@ interface WorkspaceStore extends WorkspaceState {
   createProject: () => WorkspaceProjectMeta;
   openProject: (projectId: string) => void;
   closeProject: () => void;
+  renameProject: (projectId: string, newName: string) => void;
   updateActiveProject: (updater: (project: Project) => Project) => void;
 }
 
@@ -163,6 +164,43 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
       return {
         ...nextWorkspace,
         activeProject: null,
+      };
+    });
+  },
+  renameProject: (projectId, newName) => {
+    set((state) => {
+      const project = loadProject(projectId) ?? (state.activeProject?.id === projectId ? state.activeProject : null);
+
+      if (!project) {
+        return state;
+      }
+
+      const now = new Date().toISOString();
+      const name = newName.trim() || 'Untitled Project';
+      const nextProject = {
+        ...project,
+        name,
+        updatedAt: now,
+      };
+      const nextWorkspace = {
+        projects: state.projects.map((projectMeta) =>
+          projectMeta.id === projectId
+            ? {
+                ...projectMeta,
+                name,
+                updatedAt: now,
+              }
+            : projectMeta,
+        ),
+        activeProjectId: state.activeProjectId,
+      };
+
+      saveProject(nextProject);
+      saveWorkspace(nextWorkspace);
+
+      return {
+        ...nextWorkspace,
+        activeProject: state.activeProject?.id === projectId ? nextProject : state.activeProject,
       };
     });
   },

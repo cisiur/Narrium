@@ -3,6 +3,7 @@ import { AppShell } from '../components/AppShell';
 import { SceneCanvas } from '../features/canvas/SceneCanvas';
 import { CharactersScreen } from '../features/characters/CharactersScreen';
 import { SceneEditorPanel } from '../features/editor/SceneEditorPanel';
+import { ResourcesScreen } from '../features/resources/ResourcesScreen';
 import { MyProjectsScreen } from '../features/workspace/MyProjectsScreen';
 import { useCanvasStore } from '../store/useCanvasStore';
 import { useProjectViewStore } from '../store/useProjectViewStore';
@@ -23,6 +24,13 @@ export function App() {
 
   if (activeProject) {
     const isCanvasView = activeProjectView === 'canvas';
+    const projectScreen = isCanvasView ? (
+      <SceneCanvas />
+    ) : activeProjectView === 'characters' ? (
+      <CharactersScreen />
+    ) : (
+      <ResourcesScreen />
+    );
 
     return (
       <AppShell
@@ -34,7 +42,7 @@ export function App() {
         onProjectViewChange={setActiveProjectView}
         rightPanel={isCanvasView ? <SceneEditorPanel /> : null}
       >
-        {isCanvasView ? <SceneCanvas /> : <CharactersScreen />}
+        {projectScreen}
       </AppShell>
     );
   }

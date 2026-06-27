@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type ProjectView = 'canvas' | 'characters';
+export type ProjectView = 'canvas' | 'characters' | 'resources';
 
 interface ProjectViewStore {
   activeProjectView: ProjectView;

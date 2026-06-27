@@ -88,7 +88,7 @@ export interface CharacterAttribute {
 
 export interface Resource {
   id: string;
-  name: string;
+  key: string;
   defaultValue: number;
 }
 

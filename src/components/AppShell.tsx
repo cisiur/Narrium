@@ -25,6 +25,7 @@ export function AppShell({
   const projectNavItems: { view: ProjectView; label: string; title: string }[] = [
     { view: 'canvas', label: 'C', title: 'Canvas' },
     { view: 'characters', label: 'Ch', title: 'Characters' },
+    { view: 'resources', label: 'R', title: 'Resources' },
   ];
 
   return (

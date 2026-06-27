@@ -1,6 +1,6 @@
 # Roadmap — Narrium
 
-> **Version:** v2 documentation refresh  
+> **Version:** v3 documentation refresh after EPIC 5  
 > **Workflow:** active development happens directly on `main`. Do not use a `dev` branch unless the project owner explicitly changes this workflow.
 
 ---
@@ -24,14 +24,14 @@ Canvas Graph Editor        ██████████ 100%
 Scene Editor Basics        ██████████ 100%
 Background System          ██████████ 100%
 Canvas / Choice UX         ██████████ 100%
-Characters & Resources     ░░░░░░░░░░   0%
+Characters & Resources     ██████████ 100%
 Story Logic                ░░░░░░░░░░   0%
 Story Player               ░░░░░░░░░░   0%
 Save / Export              █░░░░░░░░░  15%
 Polish & Production UX     ██░░░░░░░░  20%
 ```
 
-Current state: the project now has a usable local multi-project workspace, a React Flow scene graph editor, a right-side scene editor, a complete background system, asset library support, SceneNode thumbnails, choice target editing, and edge-to-choice navigation.
+Current state: the project has a usable local multi-project workspace, a React Flow scene graph editor, a right-side scene editor, a complete background system, asset library support, SceneNode thumbnails, choice target editing, edge-to-choice navigation, project-level Characters management, Character attributes, and project-level Resources management.
 
 ---
 
@@ -112,7 +112,7 @@ Architecture note:
 | E3-04 | Choices: add, edit text, delete; shows target scene name | [AI] | ✅ Done |
 | E3-05 | Choice Target dropdown: None + all other scenes | [AI] | ✅ Done |
 | E3-06 | Selected Choice highlight and scroll after edge click | [AI] | ✅ Done |
-| E3-07 | Dialogue page speaker selector | [AI] | ⏳ Pending (needs Characters) |
+| E3-07 | Dialogue page speaker selector | [AI] | ⏳ Pending (needs Characters integration) |
 | E3-08 | Inline validation: warn on unconnected choice | [AI] | ⏳ Pending |
 
 ---
@@ -146,17 +146,22 @@ Notes:
 
 | ID | Task | Who | Status |
 |---|---|---|---|
-| E5-01 | Characters tab/screen foundation | [AI] | ⏳ Pending |
-| E5-02 | Character list | [AI] | ⏳ Pending |
-| E5-03 | Add / edit / delete character | [BOTH] | ⏳ Pending |
-| E5-04 | Character attributes: add/edit/delete key + default value | [BOTH] | ⏳ Pending |
-| E5-05 | Resources tab/screen foundation | [AI] | ⏳ Pending |
-| E5-06 | Resource list | [AI] | ⏳ Pending |
-| E5-07 | Add / edit / delete resource: name + default value | [AI] | ⏳ Pending |
-| E5-08 | Validation for duplicate character/resource keys | [AI] | ⏳ Pending |
+| E5-01 | Characters tab/screen foundation | [AI] | ✅ Done |
+| E5-02 | Character list | [AI] | ✅ Done |
+| E5-03 | Add / edit / delete character | [BOTH] | ✅ Done |
+| E5-04 | Character attributes: add/edit/delete key + default value | [BOTH] | ✅ Done |
+| E5-05 | Resources tab/screen foundation | [AI] | ✅ Done |
+| E5-06 | Resource list | [AI] | ✅ Done |
+| E5-07 | Add / edit / delete resource: key + default value | [AI] | ✅ Done |
+| E5-08 | Validation for duplicate character/resource keys | [AI] | ✅ Done |
 
-Deliverable:
+Deliverable status:
 - Project has complete Characters and Resources data needed by Story Logic.
+- Character attributes are implemented as per-character numeric keyed values.
+- Resources are implemented as project-wide numeric keyed values.
+- Duplicate character attribute keys are resolved per character.
+- Duplicate resource keys are resolved project-wide.
+- Negative and decimal numeric defaults are supported.
 - No conditions/effects UI yet.
 
 ---
@@ -180,7 +185,9 @@ Deliverable:
 
 Notes:
 - Story Logic is separated from Characters & Resources because it is a larger module.
-- Conditions and effects should only begin after Characters & Resources are complete.
+- Conditions and effects should use already implemented Characters, Character Attributes, and Resources.
+- `Resource.key` is the canonical resource identifier field for editor UI and future logic UX.
+- Current TypeScript types include `Condition` and `Effect`, but the final product behavior should be reviewed before implementation.
 
 ---
 
@@ -249,6 +256,7 @@ Notes:
 | Advanced asset manager | Search, tags, folders, batch import |
 | Canvas auto-layout | Useful for large graphs |
 | Multiple node handle positions | Reconsider after graph complexity increases |
+| CharacterAttribute IDs | Consider before advanced Story Logic, import/export, or reorderable attributes |
 
 ---
 
@@ -256,12 +264,10 @@ Notes:
 
 1. **[PM]** writes spec / data model / acceptance criteria.
 2. **[AI]** implements according to spec.
-3. **[PM]** reviews architecture, flow, UX, and flags issues.
-4. **[AI]** fixes and refactors.
-5. **[MANUAL]** accepts product behavior after testing.
+3. **[PM]** reviews implementation after push.
+4. **[MANUAL]** validates important UX decisions in browser.
+5. Larger completed batches should update `ROADMAP.md`, `CONTEXT.md`, and when needed `docs/DATA_MODEL.md`.
 
-Rules:
+Important branch rule:
 - Work directly on `main`.
-- Do not create or target `dev`.
-- After confirmed task batches, update `ROADMAP.md` and `CONTEXT.md`.
-- Keep Codex prompts self-contained and written in English.
+- Do not create, use, or target `dev` unless the project owner explicitly changes the workflow.

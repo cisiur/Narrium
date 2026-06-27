@@ -73,6 +73,17 @@ Workflow:
   - `narrium_project_{id}`
 - Multiple local projects.
 
+#### Project Navigation
+
+- Project-level view state:
+  - `canvas`
+  - `characters`
+  - `resources`
+- Left project sidebar switches between Canvas, Characters, and Resources.
+- Opening a project defaults to Canvas.
+- Canvas keeps the right Scene Editor panel.
+- Characters and Resources use full-width main screens without the Scene Editor panel.
+
 #### Canvas Graph Editor
 
 - React Flow canvas.
@@ -134,27 +145,60 @@ Workflow:
   - one-level scene reference
   - placeholders for missing/no background
 
+#### Characters
+
+- Characters project view.
+- Character list.
+- Add character.
+- Rename character inline.
+- Delete character.
+- Character attributes section per character.
+- Add character attribute.
+- Rename attribute key inline.
+- Edit numeric attribute default value.
+- Negative and decimal attribute values are supported.
+- Invalid attribute values are stored as `0`.
+- Delete character attribute.
+- Duplicate attribute keys are resolved per character with suffixes such as `strength_2`, `strength_3`.
+- Character mutations use `workspaceStore.updateActiveProject()`.
+
+#### Resources
+
+- Resources project view.
+- Resource list.
+- Add resource.
+- Rename resource key inline.
+- Edit numeric resource default value.
+- Negative and decimal resource values are supported.
+- Invalid resource values are stored as `0`.
+- Delete resource.
+- Duplicate resource keys are resolved project-wide with suffixes such as `gold_2`, `gold_3`.
+- Resource mutations use `workspaceStore.updateActiveProject()`.
+
 ---
 
 ## Next Milestone
 
-### EPIC 5 — Characters & Resources
+### EPIC 6 — Story Logic
 
 Goal:
-Complete the data model and UI foundation required for later Story Logic.
+Allow authors to define declarative conditions and effects on choices.
 
-Next recommended work:
-1. Characters tab/screen foundation.
-2. Character list.
-3. Add/edit/delete character.
-4. Character attributes.
-5. Resources tab/screen foundation.
-6. Resource list.
-7. Add/edit/delete resource.
+Recommended next work:
+1. Condition data model review and final acceptance.
+2. Choice condition list UI foundation.
+3. Add/edit/delete resource conditions.
+4. Add/edit/delete character attribute conditions.
+5. Effect data model review and final acceptance.
+6. Choice effect list UI foundation.
+7. Add/edit/delete resource effects.
+8. Add/edit/delete character attribute effects.
 
 Important:
-- Do **not** start Conditions or Effects until Characters and Resources are implemented.
-- Story Logic is now a separate epic because it is more complex than the basic data setup.
+- Characters and Resources are now implemented.
+- Story Logic should use existing `Project.characters`, `Character.attributes`, and `Project.resources`.
+- Do not introduce scripting. Story Logic remains declarative.
+- Conditions and Effects already exist in the TypeScript model, but the UX still needs product review before implementation.
 
 ---
 
@@ -198,7 +242,7 @@ Dragging a new edge creates a new Choice.
 
 ### 4. Editors modify Project data
 
-Editor panels should call store actions that update the active Project.
+Editor panels and project data screens should call store actions that update the active Project.
 
 Do not duplicate persistence logic inside UI components.
 
@@ -219,7 +263,15 @@ Do not duplicate persistence logic inside UI components.
 
 After a mutation that changes scene graph data, call `syncFromProject()`.
 
-### 7. Keep implementation prompts scoped
+### 7. Characters and Resources do not need their own domain stores
+
+Character and Resource data belongs directly to `Project`.
+
+Characters and Resources screens should mutate data through `workspaceStore.updateActiveProject()`.
+
+UI-only state such as which row is being edited, which character is expanded, or which tab is active may live in local component state or small UI stores.
+
+### 8. Keep implementation prompts scoped
 
 Each Codex prompt should:
 - work directly on `main`
@@ -252,14 +304,14 @@ src/
     editor/
       SceneEditorPanel.tsx
 
-    player/
-      empty / future E7
-
     characters/
-      empty / future E5
+      CharactersScreen.tsx
 
     resources/
-      empty / future E5
+      ResourcesScreen.tsx
+
+    player/
+      empty / future E7
 
     assets/
       empty or future extraction area
@@ -267,6 +319,7 @@ src/
   store/
     workspaceStore.ts
     useCanvasStore.ts
+    useProjectViewStore.ts
 
   types/
     index.ts
@@ -281,6 +334,7 @@ Notes:
 - The background asset management UI currently lives inside `SceneEditorPanel.tsx`.
 - This is acceptable for MVP but may later be extracted into smaller components.
 - The right sidebar is currently used for scene editing and choice editing.
+- Characters and Resources are full-screen project views inside the project shell.
 
 ---
 
@@ -353,6 +407,23 @@ interface Choice {
   effects: Effect[];
 }
 
+interface Character {
+  id: string;
+  name: string;
+  attributes: CharacterAttribute[];
+}
+
+interface CharacterAttribute {
+  key: string;
+  defaultValue: number;
+}
+
+interface Resource {
+  id: string;
+  key: string;
+  defaultValue: number;
+}
+
 interface AssetLibraryItem {
   id: string;
   kind: 'background';
@@ -363,10 +434,7 @@ interface AssetLibraryItem {
 }
 ```
 
-Future structures already planned:
-- `Character`
-- `CharacterAttribute`
-- `Resource`
+Planned / partially modeled structures:
 - `Condition`
 - `Effect`
 - `RuntimeState`
@@ -405,7 +473,7 @@ Responsibilities:
 - React Flow nodes and edges
 - selected scene
 - selected choice
-- active view
+- active canvas/editor view
 - scene mutations
 - dialogue mutations
 - choice mutations
@@ -433,6 +501,24 @@ Known actions include:
 - `addBackgroundAsset(input)`
 - `deleteBackgroundAsset(assetId)`
 - `updateBackgroundAssetName(assetId, name)`
+
+### `useProjectViewStore.ts`
+
+Responsibilities:
+- UI-only project view selection.
+
+Known state:
+
+```typescript
+type ProjectView = 'canvas' | 'characters' | 'resources';
+```
+
+Known actions:
+- `setActiveProjectView(view)`
+
+Important:
+- This store must not contain domain data.
+- Project data remains in `Project` and is persisted via `workspaceStore`.
 
 ---
 
@@ -471,6 +557,72 @@ Clicking an edge:
 Changing target in Choice dropdown:
 - updates `choice.targetSceneId`
 - React Flow edge updates automatically after `syncFromProject()`
+
+---
+
+## Character Rules
+
+### Character
+
+Characters live in:
+
+```typescript
+project.characters
+```
+
+Each character stores:
+- `id`
+- `name`
+- `attributes`
+
+### Character attributes
+
+Attributes live in:
+
+```typescript
+character.attributes
+```
+
+Each attribute stores:
+- `key`
+- `defaultValue`
+
+Rules:
+- Attribute keys are unique within a single character.
+- Duplicate keys are resolved with numeric suffixes, e.g. `strength_2`.
+- Attribute default values are numeric.
+- Negative and decimal values are allowed.
+- Invalid numeric input should be stored as `0`.
+- Attribute keys are not required to be unique across different characters.
+
+---
+
+## Resource Rules
+
+Resources live in:
+
+```typescript
+project.resources
+```
+
+Each resource stores:
+- `id`
+- `key`
+- `defaultValue`
+
+Rules:
+- Resource keys are unique project-wide.
+- Duplicate keys are resolved with numeric suffixes, e.g. `gold_2`.
+- Resource default values are numeric.
+- Negative and decimal values are allowed.
+- Invalid numeric input should be stored as `0`.
+- Use `Resource.key`, not `Resource.name`.
+
+Examples:
+- `gold`
+- `health`
+- `energy`
+- `reputation`
 
 ---
 
@@ -547,6 +699,7 @@ When a background asset is deleted:
 | Storage | localStorage for MVP |
 | Multiple projects | Yes |
 | Active project navigation | My Projects is the hub; project can be closed without deletion |
+| Project views | Canvas, Characters, Resources |
 | Project rename | From My Projects screen |
 | Canvas header | Shows active project name |
 | Edge model | Edge is projection of Choice, not a domain object |
@@ -557,7 +710,11 @@ When a background asset is deleted:
 | Asset storage | Project-level Asset Library |
 | Uploaded image storage | Data URL inside project JSON for MVP |
 | Scene reference thumbnails | One level only |
-| Conditions/effects | Declarative, future Story Logic epic |
+| Characters | Project-level list with numeric attributes |
+| Character attributes | Per-character numeric keyed values |
+| Resources | Project-wide numeric keyed values |
+| Resource field name | `key`, not `name` |
+| Conditions/effects | Declarative, next Story Logic epic |
 | First scene | `Project.startSceneId`; set to first created scene |
 | Free-tier limit | Counts scenes only, future |
 | Exported player | Future standalone HTML with embedded project JSON |
@@ -569,6 +726,7 @@ When a background asset is deleted:
 | Issue | Severity | Notes |
 |---|---|---|
 | `startSceneId: ''` | Low | Empty string instead of `null`; acceptable for now |
+| New projects start with no starter scene | Low/Medium | `DATA_MODEL.md` previously recommended one starter scene; current code allows empty projects |
 | Large uploads can fill localStorage | Medium | Future compression/resizing or storage strategy needed |
 | Background editor is large | Low/Medium | Consider extracting components or tabs later |
 | Asset Library always visible inside Background section | Low | Acceptable for MVP |
@@ -578,6 +736,7 @@ When a background asset is deleted:
 | No undo/redo | Medium | Future Polish epic |
 | Scene groups not implemented | Low/Medium | Can wait until larger graphs |
 | AppShell sidebar placeholders are basic | Low | Polish later |
+| Character attributes have no `id` | Low/Medium | Current implementation uses index; consider `id` before logic references become complex |
 
 ---
 
@@ -585,29 +744,30 @@ When a background asset is deleted:
 
 ### Immediate next task
 
-Start **EPIC 5 — Characters & Resources**.
+Start **EPIC 6 — Story Logic**.
 
-Recommended first implementation task:
+Recommended first PM task:
 
 ```text
-E5-01 — Characters tab/screen foundation
+E6-01 — Condition data model review and final acceptance
 ```
 
 Goal:
-- Add a place in the app shell / sidebar to switch between Canvas and Characters.
-- Create basic Characters screen.
-- Do not implement conditions/effects yet.
+- Review whether current `Condition` and `Effect` models are sufficient.
+- Confirm how choices should reference Resources and Character attributes.
+- Confirm UX before implementation.
 
 ### After that
 
-1. Character list.
-2. Add/edit/delete character.
-3. Character attributes.
-4. Resources screen.
-5. Resource list.
-6. Add/edit/delete resource.
+1. Choice condition list UI foundation.
+2. Add/edit/delete resource conditions.
+3. Add/edit/delete character attribute conditions.
+4. Effect data model review and final acceptance.
+5. Choice effect list UI foundation.
+6. Add/edit/delete resource effects.
+7. Add/edit/delete character attribute effects.
 
-Only then start **EPIC 6 — Story Logic**.
+Only after Story Logic foundations should the project move to **EPIC 7 — Story Player**.
 
 ---
 

@@ -2,6 +2,8 @@
 
 This document defines the canonical data structures for Narrium. It is the primary reference for implementation in React, Zustand stores, player runtime, JSON import/export, and future migrations.
 
+---
+
 ## Principles
 
 - The model must be JSON-serializable without transformation.
@@ -9,6 +11,7 @@ This document defines the canonical data structures for Narrium. It is the prima
 - Scene logic is declarative only: conditions and effects, no scripting language.
 - Background assets are portable inside exported/imported project JSON.
 - Workspace metadata is stored separately from full project payload.
+- Characters and Resources are project data, not separate stores.
 
 ---
 
@@ -31,7 +34,7 @@ interface WorkspaceProjectMeta {
 #### Notes
 
 - `id` is the stable workspace-level project identifier.
-- `thumbnailDataUrl` is auto-generated from the start scene background by default, but the user can override it manually.
+- `thumbnailDataUrl` is reserved for project previews.
 - The full project is stored separately under `narrium_project_{id}`.
 
 ---
@@ -76,8 +79,11 @@ interface Project {
 #### Notes
 
 - `startSceneId` is the story entry point for preview and export.
+- Current implementation allows `startSceneId` to be an empty string when the project has no scenes yet.
 - `groups` are canvas-only organizational containers in MVP.
 - `assetLibrary` stores reusable project-level backgrounds.
+- `characters` stores project-level speaker/logic entities.
+- `resources` stores project-wide numeric variables.
 - `updatedAt` must be refreshed on every meaningful editor change.
 
 ---
@@ -172,6 +178,7 @@ interface DialoguePage {
 #### Notes
 
 - `speakerId = null` means narrator text.
+- When `speakerId` is set, it should point to `Character.id`.
 - Pages are displayed sequentially before choices appear.
 - Order in the array is significant.
 
@@ -194,8 +201,81 @@ interface Choice {
 - `targetSceneId = null` means the choice is not connected yet and should be flagged by validation.
 - `conditions` must all pass for the choice to be available.
 - `effects` are applied immediately after the choice is selected.
+- Conditions and effects are currently modeled but not implemented in UI yet.
 
 ---
+
+## Character and resource models
+
+### Character
+
+```typescript
+interface Character {
+  id: string;
+  name: string;
+  attributes: CharacterAttribute[];
+}
+```
+
+#### Notes
+
+- Characters can be used as dialogue speakers.
+- Characters can later be used as logic targets.
+- `name` is user-facing display text.
+- Characters are stored in `Project.characters`.
+
+---
+
+### CharacterAttribute
+
+```typescript
+interface CharacterAttribute {
+  key: string;
+  defaultValue: number;
+}
+```
+
+#### Notes
+
+- Character attributes are flexible numeric stats, e.g. `reputation`, `trust`, `fear`.
+- `key` is the logic-facing identifier within a character.
+- `defaultValue` seeds runtime state at story start.
+- Negative and decimal default values are allowed.
+- Invalid numeric editor input should be stored as `0`.
+- Attribute keys must be unique within a single character.
+- Attribute keys do not need to be unique across different characters.
+- Duplicate attribute keys should be resolved with suffixes such as `trust_2`, `trust_3`.
+- Current implementation identifies attributes by array index. Consider adding an `id` field before advanced Story Logic, reordering, or migration-sensitive references.
+
+---
+
+### Resource
+
+```typescript
+interface Resource {
+  id: string;
+  key: string;
+  defaultValue: number;
+}
+```
+
+#### Notes
+
+- Resources are project-global numeric values, e.g. `gold`, `health`, `energy`.
+- Resources are stored in `Project.resources`.
+- `key` is the canonical logic-facing identifier.
+- Use `Resource.key`, not `Resource.name`.
+- `defaultValue` seeds runtime state at story start.
+- Negative and decimal default values are allowed.
+- Invalid numeric editor input should be stored as `0`.
+- Resource keys must be unique project-wide.
+- Duplicate resource keys should be resolved with suffixes such as `gold_2`, `gold_3`.
+
+---
+
+## Story logic models
+
+Story Logic is planned in EPIC 6. The current model already contains `Condition` and `Effect`, but product behavior and UX should be reviewed before implementation.
 
 ### Condition
 
@@ -215,7 +295,9 @@ interface Condition {
 
 - `type='resource'` uses `targetId = Resource.id`.
 - `type='character_attr'` uses `targetId = Character.id` and requires `attribute`.
+- For `character_attr`, `attribute` currently refers to `CharacterAttribute.key`.
 - `hintText` is shown when the condition is not met; the choice stays visible but disabled.
+- Future implementation should validate references after resource, character, or attribute deletion.
 
 ---
 
@@ -235,47 +317,12 @@ interface Effect {
 #### Notes
 
 - Effects modify runtime state only.
+- `type='resource'` uses `targetId = Resource.id`.
+- `type='character_attr'` uses `targetId = Character.id` and requires `attribute`.
+- For `character_attr`, `attribute` currently refers to `CharacterAttribute.key`.
 - `operation='='` sets an absolute value.
 - Multiple effects can be attached to one choice.
-
----
-
-## Character and resource models
-
-### Character
-
-```typescript
-interface Character {
-  id: string;
-  name: string;
-  attributes: CharacterAttribute[];
-}
-```
-
-### CharacterAttribute
-
-```typescript
-interface CharacterAttribute {
-  key: string;
-  defaultValue: number;
-}
-```
-
-### Resource
-
-```typescript
-interface Resource {
-  id: string;
-  name: string;
-  defaultValue: number;
-}
-```
-
-#### Notes
-
-- Character attributes are flexible numeric stats, e.g. `reputation`, `trust`, `fear`.
-- Resources are project-global numeric values, e.g. `gold`, `health`, `energy`.
-- These defaults seed the runtime state at story start.
+- Future implementation should validate references after resource, character, or attribute deletion.
 
 ---
 
@@ -335,6 +382,16 @@ interface RuntimeState {
 }
 ```
 
+#### Notes
+
+- Runtime state is built from `Project` defaults when preview starts.
+- `variables.resources` should be seeded from `Project.resources`.
+- `variables.characterAttrs` should be seeded from `Project.characters[].attributes`.
+- Resource runtime keys should be derived from `Resource.key`.
+- Character attribute runtime keys should be derived from `CharacterAttribute.key`.
+
+---
+
 ### RuntimeSaveSlot
 
 ```typescript
@@ -347,7 +404,6 @@ interface RuntimeSaveSlot {
 
 #### Notes
 
-- Runtime state is built from `Project` defaults when preview starts.
 - `saveSlots` exist only when save/load is enabled.
 - Exported HTML player persists slots using localStorage.
 
@@ -367,13 +423,15 @@ interface RuntimeSaveSlot {
 
 A valid project should satisfy all of the following:
 
-- `Project.startSceneId` points to an existing scene.
+- `Project.startSceneId` points to an existing scene, unless the project has no scenes yet.
 - Every `Scene.id`, `Choice.id`, `DialoguePage.id`, `Character.id`, `Resource.id`, `SceneGroup.id`, and `AssetLibraryItem.id` is unique within its collection.
 - Every `Choice.targetSceneId`, when present, points to an existing scene.
 - Every `Condition.targetId` and `Effect.targetId` points to an existing resource or character depending on type.
 - Every `Condition.attribute` / `Effect.attribute` for `character_attr` exists on the target character.
 - Every `Scene.groupId`, when present, points to an existing group.
 - Every `SceneBackground.assetId` or `sourceSceneId`, when used, points to an existing entity.
+- Every `CharacterAttribute.key` is unique within its character.
+- Every `Resource.key` is unique project-wide.
 
 ---
 
@@ -382,10 +440,18 @@ A valid project should satisfy all of the following:
 Recommended defaults when creating a new project:
 
 - Project name: `Untitled Project`
-- One starter scene created automatically
-- Starter scene becomes `startSceneId`
-- Empty character list
-- Empty resource list
-- Empty asset library
+- Empty scene list is currently allowed.
+- Empty character list.
+- Empty resource list.
+- Empty asset library.
 - `settings.allowSessionSaveLoad = true`
-- Auto-generated thumbnail from starter scene once a background is assigned
+- Auto-generated thumbnail from starter scene once a background is assigned in future.
+
+Recommended defaults when creating editor entities:
+
+- Character name: `New Character`
+- Character attributes: `[]`
+- Character attribute key: `New Attribute`
+- Character attribute default value: `0`
+- Resource key: `New Resource`
+- Resource default value: `0`

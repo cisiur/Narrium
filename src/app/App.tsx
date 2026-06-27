@@ -7,6 +7,7 @@ import { useWorkspaceStore } from '../store/workspaceStore';
 
 export function App() {
   const activeProject = useWorkspaceStore((state) => state.activeProject);
+  const closeProject = useWorkspaceStore((state) => state.closeProject);
   const addScene = useCanvasStore((state) => state.addScene);
 
   if (activeProject) {
@@ -14,6 +15,7 @@ export function App() {
       <AppShell
         isProjectOpen
         onAddScene={() => addScene('New Scene')}
+        onBackToProjects={closeProject}
         rightPanel={<SceneEditorPanel />}
       >
         <SceneCanvas />

@@ -213,20 +213,12 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
           return scene;
         }
 
-        const openChoice = scene.choices.find((choice) => !choice.targetSceneId);
-
-        if (openChoice) {
-          return {
-            ...scene,
-            choices: scene.choices.map((choice) =>
-              choice.id === openChoice.id ? { ...choice, targetSceneId: connection.target } : choice,
-            ),
-          };
-        }
+        const targetScene = scenes.find((item) => item.id === connection.target);
+        const choiceText = targetScene ? `Go to ${targetScene.name}` : 'New choice';
 
         return {
           ...scene,
-          choices: [...scene.choices, createChoice('New choice', connection.target)],
+          choices: [...scene.choices, createChoice(choiceText, connection.target)],
         };
       }),
     );

@@ -8,6 +8,7 @@ interface WorkspaceStore extends WorkspaceState {
   activeProject: Project | null;
   createProject: () => WorkspaceProjectMeta;
   openProject: (projectId: string) => void;
+  closeProject: () => void;
   updateActiveProject: (updater: (project: Project) => Project) => void;
 }
 
@@ -147,6 +148,21 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
       return {
         ...nextWorkspace,
         activeProject: project,
+      };
+    });
+  },
+  closeProject: () => {
+    set((state) => {
+      const nextWorkspace = {
+        projects: state.projects,
+        activeProjectId: null,
+      };
+
+      saveWorkspace(nextWorkspace);
+
+      return {
+        ...nextWorkspace,
+        activeProject: null,
       };
     });
   },

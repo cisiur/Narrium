@@ -5,9 +5,16 @@ interface AppShellProps {
   isProjectOpen?: boolean;
   rightPanel?: ReactNode;
   onAddScene?: () => void;
+  onBackToProjects?: () => void;
 }
 
-export function AppShell({ children, isProjectOpen = false, rightPanel, onAddScene }: AppShellProps) {
+export function AppShell({
+  children,
+  isProjectOpen = false,
+  rightPanel,
+  onAddScene,
+  onBackToProjects,
+}: AppShellProps) {
   return (
     <div className={isProjectOpen ? 'min-h-screen bg-gray-950 text-gray-100' : 'min-h-screen bg-parchment-50 text-ink-950'}>
       <header
@@ -30,13 +37,22 @@ export function AppShell({ children, isProjectOpen = false, rightPanel, onAddSce
         </div>
         <div className="flex items-center gap-2">
           {isProjectOpen ? (
-            <button
-              type="button"
-              onClick={onAddScene}
-              className="rounded bg-gray-700 px-2 py-1 text-xs font-medium text-gray-100 hover:bg-gray-600"
-            >
-              + Add Scene
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={onBackToProjects}
+                className="rounded bg-gray-800 px-2 py-1 text-xs font-medium text-gray-200 hover:bg-gray-700"
+              >
+                My Projects
+              </button>
+              <button
+                type="button"
+                onClick={onAddScene}
+                className="rounded bg-gray-700 px-2 py-1 text-xs font-medium text-gray-100 hover:bg-gray-600"
+              >
+                + Add Scene
+              </button>
+            </>
           ) : (
             <button
               type="button"

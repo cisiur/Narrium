@@ -86,7 +86,7 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneNodeData>) {
         selected ? 'border-blue-500 ring-2 ring-blue-500/30' : 'border-gray-600 hover:border-gray-400',
       ].join(' ')}
     >
-      <Handle type="target" position={Position.Top} className="!h-2 !w-2 !border-gray-300 !bg-gray-500" />
+      <Handle type="target" position={Position.Left} className="!h-2 !w-2 !border-gray-300 !bg-gray-500" />
       <div className="mb-2 h-20 overflow-hidden rounded-md border border-gray-700 bg-gray-900">
         {thumbnail.imageUrl ? (
           <img
@@ -111,7 +111,7 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneNodeData>) {
           {choiceCount} {choiceCount === 1 ? 'choice' : 'choices'}
         </span>
       </div>
-      <Handle type="source" position={Position.Bottom} className="!h-2 !w-2 !border-gray-300 !bg-blue-500" />
+      <Handle type="source" position={Position.Right} className="!h-2 !w-2 !border-gray-300 !bg-blue-500" />
     </div>
   );
 }

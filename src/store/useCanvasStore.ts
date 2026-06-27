@@ -32,6 +32,7 @@ interface CanvasStore {
   nodes: Node<SceneNodeData>[];
   edges: Edge[];
   selectedSceneId: string | null;
+  selectedChoiceId: string | null;
   activeView: CanvasView;
   onNodesChange: OnNodesChange;
   onEdgesChange: OnEdgesChange;
@@ -39,6 +40,8 @@ interface CanvasStore {
   addScene: (name: string) => void;
   deleteScene: (id: string) => void;
   selectScene: (id: string | null) => void;
+  selectChoice: (sceneId: string, choiceId: string) => void;
+  clearSelectedChoice: () => void;
   openEditor: (id: string) => void;
   syncFromProject: () => void;
   updateSceneName: (sceneId: string, name: string) => void;
@@ -158,6 +161,7 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
   nodes: [],
   edges: [],
   selectedSceneId: null,
+  selectedChoiceId: null,
   activeView: 'canvas',
   onNodesChange: (changes: NodeChange[]) => {
     set((state) => ({
@@ -246,6 +250,7 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
 
     set({
       selectedSceneId: scene.id,
+      selectedChoiceId: null,
       activeView: 'editor',
     });
     get().syncFromProject();
@@ -264,6 +269,7 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
 
     set({
       selectedSceneId: null,
+      selectedChoiceId: null,
       activeView: 'canvas',
     });
     get().syncFromProject();
@@ -271,6 +277,7 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
   selectScene: (id: string | null) => {
     set((state) => ({
       selectedSceneId: id,
+      selectedChoiceId: null,
       activeView: id ? 'editor' : 'canvas',
       nodes: state.nodes.map((node) => ({
         ...node,
@@ -278,9 +285,22 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
       })),
     }));
   },
+  selectChoice: (sceneId: string, choiceId: string) => {
+    set({
+      selectedSceneId: sceneId,
+      selectedChoiceId: choiceId,
+      activeView: 'editor',
+    });
+  },
+  clearSelectedChoice: () => {
+    set({
+      selectedChoiceId: null,
+    });
+  },
   openEditor: (id: string) => {
     set((state) => ({
       selectedSceneId: id,
+      selectedChoiceId: null,
       activeView: 'editor',
       nodes: state.nodes.map((node) => ({
         ...node,
@@ -297,6 +317,7 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
         nodes: [],
         edges: [],
         selectedSceneId: null,
+        selectedChoiceId: null,
         activeView: 'canvas',
       });
       return;
@@ -304,11 +325,18 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
 
     const selectedSceneExists = activeProject.scenes.some((scene) => scene.id === selectedSceneId);
     const nextSelectedSceneId = selectedSceneExists ? selectedSceneId : null;
+    const selectedChoiceId = get().selectedChoiceId;
+    const selectedChoiceExists = activeProject.scenes.some(
+      (scene) =>
+        scene.id === nextSelectedSceneId &&
+        scene.choices.some((choice) => choice.id === selectedChoiceId),
+    );
 
     set({
       nodes: buildNodes(activeProject.scenes, activeProject.assetLibrary, nextSelectedSceneId),
       edges: buildEdges(activeProject.scenes),
       selectedSceneId: nextSelectedSceneId,
+      selectedChoiceId: selectedChoiceExists ? selectedChoiceId : null,
       activeView: nextSelectedSceneId ? get().activeView : 'canvas',
     });
   },

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useCanvasStore } from '../../store/useCanvasStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import type { AssetLibraryItem, Choice, DialoguePage, Scene, SceneBackground } from '../../types';
@@ -523,18 +523,37 @@ interface ChoiceItemProps {
   choice: Choice;
   scene: Scene;
   scenes: Scene[];
+  isSelected: boolean;
   targetSceneName: string;
 }
 
-function ChoiceItem({ choice, scene, scenes, targetSceneName }: ChoiceItemProps) {
+function ChoiceItem({ choice, scene, scenes, isSelected, targetSceneName }: ChoiceItemProps) {
   const updateChoiceText = useCanvasStore((state) => state.updateChoiceText);
   const updateChoiceTarget = useCanvasStore((state) => state.updateChoiceTarget);
   const deleteChoice = useCanvasStore((state) => state.deleteChoice);
   const [isEditing, setIsEditing] = useState(false);
+  const choiceRef = useRef<HTMLDivElement | null>(null);
   const targetScenes = scenes.filter((candidate) => candidate.id !== scene.id);
 
+  useEffect(() => {
+    if (!isSelected) {
+      return;
+    }
+
+    choiceRef.current?.scrollIntoView({
+      block: 'center',
+      behavior: 'smooth',
+    });
+  }, [isSelected]);
+
   return (
-    <div className="rounded-md border border-gray-700 bg-gray-800/70 p-3">
+    <div
+      ref={choiceRef}
+      className={[
+        'rounded-md border p-3 transition-colors',
+        isSelected ? 'border-blue-500 bg-gray-700/80' : 'border-gray-700 bg-gray-800/70',
+      ].join(' ')}
+    >
       <div className="flex items-start justify-between gap-2">
         <button
           type="button"
@@ -592,6 +611,7 @@ function ChoiceItem({ choice, scene, scenes, targetSceneName }: ChoiceItemProps)
 export function SceneEditorPanel() {
   const activeProject = useWorkspaceStore((state) => state.activeProject);
   const selectedSceneId = useCanvasStore((state) => state.selectedSceneId);
+  const selectedChoiceId = useCanvasStore((state) => state.selectedChoiceId);
   const selectScene = useCanvasStore((state) => state.selectScene);
   const addDialoguePage = useCanvasStore((state) => state.addDialoguePage);
   const addChoice = useCanvasStore((state) => state.addChoice);
@@ -661,6 +681,7 @@ export function SceneEditorPanel() {
                       choice={choice}
                       scene={scene}
                       scenes={activeProject?.scenes ?? []}
+                      isSelected={selectedChoiceId === choice.id}
                       targetSceneName={targetScene ? `→ ${targetScene.name}` : '→ not connected'}
                     />
                   );

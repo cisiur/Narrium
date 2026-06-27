@@ -20,6 +20,7 @@ function SceneCanvasSurface() {
   const onEdgesChange = useCanvasStore((state) => state.onEdgesChange);
   const onConnect = useCanvasStore((state) => state.onConnect);
   const selectScene = useCanvasStore((state) => state.selectScene);
+  const selectChoice = useCanvasStore((state) => state.selectChoice);
   const syncFromProject = useCanvasStore((state) => state.syncFromProject);
   const nodeTypes = useMemo<NodeTypes>(() => ({ scene: SceneNode }), []);
 
@@ -37,6 +38,14 @@ function SceneCanvasSurface() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onEdgeClick={(event, edge) => {
+          event.stopPropagation();
+          const [sourceSceneId, choiceId] = edge.id.split(':');
+
+          if (sourceSceneId && choiceId) {
+            selectChoice(sourceSceneId, choiceId);
+          }
+        }}
         onPaneClick={() => selectScene(null)}
         fitView
       >

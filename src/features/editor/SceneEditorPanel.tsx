@@ -1,7 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { useCanvasStore } from '../../store/useCanvasStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
-import type { AssetLibraryItem, Choice, ConditionGroup, DialoguePage, Scene, SceneBackground } from '../../types';
+import type {
+  AssetLibraryItem,
+  Choice,
+  Condition,
+  ConditionGroup,
+  DialoguePage,
+  Scene,
+  SceneBackground,
+} from '../../types';
 
 interface CollapsibleSectionProps {
   title: string;
@@ -534,6 +542,20 @@ function createConditionGroup(): ConditionGroup {
   };
 }
 
+function createCondition(): Condition {
+  return {
+    id: crypto.randomUUID(),
+    type: 'resource',
+    targetId: '',
+    attribute: undefined,
+    operator: '>=',
+    value: 0,
+    hintText: '',
+  };
+}
+
+const CONDITION_OPERATORS: Condition['operator'][] = ['>=', '<=', '==', '>', '<', '!='];
+
 interface ConditionGroupsEditorProps {
   choice: Choice;
   scene: Scene;
@@ -542,6 +564,10 @@ interface ConditionGroupsEditorProps {
 function ConditionGroupsEditor({ choice, scene }: ConditionGroupsEditorProps) {
   const updateActiveProject = useWorkspaceStore((state) => state.updateActiveProject);
   const conditionGroups = choice.conditionGroups ?? [];
+  const [editingConditionValue, setEditingConditionValue] = useState<{
+    conditionId: string;
+    value: string;
+  } | null>(null);
 
   const updateChoiceConditionGroups = (updater: (groups: ConditionGroup[]) => ConditionGroup[]) => {
     updateActiveProject((project) => ({
@@ -572,6 +598,69 @@ function ConditionGroupsEditor({ choice, scene }: ConditionGroupsEditorProps) {
     updateChoiceConditionGroups((groups) => groups.filter((group) => group.id !== conditionGroupId));
   };
 
+  const addCondition = (conditionGroupId: string) => {
+    updateChoiceConditionGroups((groups) =>
+      groups.map((group) =>
+        group.id === conditionGroupId
+          ? {
+              ...group,
+              conditions: [...group.conditions, createCondition()],
+            }
+          : group,
+      ),
+    );
+  };
+
+  const updateCondition = (
+    conditionGroupId: string,
+    conditionId: string,
+    updater: (condition: Condition) => Condition,
+  ) => {
+    updateChoiceConditionGroups((groups) =>
+      groups.map((group) =>
+        group.id === conditionGroupId
+          ? {
+              ...group,
+              conditions: group.conditions.map((condition) =>
+                condition.id === conditionId ? updater(condition) : condition,
+              ),
+            }
+          : group,
+      ),
+    );
+  };
+
+  const updateConditionValue = (conditionGroupId: string, conditionId: string, value: string) => {
+    const nextValue = Number(value);
+
+    setEditingConditionValue({
+      conditionId,
+      value,
+    });
+
+    updateCondition(conditionGroupId, conditionId, (condition) => ({
+      ...condition,
+      value: Number.isFinite(nextValue) ? nextValue : 0,
+    }));
+  };
+
+  const deleteCondition = (conditionGroupId: string, conditionId: string) => {
+    updateChoiceConditionGroups((groups) =>
+      groups.map((group) =>
+        group.id === conditionGroupId
+          ? {
+              ...group,
+              conditions: group.conditions.filter((condition) => condition.id !== conditionId),
+            }
+          : group,
+      ),
+    );
+
+    if (editingConditionValue?.conditionId === conditionId) {
+      setEditingConditionValue(null);
+    }
+  };
+
   return (
     <section className="mt-4 border-t border-gray-700 pt-3">
       <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-300">Conditions</div>
@@ -596,7 +685,115 @@ function ConditionGroupsEditor({ choice, scene }: ConditionGroupsEditorProps) {
               </div>
               {group.conditions.length === 0 ? (
                 <p className="mt-3 text-xs text-gray-500">No conditions</p>
-              ) : null}
+              ) : (
+                <div className="mt-3 space-y-2">
+                  {group.conditions.map((condition) => (
+                    <div
+                      key={condition.id}
+                      className="space-y-2 rounded-md border border-gray-700 bg-gray-950 p-2"
+                    >
+                      <div className="grid grid-cols-2 gap-2">
+                        <label className="block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                          Type
+                          <input
+                            type="text"
+                            value="Resource"
+                            disabled
+                            className="mt-1 w-full cursor-not-allowed rounded bg-gray-900 px-2 py-1.5 text-xs font-normal text-gray-400 outline-none ring-1 ring-gray-800"
+                          />
+                        </label>
+                        <label className="block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                          Target
+                          <input
+                            type="text"
+                            value="<Select resource...>"
+                            disabled
+                            className="mt-1 w-full cursor-not-allowed rounded bg-gray-900 px-2 py-1.5 text-xs font-normal text-gray-400 outline-none ring-1 ring-gray-800"
+                          />
+                        </label>
+                      </div>
+
+                      <div className="grid grid-cols-[4.5rem_1fr_auto] items-end gap-2">
+                        <label className="block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                          Operator
+                          <select
+                            value={condition.operator}
+                            onChange={(event) =>
+                              updateCondition(group.id, condition.id, (currentCondition) => ({
+                                ...currentCondition,
+                                operator: event.target.value as Condition['operator'],
+                              }))
+                            }
+                            className="mt-1 w-full rounded bg-gray-900 px-2 py-1.5 text-xs font-normal text-gray-100 outline-none ring-1 ring-gray-700 focus:ring-blue-500"
+                          >
+                            {CONDITION_OPERATORS.map((operator) => (
+                              <option key={operator} value={operator}>
+                                {operator}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+
+                        <label className="block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                          Value
+                          <input
+                            type="number"
+                            value={
+                              editingConditionValue?.conditionId === condition.id
+                                ? editingConditionValue.value
+                                : condition.value
+                            }
+                            onFocus={() =>
+                              setEditingConditionValue({
+                                conditionId: condition.id,
+                                value: String(condition.value),
+                              })
+                            }
+                            onBlur={() => setEditingConditionValue(null)}
+                            onChange={(event) =>
+                              updateConditionValue(group.id, condition.id, event.target.value)
+                            }
+                            className="mt-1 w-full rounded bg-gray-900 px-2 py-1.5 text-xs font-normal text-gray-100 outline-none ring-1 ring-gray-700 focus:ring-blue-500"
+                          />
+                        </label>
+
+                        <button
+                          type="button"
+                          onClick={() => deleteCondition(group.id, condition.id)}
+                          className="rounded bg-gray-800 px-2 py-1.5 text-xs font-medium text-gray-200 hover:bg-red-950 hover:text-red-100"
+                          aria-label="Delete condition"
+                          title="Delete condition"
+                        >
+                          🗑
+                        </button>
+                      </div>
+
+                      <label className="block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                        Hint
+                        <input
+                          type="text"
+                          value={condition.hintText}
+                          onChange={(event) =>
+                            updateCondition(group.id, condition.id, (currentCondition) => ({
+                              ...currentCondition,
+                              hintText: event.target.value,
+                            }))
+                          }
+                          className="mt-1 w-full rounded bg-gray-900 px-2 py-1.5 text-xs font-normal text-gray-100 outline-none ring-1 ring-gray-700 focus:ring-blue-500"
+                          placeholder="Optional hint"
+                        />
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => addCondition(group.id)}
+                className="mt-3 rounded bg-gray-800 px-2 py-1 text-xs font-medium text-gray-100 hover:bg-gray-700"
+              >
+                + Add Condition
+              </button>
             </div>
           ))}
         </div>

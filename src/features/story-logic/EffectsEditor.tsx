@@ -18,8 +18,10 @@ interface EffectsEditorProps {
 }
 
 export function EffectsEditor({ choice, scene }: EffectsEditorProps) {
+  const activeProject = useWorkspaceStore((state) => state.activeProject);
   const updateActiveProject = useWorkspaceStore((state) => state.updateActiveProject);
   const effects = choice.effects ?? [];
+  const resources = activeProject?.resources ?? [];
 
   const updateChoiceEffects = (updater: (effects: Effect[]) => Effect[]) => {
     updateActiveProject((project) => ({
@@ -52,6 +54,12 @@ export function EffectsEditor({ choice, scene }: EffectsEditorProps) {
     );
   };
 
+  const updateEffect = (effectId: string, updater: (effect: Effect) => Effect) => {
+    updateChoiceEffects((currentEffects) =>
+      currentEffects.map((effect) => (effect.id === effectId ? updater(effect) : effect)),
+    );
+  };
+
   return (
     <section className="mt-4 border-t border-gray-700 pt-3">
       <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-300">Effects</div>
@@ -67,6 +75,8 @@ export function EffectsEditor({ choice, scene }: EffectsEditorProps) {
               key={effect.id}
               effect={effect}
               index={index}
+              resources={resources}
+              onUpdateEffect={updateEffect}
               onDeleteEffect={deleteEffect}
             />
           ))}

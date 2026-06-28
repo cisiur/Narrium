@@ -710,6 +710,33 @@ function ConditionGroupsEditor({ choice, scene }: ConditionGroupsEditorProps) {
     return null;
   };
 
+  const getCharacterAttributeConditionWarning = (
+    condition: Condition,
+    selectedCharacter: (typeof characters)[number] | null,
+  ) => {
+    if (condition.type !== 'character_attr') {
+      return null;
+    }
+
+    if (condition.targetId === '') {
+      return '⚠ Select a character';
+    }
+
+    if (!selectedCharacter) {
+      return '⚠ Referenced character no longer exists';
+    }
+
+    if (!condition.attribute) {
+      return '⚠ Select an attribute';
+    }
+
+    if (!selectedCharacter.attributes.some((attribute) => attribute.key === condition.attribute)) {
+      return '⚠ Referenced attribute no longer exists';
+    }
+
+    return null;
+  };
+
   const deleteCondition = (conditionGroupId: string, conditionId: string) => {
     updateChoiceConditionGroups((groups) =>
       groups.map((group) =>
@@ -759,7 +786,9 @@ function ConditionGroupsEditor({ choice, scene }: ConditionGroupsEditorProps) {
                         ? characters.find((character) => character.id === condition.targetId) ?? null
                         : null;
                     const characterAttributes = selectedCharacter?.attributes ?? [];
-                    const resourceConditionWarning = getResourceConditionWarning(condition);
+                    const conditionWarning =
+                      getResourceConditionWarning(condition) ??
+                      getCharacterAttributeConditionWarning(condition, selectedCharacter);
 
                     return (
                       <div
@@ -838,9 +867,9 @@ function ConditionGroupsEditor({ choice, scene }: ConditionGroupsEditorProps) {
                           ) : null}
                         </div>
 
-                        {resourceConditionWarning ? (
+                        {conditionWarning ? (
                           <div className="rounded border border-yellow-700/70 bg-yellow-950/40 px-3 py-2 text-xs font-medium text-yellow-200">
-                            {resourceConditionWarning}
+                            {conditionWarning}
                           </div>
                         ) : null}
 

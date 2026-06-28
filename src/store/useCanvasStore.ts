@@ -75,7 +75,7 @@ function createChoice(text = 'New choice', targetSceneId: string | null = null):
     id: createId('choice'),
     text,
     targetSceneId,
-    conditions: [],
+    conditionGroups: [],
     effects: [],
   };
 }

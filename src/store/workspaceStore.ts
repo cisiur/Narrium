@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { Project, WorkspaceProjectMeta, WorkspaceState } from '../types';
+import { normalizeProject } from './projectMigrations';
 
 const WORKSPACE_STORAGE_KEY = 'narrium_workspace';
 const PROJECT_STORAGE_PREFIX = 'narrium_project_';
@@ -91,7 +92,14 @@ function loadProject(projectId: string | null): Project | null {
   }
 
   try {
-    return JSON.parse(rawProject) as Project;
+    const parsedProject = JSON.parse(rawProject) as Project;
+    const normalizedProject = normalizeProject(parsedProject);
+
+    if (normalizedProject.changed) {
+      saveProject(normalizedProject.project);
+    }
+
+    return normalizedProject.project;
   } catch {
     return null;
   }

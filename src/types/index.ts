@@ -52,8 +52,13 @@ export interface Choice {
   id: string;
   text: string;
   targetSceneId: string | null;
-  conditions: Condition[];
+  conditionGroups: ConditionGroup[];
   effects: Effect[];
+}
+
+export interface ConditionGroup {
+  id: string;
+  conditions: Condition[];
 }
 
 export interface Condition {

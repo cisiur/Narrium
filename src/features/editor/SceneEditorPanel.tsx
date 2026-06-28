@@ -670,6 +670,22 @@ function ConditionGroupsEditor({ choice, scene }: ConditionGroupsEditorProps) {
     }));
   };
 
+  const getResourceConditionWarning = (condition: Condition) => {
+    if (condition.type !== 'resource') {
+      return null;
+    }
+
+    if (condition.targetId === '') {
+      return '⚠ Select a resource';
+    }
+
+    if (!resources.some((resource) => resource.id === condition.targetId)) {
+      return '⚠ Referenced resource no longer exists';
+    }
+
+    return null;
+  };
+
   const deleteCondition = (conditionGroupId: string, conditionId: string) => {
     updateChoiceConditionGroups((groups) =>
       groups.map((group) =>
@@ -763,6 +779,12 @@ function ConditionGroupsEditor({ choice, scene }: ConditionGroupsEditorProps) {
                           </label>
                         ) : null}
                       </div>
+
+                      {getResourceConditionWarning(condition) ? (
+                        <div className="rounded border border-yellow-700/70 bg-yellow-950/40 px-3 py-2 text-xs font-medium text-yellow-200">
+                          {getResourceConditionWarning(condition)}
+                        </div>
+                      ) : null}
 
                       {condition.type === 'character_attr' ? (
                         <div className="rounded border border-dashed border-gray-700 bg-gray-900 px-3 py-2 text-xs text-gray-500">

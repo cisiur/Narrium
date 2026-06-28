@@ -1,6 +1,6 @@
 # Roadmap — Narrium
 
-> **Version:** v3 documentation refresh after EPIC 5  
+> **Version:** v4 documentation refresh after EPIC 6 Conditions  
 > **Workflow:** active development happens directly on `main`. Do not use a `dev` branch unless the project owner explicitly changes this workflow.
 
 ---
@@ -25,19 +25,29 @@ Scene Editor Basics        ██████████ 100%
 Background System          ██████████ 100%
 Canvas / Choice UX         ██████████ 100%
 Characters & Resources     ██████████ 100%
-Story Logic                ░░░░░░░░░░   0%
+Story Logic — Conditions   ██████████ 100%
+Story Logic — Effects      ░░░░░░░░░░   0%
 Story Player               ░░░░░░░░░░   0%
 Save / Export              █░░░░░░░░░  15%
 Polish & Production UX     ██░░░░░░░░  20%
 ```
 
-Current state: the project has a usable local multi-project workspace, a React Flow scene graph editor, a right-side scene editor, a complete background system, asset library support, SceneNode thumbnails, choice target editing, edge-to-choice navigation, project-level Characters management, Character attributes, and project-level Resources management.
+Current state: the project has a usable local multi-project workspace, a React Flow scene graph editor, a right-side scene editor, a complete background system, asset library support, SceneNode thumbnails, choice target editing, edge-to-choice navigation, project-level Characters management, Character attributes, project-level Resources management, and a complete MVP editor for Story Logic Conditions.
+
+Story Logic Conditions currently support:
+- OR condition groups
+- AND conditions inside each group
+- Resource conditions
+- Character Attribute conditions
+- operator/value/hint editing
+- visual validation warnings for missing/deleted references
+- compatibility migration from legacy `Choice.conditions` to `Choice.conditionGroups`
+
+Story Logic Effects, runtime evaluation, and Story Player are still pending.
 
 ---
 
 ## EPIC 0 — Documentation & Foundation
-
-> Goal: define the product, data model, screens, and technical foundation.
 
 | ID | Task | Who | Status |
 |---|---|---|---|
@@ -54,8 +64,6 @@ Current state: the project has a usable local multi-project workspace, a React F
 
 ## EPIC 1 — Workspace & Project Management
 
-> Goal: user can manage multiple local projects and open one active project on the canvas.
-
 | ID | Task | Who | Status |
 |---|---|---|---|
 | E1-01 | My Projects screen: project cards grid | [AI] | ✅ Done |
@@ -69,16 +77,9 @@ Current state: the project has a usable local multi-project workspace, a React F
 | E1-09 | Duplicate project | [AI] | ⏳ Pending |
 | E1-10 | Project thumbnail preview in My Projects | [BOTH] | ⏳ Pending |
 
-Notes:
-- Active project can be closed by setting `activeProjectId` and `activeProject` to `null`.
-- Closing a project does not delete project data.
-- My Projects is the project hub.
-
 ---
 
 ## EPIC 2 — Canvas Graph Editor
-
-> Goal: user can create, arrange, connect, and inspect story scenes on a visual graph.
 
 | ID | Task | Who | Status |
 |---|---|---|---|
@@ -102,8 +103,6 @@ Architecture note:
 
 ## EPIC 3 — Scene Editor Panel
 
-> Goal: author can configure a selected scene from the right sidebar.
-
 | ID | Task | Who | Status |
 |---|---|---|---|
 | E3-01 | Right sidebar panel: opens on scene select, closes on deselect, slide-in transition | [AI] | ✅ Done |
@@ -119,8 +118,6 @@ Architecture note:
 
 ## EPIC 4 — Background System
 
-> Goal: each scene can have a reusable visual background source and node thumbnail.
-
 | ID | Task | Who | Status |
 |---|---|---|---|
 | E4-01 | Background Picker Core: None / URL / Upload / Scene Reference | [BOTH] | ✅ Done |
@@ -132,17 +129,9 @@ Architecture note:
 | E4-07 | Asset search/filtering for large libraries | [AI] | Backlog |
 | E4-08 | Image compression / resizing before localStorage save | [BOTH] | Backlog |
 
-Notes:
-- Background modes: `none`, `url`, `upload`, `asset`, `scene_reference`.
-- Uploaded images are stored as Data URLs inside project JSON for MVP.
-- Asset Library belongs to `Project`.
-- Scene stores `assetId`, not duplicated asset data.
-
 ---
 
 ## EPIC 5 — Characters & Resources
-
-> Goal: author can define characters and global resources used later by story logic.
 
 | ID | Task | Who | Status |
 |---|---|---|---|
@@ -153,7 +142,7 @@ Notes:
 | E5-05 | Resources tab/screen foundation | [AI] | ✅ Done |
 | E5-06 | Resource list | [AI] | ✅ Done |
 | E5-07 | Add / edit / delete resource: key + default value | [AI] | ✅ Done |
-| E5-08 | Validation for duplicate character/resource keys | [AI] | ✅ Done |
+| E5-08 | Validation for duplicate character attribute/resource keys | [AI] | ✅ Done |
 
 Deliverable status:
 - Project has complete Characters and Resources data needed by Story Logic.
@@ -162,38 +151,69 @@ Deliverable status:
 - Duplicate character attribute keys are resolved per character.
 - Duplicate resource keys are resolved project-wide.
 - Negative and decimal numeric defaults are supported.
-- No conditions/effects UI yet.
 
 ---
 
 ## EPIC 6 — Story Logic
 
-> Goal: author can define declarative conditions and effects on choices.
+### EPIC 6A — Conditions
 
 | ID | Task | Who | Status |
 |---|---|---|---|
-| E6-01 | Condition data model review and final acceptance | [PM] | ⏳ Pending |
-| E6-02 | Choice condition list UI | [BOTH] | ⏳ Pending |
-| E6-03 | Add/edit/delete resource conditions | [BOTH] | ⏳ Pending |
-| E6-04 | Add/edit/delete character attribute conditions | [BOTH] | ⏳ Pending |
-| E6-05 | Effect data model review and final acceptance | [PM] | ⏳ Pending |
-| E6-06 | Choice effect list UI | [BOTH] | ⏳ Pending |
-| E6-07 | Add/edit/delete resource effects | [BOTH] | ⏳ Pending |
-| E6-08 | Add/edit/delete character attribute effects | [BOTH] | ⏳ Pending |
-| E6-09 | Validation for deleted resource/character references | [AI] | ⏳ Pending |
-| E6-10 | Inline warning for choices with invalid logic references | [AI] | ⏳ Pending |
+| E6-01 | Condition data model review and final acceptance | [PM] | ✅ Done |
+| E6-02 | Introduce `ConditionGroup` data model and legacy `conditions` migration | [AI] | ✅ Done |
+| E6-03 | Choice condition groups UI foundation | [AI] | ✅ Done |
+| E6-04 | Condition row editor foundation | [AI] | ✅ Done |
+| E6-05 | Resource condition selector | [AI] | ✅ Done |
+| E6-06 | Resource condition validation warnings | [AI] | ✅ Done |
+| E6-07 | Character Attribute condition selector | [AI] | ✅ Done |
+| E6-08 | Character Attribute condition validation warnings | [AI] | ✅ Done |
+| E6-09 | Refactor condition editor components into `src/features/story-logic/` | [AI] | ✅ Done |
+
+Deliverable status:
+- Condition groups implement OR between groups and AND inside a group.
+- `Choice.conditionGroups` is now the canonical model.
+- Legacy `Choice.conditions` is migrated on project load for localStorage compatibility.
+- Resource conditions can select Project Resources by `Resource.id` while displaying `Resource.key`.
+- Character Attribute conditions can select Character by `Character.id` and attribute by `CharacterAttribute.key`.
+- Operators supported: `>=`, `<=`, `==`, `>`, `<`, `!=`.
+- Numeric condition values support integers, decimals, and negative numbers.
+- Hint text is editable per condition.
+- Inline visual warnings exist for missing/deleted resource, character, and attribute references.
+- Validation is visual only.
+- Runtime evaluation is not implemented yet.
+
+### EPIC 6B — Effects
+
+| ID | Task | Who | Status |
+|---|---|---|---|
+| E6-10 | Effect data model review and final acceptance | [PM] | ⏳ Pending |
+| E6-11 | Choice effects UI foundation | [BOTH] | ⏳ Pending |
+| E6-12 | Add/edit/delete resource effects | [BOTH] | ⏳ Pending |
+| E6-13 | Add/edit/delete character attribute effects | [BOTH] | ⏳ Pending |
+| E6-14 | Effects validation for deleted/missing references | [AI] | ⏳ Pending |
+
+### EPIC 6C — Logic Runtime Helpers
+
+| ID | Task | Who | Status |
+|---|---|---|---|
+| E6-15 | Runtime condition evaluation helper: `isChoiceAvailable` | [BOTH] | ⏳ Pending |
+| E6-16 | Unavailable choice hint resolution helper | [BOTH] | ⏳ Pending |
+| E6-17 | Runtime effect application helper: `applyEffects` | [BOTH] | ⏳ Pending |
 
 Notes:
 - Story Logic is separated from Characters & Resources because it is a larger module.
 - Conditions and effects should use already implemented Characters, Character Attributes, and Resources.
-- `Resource.key` is the canonical resource identifier field for editor UI and future logic UX.
-- Current TypeScript types include `Condition` and `Effect`, but the final product behavior should be reviewed before implementation.
+- `Resource.key` is the canonical editor-facing resource identifier.
+- Resource conditions/effects store `Resource.id`.
+- Character Attribute conditions/effects store `Character.id` and `CharacterAttribute.key`.
+- Follow `docs/STORY_LOGIC.md`.
+- Each proposed task should indicate which roadmap item and `STORY_LOGIC.md` section it implements.
+- Large roadmap items may be split into smaller implementation tasks, but the functional order should stay aligned with this roadmap and `STORY_LOGIC.md`.
 
 ---
 
 ## EPIC 7 — Story Player
-
-> Goal: author can preview/play the story in-browser.
 
 | ID | Task | Who | Status |
 |---|---|---|---|
@@ -212,8 +232,6 @@ Notes:
 
 ## EPIC 8 — Save, Load, Export
 
-> Goal: author can save, import/export, and eventually package a playable story.
-
 | ID | Task | Who | Status |
 |---|---|---|---|
 | E8-01 | Auto-save active project to `narrium_project_{id}` | [AI] | ✅ Done |
@@ -225,8 +243,6 @@ Notes:
 ---
 
 ## EPIC 9 — Polish & Production UX
-
-> Goal: smooth, production-quality UX before first public demo.
 
 | ID | Task | Who | Status |
 |---|---|---|---|
@@ -252,22 +268,38 @@ Notes:
 | Sound/music per scene | Add audio fields to Scene |
 | Character portraits in player | Add portrait fields to Character |
 | Localization/multi-language story variants | Larger post-MVP feature |
-| Branching analytics | Requires runtime event tracking |
-| Advanced asset manager | Search, tags, folders, batch import |
-| Canvas auto-layout | Useful for large graphs |
-| Multiple node handle positions | Reconsider after graph complexity increases |
-| CharacterAttribute IDs | Consider before advanced Story Logic, import/export, or reorderable attributes |
+| Branching analytics | Track where players go |
+| Templates | Starter story templates |
+| AI-assisted authoring | Generate scenes, dialogue, conditions |
+| Scene graph auto-layout | Useful for large projects |
+| Search across scenes | Needed for large stories |
+| Story validation report | Missing backgrounds, broken links, invalid logic |
+| Versioned project schema migrations | Useful after import/export and public releases |
 
 ---
 
-## Workflow Rules
+## Immediate Next Recommendation
 
-1. **[PM]** writes spec / data model / acceptance criteria.
-2. **[AI]** implements according to spec.
-3. **[PM]** reviews implementation after push.
-4. **[MANUAL]** validates important UX decisions in browser.
-5. Larger completed batches should update `ROADMAP.md`, `CONTEXT.md`, and when needed `docs/DATA_MODEL.md`.
+Next recommended task:
 
-Important branch rule:
-- Work directly on `main`.
-- Do not create, use, or target `dev` unless the project owner explicitly changes the workflow.
+```text
+E6-10 — Effect data model review and final acceptance
+```
+
+Relevant spec section:
+
+```text
+docs/STORY_LOGIC.md
+Section 9 — Effects
+Section 10 — Effect Application
+Section 15 — Data Model Recommendation for EPIC 6
+```
+
+Suggested PM focus:
+- Confirm current `Effect` model is still acceptable.
+- Confirm effect operations: `+=`, `-=`, `=`.
+- Confirm resource effects store `Resource.id`.
+- Confirm character attribute effects store `Character.id` + `CharacterAttribute.key`.
+- Confirm effects are applied in array order.
+- Confirm invalid effects are skipped at runtime and warned in editor.
+- Only after this confirmation, proceed to Effects UI foundation.

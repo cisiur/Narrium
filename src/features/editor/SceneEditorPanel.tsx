@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useCanvasStore } from '../../store/useCanvasStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
-import type { AssetLibraryItem, Choice, DialoguePage, Scene, SceneBackground } from '../../types';
+import type { AssetLibraryItem, Choice, ConditionGroup, DialoguePage, Scene, SceneBackground } from '../../types';
 
 interface CollapsibleSectionProps {
   title: string;
@@ -527,6 +527,92 @@ interface ChoiceItemProps {
   targetSceneName: string;
 }
 
+function createConditionGroup(): ConditionGroup {
+  return {
+    id: crypto.randomUUID(),
+    conditions: [],
+  };
+}
+
+interface ConditionGroupsEditorProps {
+  choice: Choice;
+  scene: Scene;
+}
+
+function ConditionGroupsEditor({ choice, scene }: ConditionGroupsEditorProps) {
+  const updateActiveProject = useWorkspaceStore((state) => state.updateActiveProject);
+  const conditionGroups = choice.conditionGroups ?? [];
+
+  const updateChoiceConditionGroups = (updater: (groups: ConditionGroup[]) => ConditionGroup[]) => {
+    updateActiveProject((project) => ({
+      ...project,
+      scenes: project.scenes.map((projectScene) =>
+        projectScene.id === scene.id
+          ? {
+              ...projectScene,
+              choices: projectScene.choices.map((projectChoice) =>
+                projectChoice.id === choice.id
+                  ? {
+                      ...projectChoice,
+                      conditionGroups: updater(projectChoice.conditionGroups ?? []),
+                    }
+                  : projectChoice,
+              ),
+            }
+          : projectScene,
+      ),
+    }));
+  };
+
+  const addConditionGroup = () => {
+    updateChoiceConditionGroups((groups) => [...groups, createConditionGroup()]);
+  };
+
+  const deleteConditionGroup = (conditionGroupId: string) => {
+    updateChoiceConditionGroups((groups) => groups.filter((group) => group.id !== conditionGroupId));
+  };
+
+  return (
+    <section className="mt-4 border-t border-gray-700 pt-3">
+      <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-300">Conditions</div>
+
+      {conditionGroups.length === 0 ? (
+        <p className="rounded-md border border-dashed border-gray-700 px-3 py-3 text-xs text-gray-500">
+          No condition groups
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {conditionGroups.map((group, index) => (
+            <div key={group.id} className="rounded-md border border-gray-700 bg-gray-900 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-xs font-semibold text-gray-200">Group {index + 1}</div>
+                <button
+                  type="button"
+                  onClick={() => deleteConditionGroup(group.id)}
+                  className="rounded bg-gray-800 px-2 py-1 text-xs font-medium text-gray-200 hover:bg-gray-700"
+                >
+                  Delete Group
+                </button>
+              </div>
+              {group.conditions.length === 0 ? (
+                <p className="mt-3 text-xs text-gray-500">No conditions</p>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={addConditionGroup}
+        className="mt-3 rounded bg-gray-700 px-2 py-1 text-xs font-medium text-gray-100 hover:bg-gray-600"
+      >
+        + Add OR Group
+      </button>
+    </section>
+  );
+}
+
 function ChoiceItem({ choice, scene, scenes, isSelected, targetSceneName }: ChoiceItemProps) {
   const updateChoiceText = useCanvasStore((state) => state.updateChoiceText);
   const updateChoiceTarget = useCanvasStore((state) => state.updateChoiceTarget);
@@ -604,6 +690,7 @@ function ChoiceItem({ choice, scene, scenes, isSelected, targetSceneName }: Choi
           ))}
         </select>
       </label>
+      <ConditionGroupsEditor choice={choice} scene={scene} />
     </div>
   );
 }

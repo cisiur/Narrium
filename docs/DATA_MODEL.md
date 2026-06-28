@@ -191,7 +191,7 @@ interface Choice {
   id: string;
   text: string;
   targetSceneId: string | null;
-  conditions: Condition[];
+  conditionGroups: ConditionGroup[];
   effects: Effect[];
 }
 ```
@@ -199,9 +199,11 @@ interface Choice {
 #### Notes
 
 - `targetSceneId = null` means the choice is not connected yet and should be flagged by validation.
-- `conditions` must all pass for the choice to be available.
+- `conditionGroups` stores OR groups for choice availability.
+- Conditions inside one group use AND semantics.
+- Condition groups use OR semantics between groups.
 - `effects` are applied immediately after the choice is selected.
-- Conditions and effects are currently modeled but not implemented in UI yet.
+- Legacy project data may contain `conditions: Condition[]`; `projectMigrations` normalizes those into `conditionGroups`.
 
 ---
 
@@ -275,7 +277,23 @@ interface Resource {
 
 ## Story logic models
 
-Story Logic is planned in EPIC 6. The current model already contains `Condition` and `Effect`, but product behavior and UX should be reviewed before implementation.
+Story Logic conditions are modeled on choices through `ConditionGroup[]`. Effects remain modeled on choices through `Effect[]`.
+
+### ConditionGroup
+
+```typescript
+interface ConditionGroup {
+  id: string;
+  conditions: Condition[];
+}
+```
+
+#### Notes
+
+- `Choice.conditionGroups` is the canonical choice condition model.
+- Conditions inside one group all need to pass for that group to pass.
+- A choice with multiple groups is available if at least one group passes.
+- Legacy `Choice.conditions` exists only for migration compatibility and is normalized into one condition group when needed.
 
 ### Condition
 
@@ -297,7 +315,7 @@ interface Condition {
 - `type='character_attr'` uses `targetId = Character.id` and requires `attribute`.
 - For `character_attr`, `attribute` currently refers to `CharacterAttribute.key`.
 - `hintText` is shown when the condition is not met; the choice stays visible but disabled.
-- Future implementation should validate references after resource, character, or attribute deletion.
+- The editor shows lightweight validation warnings for missing or deleted resource, character, and attribute references.
 
 ---
 

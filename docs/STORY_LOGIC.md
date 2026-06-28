@@ -272,7 +272,7 @@ interface ConditionGroup {
 
 ### 6.3 Choice Shape
 
-Recommended future shape:
+Canonical current shape:
 
 ```typescript
 interface Choice {
@@ -284,17 +284,18 @@ interface Choice {
 }
 ```
 
-The current code model still has:
+Legacy project data may still contain:
 
 ```typescript
 conditions: Condition[];
 ```
 
-Migration recommendation:
+Migration compatibility:
 
-- Existing `conditions` should be treated as one default AND group.
-- New code should prefer `conditionGroups`.
-- A migration/helper can normalize old choices into the new shape.
+- `ConditionGroup` is the canonical Choice model.
+- Legacy `conditions` exists only for migration compatibility.
+- Existing `conditions` are normalized into one default AND group.
+- New code should use `conditionGroups`.
 
 ---
 
@@ -663,9 +664,9 @@ MVP required soon:
 
 ---
 
-## 14. Migration Plan
+## 14. Migration Compatibility
 
-Current `Choice` model:
+Legacy `Choice` data may contain:
 
 ```typescript
 interface Choice {
@@ -677,7 +678,7 @@ interface Choice {
 }
 ```
 
-Target model:
+Canonical current `Choice` model:
 
 ```typescript
 interface Choice {
@@ -689,35 +690,46 @@ interface Choice {
 }
 ```
 
-Recommended migration helper:
+Current migration helper behavior:
 
 ```typescript
-function normalizeChoice(choice: Choice): NormalizedChoice {
-  if ('conditionGroups' in choice) {
-    return choice;
+function normalizeChoice(choice: Choice | LegacyChoice): Choice {
+  const hasLegacyConditions = 'conditions' in choice;
+  const conditionGroups = choice.conditionGroups ?? [];
+
+  if (!hasLegacyConditions) {
+    return {
+      ...choice,
+      conditionGroups,
+    };
+  }
+
+  const { conditions = [], ...choiceWithoutLegacyConditions } = choice;
+  let nextConditionGroups = conditionGroups;
+
+  if (nextConditionGroups.length === 0 && conditions.length > 0) {
+    nextConditionGroups = [{ id: crypto.randomUUID(), conditions }];
   }
 
   return {
-    ...choice,
-    conditionGroups:
-      choice.conditions.length > 0
-        ? [{ id: createId('condition_group'), conditions: choice.conditions }]
-        : [],
+    ...choiceWithoutLegacyConditions,
+    conditionGroups: nextConditionGroups,
   };
 }
 ```
 
 Important:
 
-- Avoid destructive migration until import/export and project versioning are designed.
-- For now, implementation can update the TypeScript model and new choices can use `conditionGroups`.
-- Existing localStorage projects may still contain `conditions`, so runtime/editor code should be defensive.
+- `conditionGroups` is the canonical model for choices.
+- Legacy `conditions` exists only for migration compatibility.
+- Existing localStorage projects may still contain `conditions`, so project loading remains defensive.
+- The migration is non-destructive to existing condition data: legacy conditions become one condition group.
 
 ---
 
-## 15. Data Model Recommendation for EPIC 6
+## 15. Data Model for EPIC 6
 
-Recommended TypeScript additions/changes:
+Current TypeScript model:
 
 ```typescript
 export interface Choice {

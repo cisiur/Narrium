@@ -1,4 +1,4 @@
-import type { Effect, Resource } from '../../types';
+import type { Character, Effect, Resource } from '../../types';
 
 const EFFECT_OPERATIONS: Effect['operation'][] = ['+=', '-=', '='];
 
@@ -6,6 +6,7 @@ interface EffectCardProps {
   effect: Effect;
   index: number;
   resources: Resource[];
+  characters: Character[];
   onUpdateEffect: (effectId: string, updater: (effect: Effect) => Effect) => void;
   onDeleteEffect: (effectId: string) => void;
 }
@@ -14,15 +15,37 @@ export function EffectCard({
   effect,
   index,
   resources,
+  characters,
   onUpdateEffect,
   onDeleteEffect,
 }: EffectCardProps) {
+  const selectedCharacter =
+    effect.type === 'character_attr'
+      ? characters.find((character) => character.id === effect.targetId) ?? null
+      : null;
+  const characterAttributes = selectedCharacter?.attributes ?? [];
+
   const updateEffectType = (type: Effect['type']) => {
     onUpdateEffect(effect.id, (currentEffect) => ({
       ...currentEffect,
       type,
       targetId: '',
       attribute: undefined,
+    }));
+  };
+
+  const updateCharacterTarget = (targetId: string) => {
+    onUpdateEffect(effect.id, (currentEffect) => ({
+      ...currentEffect,
+      targetId,
+      attribute: undefined,
+    }));
+  };
+
+  const updateEffectAttribute = (attribute: string) => {
+    onUpdateEffect(effect.id, (currentEffect) => ({
+      ...currentEffect,
+      attribute: attribute || undefined,
     }));
   };
 
@@ -61,35 +84,54 @@ export function EffectCard({
           </select>
         </label>
 
-        {effect.type === 'character_attr' ? (
-          <p className="rounded-md border border-dashed border-gray-700 px-3 py-3 text-xs text-gray-500">
-            Character Attribute editor will be implemented in E6-13.
-          </p>
+        {effect.type === 'resource' ? (
+          <label className="block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+            Resource
+            <select
+              value={effect.targetId}
+              onChange={(event) =>
+                onUpdateEffect(effect.id, (currentEffect) => ({
+                  ...currentEffect,
+                  targetId: event.target.value,
+                }))
+              }
+              disabled={resources.length === 0}
+              className="mt-1 w-full rounded bg-gray-950 px-2 py-1.5 text-xs font-normal text-gray-100 outline-none ring-1 ring-gray-700 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {resources.length === 0 ? (
+                <option value="">No resources available</option>
+              ) : (
+                <>
+                  <option value="">Select resource...</option>
+                  {resources.map((resource) => (
+                    <option key={resource.id} value={resource.id}>
+                      {resource.key}
+                    </option>
+                  ))}
+                </>
+              )}
+            </select>
+          </label>
         ) : null}
 
-        {effect.type === 'resource' ? (
+        {effect.type === 'character_attr' ? (
           <>
             <label className="block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-              Resource
+              Character
               <select
                 value={effect.targetId}
-                onChange={(event) =>
-                  onUpdateEffect(effect.id, (currentEffect) => ({
-                    ...currentEffect,
-                    targetId: event.target.value,
-                  }))
-                }
-                disabled={resources.length === 0}
+                onChange={(event) => updateCharacterTarget(event.target.value)}
+                disabled={characters.length === 0}
                 className="mt-1 w-full rounded bg-gray-950 px-2 py-1.5 text-xs font-normal text-gray-100 outline-none ring-1 ring-gray-700 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {resources.length === 0 ? (
-                  <option value="">No resources available</option>
+                {characters.length === 0 ? (
+                  <option value="">No characters available</option>
                 ) : (
                   <>
-                    <option value="">Select resource...</option>
-                    {resources.map((resource) => (
-                      <option key={resource.id} value={resource.id}>
-                        {resource.key}
+                    <option value="">Select character...</option>
+                    {characters.map((character) => (
+                      <option key={character.id} value={character.id}>
+                        {character.name}
                       </option>
                     ))}
                   </>
@@ -97,39 +139,64 @@ export function EffectCard({
               </select>
             </label>
 
-            <div className="grid grid-cols-[5rem_1fr] gap-2">
-              <label className="block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                Operation
-                <select
-                  value={effect.operation}
-                  onChange={(event) =>
-                    onUpdateEffect(effect.id, (currentEffect) => ({
-                      ...currentEffect,
-                      operation: event.target.value as Effect['operation'],
-                    }))
-                  }
-                  className="mt-1 w-full rounded bg-gray-950 px-2 py-1.5 text-xs font-normal text-gray-100 outline-none ring-1 ring-gray-700 focus:ring-blue-500"
-                >
-                  {EFFECT_OPERATIONS.map((operation) => (
-                    <option key={operation} value={operation}>
-                      {operation}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                Value
-                <input
-                  type="number"
-                  value={effect.value}
-                  onChange={(event) => updateEffectValue(event.target.value)}
-                  className="mt-1 w-full rounded bg-gray-950 px-2 py-1.5 text-xs font-normal text-gray-100 outline-none ring-1 ring-gray-700 focus:ring-blue-500"
-                />
-              </label>
-            </div>
+            <label className="block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+              Attribute
+              <select
+                value={effect.attribute ?? ''}
+                onChange={(event) => updateEffectAttribute(event.target.value)}
+                disabled={!selectedCharacter || characterAttributes.length === 0}
+                className="mt-1 w-full rounded bg-gray-950 px-2 py-1.5 text-xs font-normal text-gray-100 outline-none ring-1 ring-gray-700 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {!selectedCharacter ? (
+                  <option value="">Select character first</option>
+                ) : characterAttributes.length === 0 ? (
+                  <option value="">No attributes available</option>
+                ) : (
+                  <>
+                    <option value="">Select attribute...</option>
+                    {characterAttributes.map((attribute) => (
+                      <option key={attribute.key} value={attribute.key}>
+                        {attribute.key}
+                      </option>
+                    ))}
+                  </>
+                )}
+              </select>
+            </label>
           </>
         ) : null}
+
+        <div className="grid grid-cols-[5rem_1fr] gap-2">
+          <label className="block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+            Operation
+            <select
+              value={effect.operation}
+              onChange={(event) =>
+                onUpdateEffect(effect.id, (currentEffect) => ({
+                  ...currentEffect,
+                  operation: event.target.value as Effect['operation'],
+                }))
+              }
+              className="mt-1 w-full rounded bg-gray-950 px-2 py-1.5 text-xs font-normal text-gray-100 outline-none ring-1 ring-gray-700 focus:ring-blue-500"
+            >
+              {EFFECT_OPERATIONS.map((operation) => (
+                <option key={operation} value={operation}>
+                  {operation}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+            Value
+            <input
+              type="number"
+              value={effect.value}
+              onChange={(event) => updateEffectValue(event.target.value)}
+              className="mt-1 w-full rounded bg-gray-950 px-2 py-1.5 text-xs font-normal text-gray-100 outline-none ring-1 ring-gray-700 focus:ring-blue-500"
+            />
+          </label>
+        </div>
       </div>
     </div>
   );

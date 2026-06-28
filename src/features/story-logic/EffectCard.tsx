@@ -2,6 +2,49 @@ import type { Character, Effect, Resource } from '../../types';
 
 const EFFECT_OPERATIONS: Effect['operation'][] = ['+=', '-=', '='];
 
+function getResourceEffectWarning(effect: Effect, resources: Resource[]) {
+  if (effect.type !== 'resource') {
+    return null;
+  }
+
+  if (effect.targetId === '') {
+    return '⚠ Select a resource';
+  }
+
+  if (!resources.some((resource) => resource.id === effect.targetId)) {
+    return '⚠ Referenced resource no longer exists';
+  }
+
+  return null;
+}
+
+function getCharacterAttributeEffectWarning(
+  effect: Effect,
+  selectedCharacter: Character | null,
+) {
+  if (effect.type !== 'character_attr') {
+    return null;
+  }
+
+  if (effect.targetId === '') {
+    return '⚠ Select a character';
+  }
+
+  if (!selectedCharacter) {
+    return '⚠ Referenced character no longer exists';
+  }
+
+  if (!effect.attribute) {
+    return '⚠ Select an attribute';
+  }
+
+  if (!selectedCharacter.attributes.some((attribute) => attribute.key === effect.attribute)) {
+    return '⚠ Referenced attribute no longer exists';
+  }
+
+  return null;
+}
+
 interface EffectCardProps {
   effect: Effect;
   index: number;
@@ -24,6 +67,9 @@ export function EffectCard({
       ? characters.find((character) => character.id === effect.targetId) ?? null
       : null;
   const characterAttributes = selectedCharacter?.attributes ?? [];
+  const effectWarning =
+    getResourceEffectWarning(effect, resources) ??
+    getCharacterAttributeEffectWarning(effect, selectedCharacter);
 
   const updateEffectType = (type: Effect['type']) => {
     onUpdateEffect(effect.id, (currentEffect) => ({
@@ -164,6 +210,12 @@ export function EffectCard({
               </select>
             </label>
           </>
+        ) : null}
+
+        {effectWarning ? (
+          <div className="rounded border border-yellow-700/70 bg-yellow-950/40 px-3 py-2 text-xs font-medium text-yellow-200">
+            {effectWarning}
+          </div>
         ) : null}
 
         <div className="grid grid-cols-[5rem_1fr] gap-2">

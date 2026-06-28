@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useCanvasStore } from '../../store/useCanvasStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { ConditionGroupsEditor } from '../story-logic/ConditionGroupsEditor';
+import { EffectsEditor } from '../story-logic/EffectsEditor';
 import type {
   AssetLibraryItem,
   Choice,
@@ -612,6 +613,7 @@ function ChoiceItem({ choice, scene, scenes, isSelected, targetSceneName }: Choi
         </select>
       </label>
       <ConditionGroupsEditor choice={choice} scene={scene} />
+      <EffectsEditor choice={choice} scene={scene} />
     </div>
   );
 }

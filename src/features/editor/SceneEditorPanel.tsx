@@ -566,6 +566,7 @@ function ConditionGroupsEditor({ choice, scene }: ConditionGroupsEditorProps) {
   const updateActiveProject = useWorkspaceStore((state) => state.updateActiveProject);
   const conditionGroups = choice.conditionGroups ?? [];
   const resources = activeProject?.resources ?? [];
+  const characters = activeProject?.characters ?? [];
   const [editingConditionValue, setEditingConditionValue] = useState<{
     conditionId: string;
     value: string;
@@ -670,6 +671,29 @@ function ConditionGroupsEditor({ choice, scene }: ConditionGroupsEditorProps) {
     }));
   };
 
+  const updateCharacterConditionTarget = (
+    conditionGroupId: string,
+    conditionId: string,
+    targetId: string,
+  ) => {
+    updateCondition(conditionGroupId, conditionId, (condition) => ({
+      ...condition,
+      targetId,
+      attribute: undefined,
+    }));
+  };
+
+  const updateConditionAttribute = (
+    conditionGroupId: string,
+    conditionId: string,
+    attribute: string,
+  ) => {
+    updateCondition(conditionGroupId, conditionId, (condition) => ({
+      ...condition,
+      attribute: attribute || undefined,
+    }));
+  };
+
   const getResourceConditionWarning = (condition: Condition) => {
     if (condition.type !== 'resource') {
       return null;
@@ -729,48 +753,118 @@ function ConditionGroupsEditor({ choice, scene }: ConditionGroupsEditorProps) {
                 <p className="mt-3 text-xs text-gray-500">No conditions</p>
               ) : (
                 <div className="mt-3 space-y-2">
-                  {group.conditions.map((condition) => (
-                    <div
-                      key={condition.id}
-                      className="space-y-2 rounded-md border border-gray-700 bg-gray-950 p-2"
-                    >
-                      <div className="grid grid-cols-2 gap-2">
-                        <label className="block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                          Type
-                          <select
-                            value={condition.type}
-                            onChange={(event) =>
-                              updateConditionType(
-                                group.id,
-                                condition.id,
-                                event.target.value as Condition['type'],
-                              )
-                            }
-                            className="mt-1 w-full rounded bg-gray-900 px-2 py-1.5 text-xs font-normal text-gray-100 outline-none ring-1 ring-gray-700 focus:ring-blue-500"
-                          >
-                            <option value="resource">Resource</option>
-                            <option value="character_attr">Character Attribute</option>
-                          </select>
-                        </label>
-                        {condition.type === 'resource' ? (
+                  {group.conditions.map((condition) => {
+                    const selectedCharacter =
+                      condition.type === 'character_attr'
+                        ? characters.find((character) => character.id === condition.targetId) ?? null
+                        : null;
+                    const characterAttributes = selectedCharacter?.attributes ?? [];
+                    const resourceConditionWarning = getResourceConditionWarning(condition);
+
+                    return (
+                      <div
+                        key={condition.id}
+                        className="space-y-2 rounded-md border border-gray-700 bg-gray-950 p-2"
+                      >
+                        <div className="grid grid-cols-2 gap-2">
                           <label className="block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                            Target
+                            Type
                             <select
-                              value={condition.targetId}
+                              value={condition.type}
                               onChange={(event) =>
-                                updateConditionTarget(group.id, condition.id, event.target.value)
+                                updateConditionType(
+                                  group.id,
+                                  condition.id,
+                                  event.target.value as Condition['type'],
+                                )
                               }
-                              disabled={resources.length === 0}
+                              className="mt-1 w-full rounded bg-gray-900 px-2 py-1.5 text-xs font-normal text-gray-100 outline-none ring-1 ring-gray-700 focus:ring-blue-500"
+                            >
+                              <option value="resource">Resource</option>
+                              <option value="character_attr">Character Attribute</option>
+                            </select>
+                          </label>
+                          {condition.type === 'resource' ? (
+                            <label className="block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                              Target
+                              <select
+                                value={condition.targetId}
+                                onChange={(event) =>
+                                  updateConditionTarget(group.id, condition.id, event.target.value)
+                                }
+                                disabled={resources.length === 0}
+                                className="mt-1 w-full rounded bg-gray-900 px-2 py-1.5 text-xs font-normal text-gray-100 outline-none ring-1 ring-gray-700 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                {resources.length === 0 ? (
+                                  <option value="">No resources available</option>
+                                ) : (
+                                  <>
+                                    <option value="">Select resource...</option>
+                                    {resources.map((resource) => (
+                                      <option key={resource.id} value={resource.id}>
+                                        {resource.key}
+                                      </option>
+                                    ))}
+                                  </>
+                                )}
+                              </select>
+                            </label>
+                          ) : null}
+                          {condition.type === 'character_attr' ? (
+                            <label className="block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                              Character
+                              <select
+                                value={condition.targetId}
+                                onChange={(event) =>
+                                  updateCharacterConditionTarget(group.id, condition.id, event.target.value)
+                                }
+                                disabled={characters.length === 0}
+                                className="mt-1 w-full rounded bg-gray-900 px-2 py-1.5 text-xs font-normal text-gray-100 outline-none ring-1 ring-gray-700 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                {characters.length === 0 ? (
+                                  <option value="">No characters available</option>
+                                ) : (
+                                  <>
+                                    <option value="">Select character...</option>
+                                    {characters.map((character) => (
+                                      <option key={character.id} value={character.id}>
+                                        {character.name}
+                                      </option>
+                                    ))}
+                                  </>
+                                )}
+                              </select>
+                            </label>
+                          ) : null}
+                        </div>
+
+                        {resourceConditionWarning ? (
+                          <div className="rounded border border-yellow-700/70 bg-yellow-950/40 px-3 py-2 text-xs font-medium text-yellow-200">
+                            {resourceConditionWarning}
+                          </div>
+                        ) : null}
+
+                        {condition.type === 'character_attr' ? (
+                          <label className="block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                            Attribute
+                            <select
+                              value={condition.attribute ?? ''}
+                              onChange={(event) =>
+                                updateConditionAttribute(group.id, condition.id, event.target.value)
+                              }
+                              disabled={!selectedCharacter || characterAttributes.length === 0}
                               className="mt-1 w-full rounded bg-gray-900 px-2 py-1.5 text-xs font-normal text-gray-100 outline-none ring-1 ring-gray-700 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
                             >
-                              {resources.length === 0 ? (
-                                <option value="">No resources available</option>
+                              {!selectedCharacter ? (
+                                <option value="">Select character first</option>
+                              ) : characterAttributes.length === 0 ? (
+                                <option value="">No attributes available</option>
                               ) : (
                                 <>
-                                  <option value="">Select resource...</option>
-                                  {resources.map((resource) => (
-                                    <option key={resource.id} value={resource.id}>
-                                      {resource.key}
+                                  <option value="">Select attribute...</option>
+                                  {characterAttributes.map((attribute) => (
+                                    <option key={attribute.key} value={attribute.key}>
+                                      {attribute.key}
                                     </option>
                                   ))}
                                 </>
@@ -778,19 +872,6 @@ function ConditionGroupsEditor({ choice, scene }: ConditionGroupsEditorProps) {
                             </select>
                           </label>
                         ) : null}
-                      </div>
-
-                      {getResourceConditionWarning(condition) ? (
-                        <div className="rounded border border-yellow-700/70 bg-yellow-950/40 px-3 py-2 text-xs font-medium text-yellow-200">
-                          {getResourceConditionWarning(condition)}
-                        </div>
-                      ) : null}
-
-                      {condition.type === 'character_attr' ? (
-                        <div className="rounded border border-dashed border-gray-700 bg-gray-900 px-3 py-2 text-xs text-gray-500">
-                          Character Attribute editor coming soon
-                        </div>
-                      ) : null}
 
                       <div className="grid grid-cols-[4.5rem_1fr_auto] items-end gap-2">
                         <label className="block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
@@ -862,8 +943,9 @@ function ConditionGroupsEditor({ choice, scene }: ConditionGroupsEditorProps) {
                           placeholder="Optional hint"
                         />
                       </label>
-                    </div>
-                  ))}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
               <button

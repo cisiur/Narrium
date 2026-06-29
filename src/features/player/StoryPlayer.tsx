@@ -49,6 +49,7 @@ export function StoryPlayer({ project, onExitPreview }: StoryPlayerProps) {
   const hasNextPage = currentScene
     ? runtimeState.currentPageIndex < currentScene.dialoguePages.length - 1
     : false;
+  const visibleChoices = currentScene && currentPage && !hasNextPage ? currentScene.choices : [];
 
   const goToNextPage = () => {
     if (!currentScene) {
@@ -110,6 +111,19 @@ export function StoryPlayer({ project, onExitPreview }: StoryPlayerProps) {
                 <p className="mt-3 whitespace-pre-wrap text-base leading-7 text-gray-100">
                   {currentPage.text}
                 </p>
+                {visibleChoices.length > 0 ? (
+                  <div className="mt-5 space-y-2">
+                    {visibleChoices.map((choice) => (
+                      <div
+                        key={choice.id}
+                        className="cursor-not-allowed rounded border border-gray-700 bg-gray-800/80 px-3 py-2 text-sm text-gray-400"
+                        aria-disabled="true"
+                      >
+                        {choice.text}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
                 {hasNextPage ? (
                   <div className="mt-5 flex justify-end">
                     <button

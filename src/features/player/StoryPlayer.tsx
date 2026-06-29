@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Project } from '../../types';
+import type { Project, Scene } from '../../types';
 import { createInitialRuntimeState } from './runtimeState';
 
 interface StoryPlayerProps {
@@ -7,8 +7,45 @@ interface StoryPlayerProps {
   onExitPreview: () => void;
 }
 
+function resolveDirectBackgroundUrl(project: Project, scene: Scene): string | null {
+  if (scene.background.mode === 'url' || scene.background.mode === 'upload') {
+    return scene.background.url || null;
+  }
+
+  if (scene.background.mode === 'asset' && scene.background.assetId) {
+    return project.assetLibrary.find((asset) => asset.id === scene.background.assetId)?.url ?? null;
+  }
+
+  return null;
+}
+
+function resolveSceneBackgroundUrl(project: Project, scene: Scene): string | null {
+  if (scene.background.mode === 'scene_reference' && scene.background.sourceSceneId) {
+    const referencedScene = project.scenes.find(
+      (candidate) => candidate.id === scene.background.sourceSceneId,
+    );
+
+    return referencedScene ? resolveDirectBackgroundUrl(project, referencedScene) : null;
+  }
+
+  return resolveDirectBackgroundUrl(project, scene);
+}
+
+function resolveSpeakerName(project: Project, speakerId: string | null): string {
+  if (speakerId === null) {
+    return 'Narrator';
+  }
+
+  return project.characters.find((character) => character.id === speakerId)?.name ?? 'Unknown Speaker';
+}
+
 export function StoryPlayer({ project, onExitPreview }: StoryPlayerProps) {
   const [runtimeState] = useState(() => createInitialRuntimeState(project));
+  const currentScene =
+    project.scenes.find((scene) => scene.id === runtimeState.currentSceneId) ?? null;
+  const currentPage = currentScene?.dialoguePages[runtimeState.currentPageIndex] ?? null;
+  const backgroundUrl = currentScene ? resolveSceneBackgroundUrl(project, currentScene) : null;
+  const speakerName = currentPage ? resolveSpeakerName(project, currentPage.speakerId) : null;
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
@@ -23,17 +60,43 @@ export function StoryPlayer({ project, onExitPreview }: StoryPlayerProps) {
         </button>
       </header>
 
-      <main className="p-6">
-        <dl className="space-y-3 text-sm">
-          <div>
-            <dt className="font-semibold text-gray-400">currentSceneId</dt>
-            <dd className="mt-1 text-gray-100">{runtimeState.currentSceneId}</dd>
+      <main className="relative min-h-[calc(100vh-3.5rem)] overflow-hidden">
+        {backgroundUrl ? (
+          <img
+            src={backgroundUrl}
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover"
+            draggable={false}
+          />
+        ) : null}
+        <div className="absolute inset-0 bg-gray-950/70" />
+
+        <section className="relative flex min-h-[calc(100vh-3.5rem)] items-end p-6">
+          <div className="w-full rounded border border-gray-700 bg-gray-900/90 p-5 shadow-xl">
+            {!currentScene ? (
+              <div>
+                <p className="text-sm font-semibold text-gray-100">Scene not found</p>
+                <p className="mt-2 text-sm text-gray-400">
+                  No scene matches the current runtime scene id.
+                </p>
+              </div>
+            ) : !currentPage ? (
+              <div>
+                <p className="text-sm font-semibold text-gray-100">Dialogue page not found</p>
+                <p className="mt-2 text-sm text-gray-400">
+                  No dialogue page exists at the current runtime page index.
+                </p>
+              </div>
+            ) : (
+              <div>
+                <p className="text-sm font-semibold text-blue-300">{speakerName}</p>
+                <p className="mt-3 whitespace-pre-wrap text-base leading-7 text-gray-100">
+                  {currentPage.text}
+                </p>
+              </div>
+            )}
           </div>
-          <div>
-            <dt className="font-semibold text-gray-400">currentPageIndex</dt>
-            <dd className="mt-1 text-gray-100">{runtimeState.currentPageIndex}</dd>
-          </div>
-        </dl>
+        </section>
       </main>
     </div>
   );

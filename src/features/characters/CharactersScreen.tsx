@@ -1,6 +1,7 @@
 import { useState, type KeyboardEvent } from 'react';
 import type { Character, CharacterAttribute } from '../../types';
 import { useWorkspaceStore } from '../../store/workspaceStore';
+import { findStoryLogicUsages, formatStoryLogicUsageWarning } from '../story-logic/referenceUsage';
 
 const DEFAULT_ATTRIBUTE_KEY = 'New Attribute';
 
@@ -91,6 +92,22 @@ export function CharactersScreen() {
   };
 
   const deleteCharacter = (characterId: string) => {
+    if (!activeProject) {
+      return;
+    }
+
+    const usages = findStoryLogicUsages(activeProject, {
+      kind: 'character',
+      id: characterId,
+    });
+
+    if (
+      usages.length > 0 &&
+      !window.confirm(formatStoryLogicUsageWarning('Character', usages))
+    ) {
+      return;
+    }
+
     updateActiveProject((project) => ({
       ...project,
       characters: project.characters.filter((character) => character.id !== characterId),

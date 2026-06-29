@@ -1,6 +1,7 @@
 import { useState, type KeyboardEvent } from 'react';
 import type { Resource } from '../../types';
 import { useWorkspaceStore } from '../../store/workspaceStore';
+import { findStoryLogicUsages, formatStoryLogicUsageWarning } from '../story-logic/referenceUsage';
 
 const DEFAULT_RESOURCE_KEY = 'New Resource';
 
@@ -128,6 +129,22 @@ export function ResourcesScreen() {
   };
 
   const deleteResource = (resourceId: string) => {
+    if (!activeProject) {
+      return;
+    }
+
+    const usages = findStoryLogicUsages(activeProject, {
+      kind: 'resource',
+      id: resourceId,
+    });
+
+    if (
+      usages.length > 0 &&
+      !window.confirm(formatStoryLogicUsageWarning('Resource', usages))
+    ) {
+      return;
+    }
+
     updateActiveProject((project) => ({
       ...project,
       resources: project.resources.filter((resource) => resource.id !== resourceId),

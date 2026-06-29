@@ -17,7 +17,7 @@ interface CollapsibleSectionProps {
 }
 
 function CollapsibleSection({ title, children }: CollapsibleSectionProps) {
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
 
   return (
     <section className="border-t border-gray-800">

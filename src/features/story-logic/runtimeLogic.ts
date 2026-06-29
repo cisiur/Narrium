@@ -82,3 +82,31 @@ export function isChoiceAvailable(
     group.conditions.every((condition) => evaluateCondition(condition, project, runtimeState)),
   );
 }
+
+export function resolveUnavailableChoiceHint(
+  choice: Choice,
+  project: Project,
+  runtimeState: RuntimeState,
+): string | null {
+  if (isChoiceAvailable(choice, project, runtimeState)) {
+    return null;
+  }
+
+  const conditionGroups = choice.conditionGroups ?? [];
+
+  for (const group of conditionGroups) {
+    for (const condition of group.conditions) {
+      if (evaluateCondition(condition, project, runtimeState)) {
+        continue;
+      }
+
+      const hintText = condition.hintText.trim();
+
+      if (hintText !== '') {
+        return hintText;
+      }
+    }
+  }
+
+  return null;
+}

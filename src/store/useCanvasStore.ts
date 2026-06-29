@@ -51,6 +51,7 @@ interface CanvasStore {
   updateBackgroundAssetName: (assetId: string, name: string) => void;
   addDialoguePage: (sceneId: string) => void;
   updateDialoguePage: (sceneId: string, pageId: string, text: string) => void;
+  updateDialoguePageSpeaker: (sceneId: string, pageId: string, speakerId: string | null) => void;
   deleteDialoguePage: (sceneId: string, pageId: string) => void;
   addChoice: (sceneId: string) => void;
   updateChoiceText: (sceneId: string, choiceId: string, text: string) => void;
@@ -400,6 +401,21 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
               ...scene,
               dialoguePages: scene.dialoguePages.map((page) =>
                 page.id === pageId ? { ...page, text } : page,
+              ),
+            }
+          : scene,
+      ),
+    );
+    get().syncFromProject();
+  },
+  updateDialoguePageSpeaker: (sceneId: string, pageId: string, speakerId: string | null) => {
+    updateActiveProject((scenes) =>
+      scenes.map((scene) =>
+        scene.id === sceneId
+          ? {
+              ...scene,
+              dialoguePages: scene.dialoguePages.map((page) =>
+                page.id === pageId ? { ...page, speakerId } : page,
               ),
             }
           : scene,

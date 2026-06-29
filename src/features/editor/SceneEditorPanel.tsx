@@ -5,6 +5,7 @@ import { ConditionGroupsEditor } from '../story-logic/ConditionGroupsEditor';
 import { EffectsEditor } from '../story-logic/EffectsEditor';
 import type {
   AssetLibraryItem,
+  Character,
   Choice,
   DialoguePage,
   Scene,
@@ -480,12 +481,21 @@ interface DialoguePageItemProps {
   page: DialoguePage;
   scene: Scene;
   isOnlyPage: boolean;
+  characters: Character[];
 }
 
-function DialoguePageItem({ page, scene, isOnlyPage }: DialoguePageItemProps) {
+function DialoguePageItem({ page, scene, isOnlyPage, characters }: DialoguePageItemProps) {
   const updateDialoguePage = useCanvasStore((state) => state.updateDialoguePage);
+  const updateDialoguePageSpeaker = useCanvasStore((state) => state.updateDialoguePageSpeaker);
   const deleteDialoguePage = useCanvasStore((state) => state.deleteDialoguePage);
   const [isEditing, setIsEditing] = useState(false);
+  const selectedCharacter =
+    page.speakerId !== null
+      ? characters.find((character) => character.id === page.speakerId) ?? null
+      : null;
+  const speakerLabel =
+    page.speakerId === null ? 'Narrator' : selectedCharacter?.name ?? 'Missing Character';
+  const hasMissingSpeaker = page.speakerId !== null && !selectedCharacter;
 
   return (
     <div className="rounded-md border border-gray-700 bg-gray-800/70 p-3">
@@ -495,7 +505,9 @@ function DialoguePageItem({ page, scene, isOnlyPage }: DialoguePageItemProps) {
           onClick={() => setIsEditing(true)}
           className="min-w-0 flex-1 text-left"
         >
-          <div className="text-xs font-semibold text-gray-200">{page.speakerId ?? 'Narrator'}</div>
+          <div className="text-xs font-semibold text-gray-200">
+            {hasMissingSpeaker ? '⚠ Missing Character' : speakerLabel}
+          </div>
           {!isEditing ? (
             <p className="mt-1 line-clamp-2 text-xs leading-5 text-gray-400">
               {page.text || 'Empty dialogue page'}
@@ -512,6 +524,24 @@ function DialoguePageItem({ page, scene, isOnlyPage }: DialoguePageItemProps) {
           ×
         </button>
       </div>
+      <label className="mt-3 block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+        Speaker
+        <select
+          value={page.speakerId ?? ''}
+          onChange={(event) =>
+            updateDialoguePageSpeaker(scene.id, page.id, event.target.value || null)
+          }
+          className="mt-1 w-full rounded bg-gray-950 px-2 py-1.5 text-xs font-normal text-gray-100 outline-none ring-1 ring-gray-700 focus:ring-blue-500"
+        >
+          <option value="">Narrator</option>
+          {hasMissingSpeaker ? <option value={page.speakerId ?? ''}>⚠ Missing Character</option> : null}
+          {characters.map((character) => (
+            <option key={character.id} value={character.id}>
+              {character.name}
+            </option>
+          ))}
+        </select>
+      </label>
       {isEditing ? (
         <textarea
           value={page.text}
@@ -666,6 +696,7 @@ export function SceneEditorPanel() {
                     page={page}
                     scene={scene}
                     isOnlyPage={scene.dialoguePages.length === 1}
+                    characters={activeProject?.characters ?? []}
                   />
                 ))}
               </div>

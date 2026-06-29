@@ -49,7 +49,9 @@ export function ConditionGroupCard({
         </button>
       </div>
       {group.conditions.length === 0 ? (
-        <p className="mt-3 text-xs text-gray-500">No conditions</p>
+        <p className="mt-3 rounded border border-yellow-700/70 bg-yellow-950/40 px-3 py-2 text-xs font-medium text-yellow-200">
+          This group has no conditions and will always pass.
+        </p>
       ) : (
         <div className="mt-3 space-y-2">
           {group.conditions.map((condition) => (

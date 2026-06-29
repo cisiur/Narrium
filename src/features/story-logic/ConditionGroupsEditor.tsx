@@ -6,7 +6,7 @@ import { ConditionGroupCard } from './ConditionGroupCard';
 function createConditionGroup(): ConditionGroup {
   return {
     id: crypto.randomUUID(),
-    conditions: [],
+    conditions: [createCondition()],
   };
 }
 

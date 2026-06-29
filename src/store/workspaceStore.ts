@@ -11,6 +11,7 @@ interface WorkspaceStore extends WorkspaceState {
   openProject: (projectId: string) => void;
   closeProject: () => void;
   renameProject: (projectId: string, newName: string) => void;
+  deleteProject: (projectId: string) => void;
   updateActiveProject: (updater: (project: Project) => Project) => void;
 }
 
@@ -113,6 +114,14 @@ function saveProject(project: Project) {
   window.localStorage.setItem(getProjectStorageKey(project.id), JSON.stringify(project));
 }
 
+function deleteStoredProject(projectId: string) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.localStorage.removeItem(getProjectStorageKey(projectId));
+}
+
 const initialWorkspace = loadWorkspace();
 
 export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
@@ -209,6 +218,23 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
       return {
         ...nextWorkspace,
         activeProject: state.activeProject?.id === projectId ? nextProject : state.activeProject,
+      };
+    });
+  },
+  deleteProject: (projectId) => {
+    set((state) => {
+      deleteStoredProject(projectId);
+
+      const nextWorkspace = {
+        projects: state.projects.filter((project) => project.id !== projectId),
+        activeProjectId: state.activeProjectId === projectId ? null : state.activeProjectId,
+      };
+
+      saveWorkspace(nextWorkspace);
+
+      return {
+        ...nextWorkspace,
+        activeProject: state.activeProject?.id === projectId ? null : state.activeProject,
       };
     });
   },

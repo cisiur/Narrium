@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { RightSidebar } from '../../components/RightSidebar';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import type { WorkspaceProjectMeta } from '../../types';
 
@@ -86,22 +87,6 @@ function ProjectSettingsSidebar({
     }, 0);
   }, [project]);
 
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-
-    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
-
   const saveRename = () => {
     if (!project) {
       return;
@@ -125,99 +110,68 @@ function ProjectSettingsSidebar({
   };
 
   return (
-    <div
-      className={[
-        'fixed inset-0 z-40 transition',
-        isOpen ? 'pointer-events-auto' : 'pointer-events-none',
-      ].join(' ')}
-      aria-hidden={!isOpen}
-    >
-      <button
-        type="button"
-        onClick={onClose}
-        className={[
-          'absolute inset-0 cursor-default bg-ink-950/20 transition-opacity',
-          isOpen ? 'opacity-100' : 'opacity-0',
-        ].join(' ')}
-        aria-label="Close project settings"
-        tabIndex={isOpen ? 0 : -1}
-      />
-      <aside
-        className={[
-          'absolute right-0 top-0 flex h-full w-[360px] flex-col border-l border-gray-800 bg-gray-900 text-gray-100 shadow-2xl transition-transform duration-200',
-          isOpen ? 'translate-x-0' : 'translate-x-full',
-        ].join(' ')}
-      >
-        {project ? (
-          <>
-            <header className="flex items-center justify-between gap-2 border-b border-gray-800 px-4 py-3">
-              <div className="min-w-0">
-                <h2 className="truncate text-lg font-semibold text-gray-100">Project Settings</h2>
-                <p className="truncate text-xs text-gray-500">{project.name}</p>
-              </div>
-              <button
-                type="button"
-                onClick={onClose}
-                className="rounded bg-gray-800 px-2 py-1 text-sm text-gray-300 hover:bg-gray-700 hover:text-gray-100"
-                aria-label="Close project settings"
-              >
-                X
-              </button>
-            </header>
-
-            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-              <section>
-                <label className="block text-xs font-semibold uppercase tracking-wide text-gray-300">
-                  Project Name
-                  <input
-                    ref={inputRef}
-                    value={draftName}
-                    onChange={(event) => setDraftName(event.target.value)}
-                    onBlur={saveRename}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') {
-                        event.preventDefault();
-                        saveRename();
-                      }
-                    }}
-                    className="mt-2 w-full rounded bg-gray-950 px-2 py-2 text-sm font-normal text-gray-100 outline-none ring-1 ring-gray-700 focus:ring-blue-500"
-                  />
-                </label>
-              </section>
-
-              <section className="mt-6 border-t border-gray-700 pt-4">
-                <div className="text-xs font-semibold uppercase tracking-wide text-gray-300">
-                  Thumbnail
-                </div>
-                <div className="mt-3 flex h-32 items-center justify-center rounded-md border border-dashed border-gray-700 bg-gray-950 text-sm text-gray-500">
-                  No thumbnail
-                </div>
-                <button
-                  type="button"
-                  disabled
-                  className="mt-3 rounded bg-gray-800 px-2 py-1 text-xs font-medium text-gray-500 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  Upload Thumbnail
-                </button>
-              </section>
+    <RightSidebar
+      open={isOpen}
+      title="Project Settings"
+      subtitle={project?.name}
+      closeLabel="Close project settings"
+      onClose={onClose}
+      footer={
+        project ? (
+          <section className="border-t border-red-900/60 px-4 py-4">
+            <div className="text-xs font-semibold uppercase tracking-wide text-red-200">
+              Delete Project
             </div>
+            <button
+              type="button"
+              onClick={deleteProject}
+              className="mt-3 rounded bg-red-950 px-3 py-2 text-sm font-semibold text-red-100 hover:bg-red-900"
+            >
+              Delete Project
+            </button>
+          </section>
+        ) : null
+      }
+    >
+      {project ? (
+        <>
+          <section>
+            <label className="block text-xs font-semibold uppercase tracking-wide text-gray-300">
+              Project Name
+              <input
+                ref={inputRef}
+                value={draftName}
+                onChange={(event) => setDraftName(event.target.value)}
+                onBlur={saveRename}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    saveRename();
+                  }
+                }}
+                className="mt-2 w-full rounded bg-gray-950 px-2 py-2 text-sm font-normal text-gray-100 outline-none ring-1 ring-gray-700 focus:ring-blue-500"
+              />
+            </label>
+          </section>
 
-            <section className="border-t border-red-900/60 px-4 py-4">
-              <div className="text-xs font-semibold uppercase tracking-wide text-red-200">
-                Delete Project
-              </div>
-              <button
-                type="button"
-                onClick={deleteProject}
-                className="mt-3 rounded bg-red-950 px-3 py-2 text-sm font-semibold text-red-100 hover:bg-red-900"
-              >
-                Delete Project
-              </button>
-            </section>
-          </>
-        ) : null}
-      </aside>
-    </div>
+          <section className="mt-6 border-t border-gray-700 pt-4">
+            <div className="text-xs font-semibold uppercase tracking-wide text-gray-300">
+              Thumbnail
+            </div>
+            <div className="mt-3 flex h-32 items-center justify-center rounded-md border border-dashed border-gray-700 bg-gray-950 text-sm text-gray-500">
+              No thumbnail
+            </div>
+            <button
+              type="button"
+              disabled
+              className="mt-3 rounded bg-gray-800 px-2 py-1 text-xs font-medium text-gray-500 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Upload Thumbnail
+            </button>
+          </section>
+        </>
+      ) : null}
+    </RightSidebar>
   );
 }
 

@@ -52,6 +52,8 @@ interface CanvasStore {
   addDialoguePage: (sceneId: string) => void;
   updateDialoguePage: (sceneId: string, pageId: string, text: string) => void;
   updateDialoguePageSpeaker: (sceneId: string, pageId: string, speakerId: string | null) => void;
+  moveDialoguePageUp: (sceneId: string, pageId: string) => void;
+  moveDialoguePageDown: (sceneId: string, pageId: string) => void;
   deleteDialoguePage: (sceneId: string, pageId: string) => void;
   addChoice: (sceneId: string) => void;
   updateChoiceText: (sceneId: string, choiceId: string, text: string) => void;
@@ -69,6 +71,23 @@ function createDialoguePage(text = ''): DialoguePage {
     speakerId: null,
     text,
   };
+}
+
+function moveDialoguePage(pages: DialoguePage[], pageId: string, direction: -1 | 1) {
+  const currentIndex = pages.findIndex((page) => page.id === pageId);
+  const nextIndex = currentIndex + direction;
+
+  if (currentIndex < 0 || nextIndex < 0 || nextIndex >= pages.length) {
+    return pages;
+  }
+
+  const nextPages = [...pages];
+  const currentPage = nextPages[currentIndex];
+
+  nextPages[currentIndex] = nextPages[nextIndex];
+  nextPages[nextIndex] = currentPage;
+
+  return nextPages;
 }
 
 function createChoice(text = 'New choice', targetSceneId: string | null = null): Choice {
@@ -417,6 +436,32 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
               dialoguePages: scene.dialoguePages.map((page) =>
                 page.id === pageId ? { ...page, speakerId } : page,
               ),
+            }
+          : scene,
+      ),
+    );
+    get().syncFromProject();
+  },
+  moveDialoguePageUp: (sceneId: string, pageId: string) => {
+    updateActiveProject((scenes) =>
+      scenes.map((scene) =>
+        scene.id === sceneId
+          ? {
+              ...scene,
+              dialoguePages: moveDialoguePage(scene.dialoguePages, pageId, -1),
+            }
+          : scene,
+      ),
+    );
+    get().syncFromProject();
+  },
+  moveDialoguePageDown: (sceneId: string, pageId: string) => {
+    updateActiveProject((scenes) =>
+      scenes.map((scene) =>
+        scene.id === sceneId
+          ? {
+              ...scene,
+              dialoguePages: moveDialoguePage(scene.dialoguePages, pageId, 1),
             }
           : scene,
       ),

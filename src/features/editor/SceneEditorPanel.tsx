@@ -480,15 +480,28 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
 interface DialoguePageItemProps {
   page: DialoguePage;
   scene: Scene;
+  pageIndex: number;
+  pageCount: number;
   isOnlyPage: boolean;
   characters: Character[];
 }
 
-function DialoguePageItem({ page, scene, isOnlyPage, characters }: DialoguePageItemProps) {
+function DialoguePageItem({
+  page,
+  scene,
+  pageIndex,
+  pageCount,
+  isOnlyPage,
+  characters,
+}: DialoguePageItemProps) {
   const updateDialoguePage = useCanvasStore((state) => state.updateDialoguePage);
   const updateDialoguePageSpeaker = useCanvasStore((state) => state.updateDialoguePageSpeaker);
+  const moveDialoguePageUp = useCanvasStore((state) => state.moveDialoguePageUp);
+  const moveDialoguePageDown = useCanvasStore((state) => state.moveDialoguePageDown);
   const deleteDialoguePage = useCanvasStore((state) => state.deleteDialoguePage);
   const [isEditing, setIsEditing] = useState(false);
+  const isFirstPage = pageIndex === 0;
+  const isLastPage = pageIndex === pageCount - 1;
   const selectedCharacter =
     page.speakerId !== null
       ? characters.find((character) => character.id === page.speakerId) ?? null
@@ -514,6 +527,28 @@ function DialoguePageItem({ page, scene, isOnlyPage, characters }: DialoguePageI
             </p>
           ) : null}
         </button>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => moveDialoguePageUp(scene.id, page.id)}
+            disabled={isFirstPage}
+            className="rounded px-2 py-1 text-xs text-gray-400 hover:bg-gray-700 hover:text-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label="Move dialogue page up"
+            title="Move up"
+          >
+            ↑
+          </button>
+          <button
+            type="button"
+            onClick={() => moveDialoguePageDown(scene.id, page.id)}
+            disabled={isLastPage}
+            className="rounded px-2 py-1 text-xs text-gray-400 hover:bg-gray-700 hover:text-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label="Move dialogue page down"
+            title="Move down"
+          >
+            ↓
+          </button>
+        </div>
         <button
           type="button"
           onClick={() => deleteDialoguePage(scene.id, page.id)}
@@ -690,11 +725,13 @@ export function SceneEditorPanel() {
 
             <CollapsibleSection title="Dialogue Pages">
               <div className="space-y-2">
-                {scene.dialoguePages.map((page) => (
+                {scene.dialoguePages.map((page, pageIndex) => (
                   <DialoguePageItem
                     key={page.id}
                     page={page}
                     scene={scene}
+                    pageIndex={pageIndex}
+                    pageCount={scene.dialoguePages.length}
                     isOnlyPage={scene.dialoguePages.length === 1}
                     characters={activeProject?.characters ?? []}
                   />

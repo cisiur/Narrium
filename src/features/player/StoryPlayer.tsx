@@ -89,17 +89,30 @@ export function StoryPlayer({ project, onExitPreview }: StoryPlayerProps) {
     }));
   };
 
+  const restartPreview = () => {
+    setRuntimeState(createInitialRuntimeState(project));
+  };
+
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
       <header className="flex h-14 items-center justify-between border-b border-gray-800 bg-gray-900 px-5">
         <p className="text-sm font-semibold uppercase tracking-wide text-blue-300">Preview</p>
-        <button
-          type="button"
-          onClick={onExitPreview}
-          className="rounded bg-gray-800 px-2 py-1 text-xs font-medium text-gray-200 hover:bg-gray-700"
-        >
-          Exit Preview
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={restartPreview}
+            className="rounded bg-gray-800 px-2 py-1 text-xs font-medium text-gray-200 hover:bg-gray-700"
+          >
+            Restart
+          </button>
+          <button
+            type="button"
+            onClick={onExitPreview}
+            className="rounded bg-gray-800 px-2 py-1 text-xs font-medium text-gray-200 hover:bg-gray-700"
+          >
+            Exit Preview
+          </button>
+        </div>
       </header>
 
       <main className="relative min-h-[calc(100vh-3.5rem)] overflow-hidden">

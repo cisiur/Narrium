@@ -195,26 +195,66 @@ export function CharactersScreen() {
   };
 
   const saveAttributeRename = (characterId: string, attributeIndex: number) => {
-    updateActiveProject((project) => ({
-      ...project,
-      characters: project.characters.map((character) => {
-        if (character.id !== characterId) {
-          return character;
-        }
+    updateActiveProject((project) => {
+      const renamedCharacter = project.characters.find((character) => character.id === characterId);
+      const oldKey = renamedCharacter?.attributes[attributeIndex]?.key;
+      const newKey = renamedCharacter
+        ? resolveAttributeKey(renamedCharacter.attributes, draftAttributeKey, attributeIndex)
+        : draftAttributeKey.trim() || 'attribute';
+      const shouldUpdateReferences = Boolean(oldKey && oldKey !== newKey);
 
-        return {
-          ...character,
-          attributes: character.attributes.map((attribute, index) =>
-            index === attributeIndex
-              ? {
-                  ...attribute,
-                  key: resolveAttributeKey(character.attributes, draftAttributeKey, attributeIndex),
-                }
-              : attribute,
-          ),
-        };
-      }),
-    }));
+      return {
+        ...project,
+        characters: project.characters.map((character) => {
+          if (character.id !== characterId) {
+            return character;
+          }
+
+          return {
+            ...character,
+            attributes: character.attributes.map((attribute, index) =>
+              index === attributeIndex
+                ? {
+                    ...attribute,
+                    key: newKey,
+                  }
+                : attribute,
+            ),
+          };
+        }),
+        scenes: shouldUpdateReferences
+          ? project.scenes.map((scene) => ({
+              ...scene,
+              choices: scene.choices.map((choice) => ({
+                ...choice,
+                conditionGroups: choice.conditionGroups.map((group) => ({
+                  ...group,
+                  conditions: group.conditions.map((condition) =>
+                    condition.type === 'character_attr' &&
+                    condition.targetId === characterId &&
+                    condition.attribute === oldKey
+                      ? {
+                          ...condition,
+                          attribute: newKey,
+                        }
+                      : condition,
+                  ),
+                })),
+                effects: choice.effects.map((effect) =>
+                  effect.type === 'character_attr' &&
+                  effect.targetId === characterId &&
+                  effect.attribute === oldKey
+                    ? {
+                        ...effect,
+                        attribute: newKey,
+                      }
+                    : effect,
+                ),
+              })),
+            }))
+          : project.scenes,
+      };
+    });
     cancelAttributeRename();
   };
 

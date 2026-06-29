@@ -51,6 +51,18 @@ export function StoryPlayer({ project, onExitPreview }: StoryPlayerProps) {
     : false;
   const visibleChoices = currentScene && currentPage && !hasNextPage ? currentScene.choices : [];
 
+  const goToChoiceTarget = (targetSceneId: string | null) => {
+    if (!targetSceneId || !project.scenes.some((scene) => scene.id === targetSceneId)) {
+      return;
+    }
+
+    setRuntimeState((current) => ({
+      ...current,
+      currentSceneId: targetSceneId,
+      currentPageIndex: 0,
+    }));
+  };
+
   const goToNextPage = () => {
     if (!currentScene) {
       return;
@@ -113,15 +125,28 @@ export function StoryPlayer({ project, onExitPreview }: StoryPlayerProps) {
                 </p>
                 {visibleChoices.length > 0 ? (
                   <div className="mt-5 space-y-2">
-                    {visibleChoices.map((choice) => (
-                      <div
-                        key={choice.id}
-                        className="cursor-not-allowed rounded border border-gray-700 bg-gray-800/80 px-3 py-2 text-sm text-gray-400"
-                        aria-disabled="true"
-                      >
-                        {choice.text}
-                      </div>
-                    ))}
+                    {visibleChoices.map((choice) => {
+                      const hasValidTarget = Boolean(
+                        choice.targetSceneId &&
+                          project.scenes.some((scene) => scene.id === choice.targetSceneId),
+                      );
+
+                      return (
+                        <button
+                          key={choice.id}
+                          type="button"
+                          onClick={() => goToChoiceTarget(choice.targetSceneId)}
+                          disabled={!hasValidTarget}
+                          className={
+                            hasValidTarget
+                              ? 'block w-full rounded border border-blue-500/50 bg-blue-600/20 px-3 py-2 text-left text-sm text-blue-100 hover:bg-blue-600/30'
+                              : 'block w-full cursor-not-allowed rounded border border-gray-700 bg-gray-800/80 px-3 py-2 text-left text-sm text-gray-400'
+                          }
+                        >
+                          {choice.text}
+                        </button>
+                      );
+                    })}
                   </div>
                 ) : null}
                 {hasNextPage ? (

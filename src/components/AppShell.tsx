@@ -121,7 +121,7 @@ export function AppShell({
           {rightPanel ? <div className="overflow-hidden bg-gray-950">{rightPanel}</div> : null}
         </div>
       ) : (
-        <div className="grid min-h-[calc(100vh-3.5rem)] grid-cols-[14rem_1fr_18rem]">
+        <div className="grid min-h-[calc(100vh-3.5rem)] grid-cols-[14rem_minmax(0,1fr)]">
           <nav className="border-r border-ink-950/10 bg-white p-4">
             <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-600">Workspace</p>
             <button
@@ -133,13 +133,6 @@ export function AppShell({
           </nav>
 
           <main className="min-w-0 p-6">{children}</main>
-
-          <aside className="border-l border-ink-950/10 bg-white p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-ink-600">Inspector</p>
-            <div className="mt-4 rounded-md border border-dashed border-ink-950/20 p-4 text-sm text-ink-600">
-              Right sidebar placeholder
-            </div>
-          </aside>
         </div>
       )}
     </div>

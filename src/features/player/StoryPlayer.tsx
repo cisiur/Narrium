@@ -55,6 +55,7 @@ export function StoryPlayer({ project, onExitPreview }: StoryPlayerProps) {
     ? runtimeState.currentPageIndex < currentScene.dialoguePages.length - 1
     : false;
   const visibleChoices = currentScene && currentPage && !hasNextPage ? currentScene.choices : [];
+  const isEndOfStory = Boolean(currentScene && currentPage && !hasNextPage && visibleChoices.length === 0);
 
   const goToChoiceTarget = (choice: NonNullable<typeof currentScene>['choices'][number]) => {
     const targetSceneId = choice.targetSceneId;
@@ -167,6 +168,21 @@ export function StoryPlayer({ project, onExitPreview }: StoryPlayerProps) {
                         </div>
                       );
                     })}
+                  </div>
+                ) : null}
+                {isEndOfStory ? (
+                  <div className="mt-5 rounded border border-gray-700 bg-gray-800/80 p-4">
+                    <p className="text-sm font-semibold text-gray-100">The End</p>
+                    <p className="mt-2 text-sm text-gray-400">
+                      This story has reached its final scene.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={onExitPreview}
+                      className="mt-4 rounded bg-gray-700 px-3 py-1.5 text-sm font-medium text-gray-100 hover:bg-gray-600"
+                    >
+                      Exit Preview
+                    </button>
                   </div>
                 ) : null}
                 {hasNextPage ? (

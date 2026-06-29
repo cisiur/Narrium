@@ -1,4 +1,4 @@
-import type { Choice, Condition, Project, RuntimeState } from '../../types';
+import type { Choice, Condition, Effect, Project, RuntimeState } from '../../types';
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
@@ -28,6 +28,23 @@ export function compareNumbers(
       return leftValue !== rightValue;
     default:
       return false;
+  }
+}
+
+export function applyNumericOperation(
+  currentValue: number,
+  operation: Effect['operation'],
+  effectValue: number,
+): number | null {
+  switch (operation) {
+    case '+=':
+      return currentValue + effectValue;
+    case '-=':
+      return currentValue - effectValue;
+    case '=':
+      return effectValue;
+    default:
+      return null;
   }
 }
 
@@ -109,4 +126,79 @@ export function resolveUnavailableChoiceHint(
   }
 
   return null;
+}
+
+export function applyEffects(
+  choice: Choice,
+  project: Project,
+  runtimeState: RuntimeState,
+): RuntimeState {
+  const effects = choice.effects;
+
+  if (!effects) {
+    return runtimeState;
+  }
+
+  let nextResources = runtimeState.variables.resources;
+  let nextCharacterAttrs = runtimeState.variables.characterAttrs;
+
+  for (const effect of effects) {
+    if (effect.type === 'resource') {
+      const resource = project.resources.find((item) => item.id === effect.targetId);
+
+      if (!resource) {
+        continue;
+      }
+
+      const currentValue = nextResources[resource.key] ?? 0;
+      const nextValue = applyNumericOperation(currentValue, effect.operation, effect.value);
+
+      if (nextValue === null) {
+        continue;
+      }
+
+      nextResources = {
+        ...nextResources,
+        [resource.key]: nextValue,
+      };
+      continue;
+    }
+
+    if (effect.type === 'character_attr') {
+      const character = project.characters.find((item) => item.id === effect.targetId);
+
+      if (!character || !effect.attribute) {
+        continue;
+      }
+
+      if (!character.attributes.some((attribute) => attribute.key === effect.attribute)) {
+        continue;
+      }
+
+      const currentCharacterAttrs = nextCharacterAttrs[character.id] ?? {};
+      const currentValue = currentCharacterAttrs[effect.attribute] ?? 0;
+      const nextValue = applyNumericOperation(currentValue, effect.operation, effect.value);
+
+      if (nextValue === null) {
+        continue;
+      }
+
+      nextCharacterAttrs = {
+        ...nextCharacterAttrs,
+        [character.id]: {
+          ...currentCharacterAttrs,
+          [effect.attribute]: nextValue,
+        },
+      };
+    }
+  }
+
+  return {
+    ...runtimeState,
+    variables: {
+      ...runtimeState.variables,
+      resources: nextResources,
+      characterAttrs: nextCharacterAttrs,
+    },
+  };
 }

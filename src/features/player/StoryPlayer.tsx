@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import type { Project, Scene } from '../../types';
-import { applyEffects } from '../story-logic/runtimeLogic';
+import {
+  applyEffects,
+  isChoiceAvailable,
+  resolveUnavailableChoiceHint,
+} from '../story-logic/runtimeLogic';
 import { createInitialRuntimeState } from './runtimeState';
 
 interface StoryPlayerProps {
@@ -55,7 +59,11 @@ export function StoryPlayer({ project, onExitPreview }: StoryPlayerProps) {
   const goToChoiceTarget = (choice: NonNullable<typeof currentScene>['choices'][number]) => {
     const targetSceneId = choice.targetSceneId;
 
-    if (!targetSceneId || !project.scenes.some((scene) => scene.id === targetSceneId)) {
+    if (
+      !isChoiceAvailable(choice, project, runtimeState) ||
+      !targetSceneId ||
+      !project.scenes.some((scene) => scene.id === targetSceneId)
+    ) {
       return;
     }
 
@@ -133,21 +141,30 @@ export function StoryPlayer({ project, onExitPreview }: StoryPlayerProps) {
                         choice.targetSceneId &&
                           project.scenes.some((scene) => scene.id === choice.targetSceneId),
                       );
+                      const isAvailable = isChoiceAvailable(choice, project, runtimeState);
+                      const unavailableHint = isAvailable
+                        ? null
+                        : resolveUnavailableChoiceHint(choice, project, runtimeState);
+                      const isEnabled = isAvailable && hasValidTarget;
 
                       return (
-                        <button
-                          key={choice.id}
-                          type="button"
-                          onClick={() => goToChoiceTarget(choice)}
-                          disabled={!hasValidTarget}
-                          className={
-                            hasValidTarget
-                              ? 'block w-full rounded border border-blue-500/50 bg-blue-600/20 px-3 py-2 text-left text-sm text-blue-100 hover:bg-blue-600/30'
-                              : 'block w-full cursor-not-allowed rounded border border-gray-700 bg-gray-800/80 px-3 py-2 text-left text-sm text-gray-400'
-                          }
-                        >
-                          {choice.text}
-                        </button>
+                        <div key={choice.id}>
+                          <button
+                            type="button"
+                            onClick={() => goToChoiceTarget(choice)}
+                            disabled={!isEnabled}
+                            className={
+                              isEnabled
+                                ? 'block w-full rounded border border-blue-500/50 bg-blue-600/20 px-3 py-2 text-left text-sm text-blue-100 hover:bg-blue-600/30'
+                                : 'block w-full cursor-not-allowed rounded border border-gray-700 bg-gray-800/80 px-3 py-2 text-left text-sm text-gray-400'
+                            }
+                          >
+                            {choice.text}
+                          </button>
+                          {unavailableHint ? (
+                            <p className="mt-1 px-3 text-xs text-gray-500">{unavailableHint}</p>
+                          ) : null}
+                        </div>
                       );
                     })}
                   </div>

@@ -45,6 +45,11 @@ function normalizeChoice(choice: Choice | LegacyChoice): { choice: Choice; chang
 
 export function normalizeProject(project: Project): { project: Project; changed: boolean } {
   let changed = false;
+  const thumbnail = project.thumbnail ?? null;
+
+  if (!('thumbnail' in project)) {
+    changed = true;
+  }
 
   const scenes = project.scenes.map((scene) => {
     let sceneChanged = false;
@@ -63,7 +68,7 @@ export function normalizeProject(project: Project): { project: Project; changed:
   });
 
   return {
-    project: changed ? { ...project, scenes } : project,
+    project: changed ? { ...project, thumbnail, scenes } : project,
     changed,
   };
 }

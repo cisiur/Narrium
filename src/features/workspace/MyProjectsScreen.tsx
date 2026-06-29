@@ -31,9 +31,17 @@ function ProjectCard({
       className="rounded-md border border-ink-950/10 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-accent-500/50 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-accent-500/40"
       aria-label={`Open ${project.name}`}
     >
-      <div className="flex h-32 items-center justify-center rounded-md bg-parchment-100 text-sm font-medium text-ink-600">
-        No thumbnail
-      </div>
+      {project.thumbnailDataUrl ? (
+        <img
+          src={project.thumbnailDataUrl}
+          alt=""
+          className="h-32 w-full rounded-md bg-parchment-100 object-cover"
+        />
+      ) : (
+        <div className="flex h-32 items-center justify-center rounded-md bg-parchment-100 text-sm font-medium text-ink-600">
+          No thumbnail
+        </div>
+      )}
       <div className="mt-4 flex items-start justify-between gap-3">
         <span className="min-w-0 flex-1 truncate text-lg font-semibold text-ink-950">
           {project.name}
@@ -62,6 +70,7 @@ interface ProjectSettingsSidebarProps {
   onClose: () => void;
   onDelete: (projectId: string) => void;
   onRename: (projectId: string, name: string) => void;
+  onUpdateThumbnail: (projectId: string, thumbnail: string | null) => void;
 }
 
 function ProjectSettingsSidebar({
@@ -69,15 +78,17 @@ function ProjectSettingsSidebar({
   onClose,
   onDelete,
   onRename,
+  onUpdateThumbnail,
 }: ProjectSettingsSidebarProps) {
   const [draftName, setDraftName] = useState(project?.name ?? '');
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const thumbnailInputRef = useRef<HTMLInputElement | null>(null);
   const isOpen = Boolean(project);
 
   useEffect(() => {
     setDraftName(project?.name ?? '');
 
-    if (!project) {
+    if (!project?.id) {
       return;
     }
 
@@ -85,7 +96,7 @@ function ProjectSettingsSidebar({
       inputRef.current?.focus();
       inputRef.current?.select();
     }, 0);
-  }, [project]);
+  }, [project?.id, project?.name]);
 
   const saveRename = () => {
     if (!project) {
@@ -107,6 +118,32 @@ function ProjectSettingsSidebar({
     }
 
     onDelete(project.id);
+  };
+
+  const updateThumbnail = (file: File | undefined) => {
+    if (!project || !file) {
+      return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      if (typeof reader.result !== 'string') {
+        return;
+      }
+
+      onUpdateThumbnail(project.id, reader.result);
+    };
+
+    reader.readAsDataURL(file);
+  };
+
+  const removeThumbnail = () => {
+    if (!project) {
+      return;
+    }
+
+    onUpdateThumbnail(project.id, null);
   };
 
   return (
@@ -158,16 +195,43 @@ function ProjectSettingsSidebar({
             <div className="text-xs font-semibold uppercase tracking-wide text-gray-300">
               Thumbnail
             </div>
-            <div className="mt-3 flex h-32 items-center justify-center rounded-md border border-dashed border-gray-700 bg-gray-950 text-sm text-gray-500">
-              No thumbnail
-            </div>
+            {project.thumbnailDataUrl ? (
+              <img
+                src={project.thumbnailDataUrl}
+                alt=""
+                className="mt-3 h-32 w-full rounded-md border border-gray-700 bg-gray-950 object-cover"
+              />
+            ) : (
+              <div className="mt-3 flex h-32 items-center justify-center rounded-md border border-dashed border-gray-700 bg-gray-950 text-sm text-gray-500">
+                No thumbnail
+              </div>
+            )}
+            <input
+              ref={thumbnailInputRef}
+              type="file"
+              accept="image/*"
+              onChange={(event) => {
+                updateThumbnail(event.target.files?.[0]);
+                event.currentTarget.value = '';
+              }}
+              className="hidden"
+            />
             <button
               type="button"
-              disabled
-              className="mt-3 rounded bg-gray-800 px-2 py-1 text-xs font-medium text-gray-500 disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={() => thumbnailInputRef.current?.click()}
+              className="mt-3 rounded bg-gray-800 px-2 py-1 text-xs font-medium text-gray-100 hover:bg-gray-700"
             >
               Upload Thumbnail
             </button>
+            {project.thumbnailDataUrl ? (
+              <button
+                type="button"
+                onClick={removeThumbnail}
+                className="ml-2 rounded px-2 py-1 text-xs font-medium text-gray-400 hover:bg-gray-800 hover:text-gray-100"
+              >
+                Remove Thumbnail
+              </button>
+            ) : null}
           </section>
         </>
       ) : null}
@@ -180,6 +244,7 @@ export function MyProjectsScreen() {
   const createProject = useWorkspaceStore((state) => state.createProject);
   const openProject = useWorkspaceStore((state) => state.openProject);
   const renameProject = useWorkspaceStore((state) => state.renameProject);
+  const updateProjectThumbnail = useWorkspaceStore((state) => state.updateProjectThumbnail);
   const deleteProject = useWorkspaceStore((state) => state.deleteProject);
   const [settingsProjectId, setSettingsProjectId] = useState<string | null>(null);
   const settingsProject = projects.find((project) => project.id === settingsProjectId) ?? null;
@@ -234,6 +299,7 @@ export function MyProjectsScreen() {
         project={settingsProject}
         onClose={() => setSettingsProjectId(null)}
         onRename={renameProject}
+        onUpdateThumbnail={updateProjectThumbnail}
         onDelete={(projectId) => {
           deleteProject(projectId);
           setSettingsProjectId(null);

@@ -11,6 +11,7 @@ interface WorkspaceStore extends WorkspaceState {
   openProject: (projectId: string) => void;
   closeProject: () => void;
   renameProject: (projectId: string, newName: string) => void;
+  updateProjectThumbnail: (projectId: string, thumbnail: string | null) => void;
   deleteProject: (projectId: string) => void;
   updateActiveProject: (updater: (project: Project) => Project) => void;
 }
@@ -32,6 +33,7 @@ function createEmptyProject(meta: WorkspaceProjectMeta): Project {
   return {
     id: meta.id,
     name: meta.name,
+    thumbnail: meta.thumbnailDataUrl,
     startSceneId: '',
     scenes: [],
     characters: [],
@@ -61,7 +63,12 @@ function loadWorkspace(): WorkspaceState {
     const parsedWorkspace = JSON.parse(rawWorkspace) as WorkspaceState;
 
     return {
-      projects: Array.isArray(parsedWorkspace.projects) ? parsedWorkspace.projects : [],
+      projects: Array.isArray(parsedWorkspace.projects)
+        ? parsedWorkspace.projects.map((project) => ({
+            ...project,
+            thumbnailDataUrl: project.thumbnailDataUrl ?? null,
+          }))
+        : [],
       activeProjectId: parsedWorkspace.activeProjectId ?? null,
     };
   } catch {
@@ -221,6 +228,42 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
       };
     });
   },
+  updateProjectThumbnail: (projectId, thumbnail) => {
+    set((state) => {
+      const project = loadProject(projectId) ?? (state.activeProject?.id === projectId ? state.activeProject : null);
+
+      if (!project) {
+        return state;
+      }
+
+      const now = new Date().toISOString();
+      const nextProject = {
+        ...project,
+        thumbnail,
+        updatedAt: now,
+      };
+      const nextWorkspace = {
+        projects: state.projects.map((projectMeta) =>
+          projectMeta.id === projectId
+            ? {
+                ...projectMeta,
+                thumbnailDataUrl: thumbnail,
+                updatedAt: now,
+              }
+            : projectMeta,
+        ),
+        activeProjectId: state.activeProjectId,
+      };
+
+      saveProject(nextProject);
+      saveWorkspace(nextWorkspace);
+
+      return {
+        ...nextWorkspace,
+        activeProject: state.activeProject?.id === projectId ? nextProject : state.activeProject,
+      };
+    });
+  },
   deleteProject: (projectId) => {
     set((state) => {
       deleteStoredProject(projectId);
@@ -255,6 +298,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
             ? {
                 ...project,
                 name: nextProject.name,
+                thumbnailDataUrl: nextProject.thumbnail,
                 updatedAt: nextProject.updatedAt,
               }
             : project,

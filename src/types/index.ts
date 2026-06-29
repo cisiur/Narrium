@@ -14,6 +14,7 @@ export interface WorkspaceState {
 export interface Project {
   id: string;
   name: string;
+  thumbnail: string | null;
   startSceneId: string;
   scenes: Scene[];
   characters: Character[];

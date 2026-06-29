@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Project, Scene } from '../../types';
+import { applyEffects } from '../story-logic/runtimeLogic';
 import { createInitialRuntimeState } from './runtimeState';
 
 interface StoryPlayerProps {
@@ -51,13 +52,15 @@ export function StoryPlayer({ project, onExitPreview }: StoryPlayerProps) {
     : false;
   const visibleChoices = currentScene && currentPage && !hasNextPage ? currentScene.choices : [];
 
-  const goToChoiceTarget = (targetSceneId: string | null) => {
+  const goToChoiceTarget = (choice: NonNullable<typeof currentScene>['choices'][number]) => {
+    const targetSceneId = choice.targetSceneId;
+
     if (!targetSceneId || !project.scenes.some((scene) => scene.id === targetSceneId)) {
       return;
     }
 
     setRuntimeState((current) => ({
-      ...current,
+      ...applyEffects(choice, project, current),
       currentSceneId: targetSceneId,
       currentPageIndex: 0,
     }));
@@ -135,7 +138,7 @@ export function StoryPlayer({ project, onExitPreview }: StoryPlayerProps) {
                         <button
                           key={choice.id}
                           type="button"
-                          onClick={() => goToChoiceTarget(choice.targetSceneId)}
+                          onClick={() => goToChoiceTarget(choice)}
                           disabled={!hasValidTarget}
                           className={
                             hasValidTarget

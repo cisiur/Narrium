@@ -67,8 +67,20 @@ export function normalizeProject(project: Project): { project: Project; changed:
     return sceneChanged ? { ...scene, choices } : scene;
   });
 
+  const sceneIds = new Set(scenes.map((scene) => scene.id));
+  const startSceneId =
+    scenes.length === 0
+      ? ''
+      : sceneIds.has(project.startSceneId)
+        ? project.startSceneId
+        : scenes[0].id;
+
+  if (startSceneId !== project.startSceneId) {
+    changed = true;
+  }
+
   return {
-    project: changed ? { ...project, thumbnail, scenes } : project,
+    project: changed ? { ...project, thumbnail, startSceneId, scenes } : project,
     changed,
   };
 }

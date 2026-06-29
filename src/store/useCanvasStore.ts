@@ -276,16 +276,26 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
     get().syncFromProject();
   },
   deleteScene: (id: string) => {
-    updateActiveProject((scenes) =>
-      scenes
+    useWorkspaceStore.getState().updateActiveProject((project) => {
+      const scenes = project.scenes
         .filter((scene) => scene.id !== id)
         .map((scene) => ({
           ...scene,
+          background:
+            scene.background.mode === 'scene_reference' && scene.background.sourceSceneId === id
+              ? createEmptyBackground()
+              : scene.background,
           choices: scene.choices.map((choice) =>
             choice.targetSceneId === id ? { ...choice, targetSceneId: null } : choice,
           ),
-        })),
-    );
+        }));
+
+      return {
+        ...project,
+        startSceneId: project.startSceneId === id ? scenes[0]?.id ?? '' : project.startSceneId,
+        scenes,
+      };
+    });
 
     set({
       selectedSceneId: null,

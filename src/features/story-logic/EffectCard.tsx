@@ -1,6 +1,11 @@
 import type { Character, Effect, Resource } from '../../types';
 
 const EFFECT_OPERATIONS: Effect['operation'][] = ['+=', '-=', '='];
+const EFFECT_OPERATION_LABELS: Record<Effect['operation'], string> = {
+  '+=': '+',
+  '-=': '-',
+  '=': '=',
+};
 
 function getResourceEffectWarning(effect: Effect, resources: Resource[]) {
   if (effect.type !== 'resource') {
@@ -233,7 +238,7 @@ export function EffectCard({
             >
               {EFFECT_OPERATIONS.map((operation) => (
                 <option key={operation} value={operation}>
-                  {operation}
+                  {EFFECT_OPERATION_LABELS[operation]}
                 </option>
               ))}
             </select>

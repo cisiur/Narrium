@@ -1,6 +1,6 @@
 # Roadmap — Narrium
 
-> **Version:** v5 documentation refresh after EPIC 6 + UX Polish Sprint  
+> **Version:** v6 documentation refresh after EPIC 6 + UX Polish Sprint + Post-Audit Stabilization Sprint  
 > **Workflow:** active development happens directly on `main`. Do not use a `dev` branch unless the project owner explicitly changes this workflow.
 
 ---
@@ -28,6 +28,7 @@ Characters & Resources     ██████████ 100%
 Story Logic — Conditions   ██████████ 100%
 Story Logic — Effects      ██████████ 100%
 Story Logic — Runtime      ██████████ 100%
+Post-Audit Stabilization   ██████████ 100%
 Story Player               ░░░░░░░░░░   0%
 Save / Export              █░░░░░░░░░  15%
 Polish & Production UX     ████░░░░░░  40%
@@ -37,6 +38,8 @@ Current state:
 Narrium has a usable local multi-project workspace, project settings sidebar, project thumbnails, React Flow scene graph editor, right-side scene editor, background system, asset library support, SceneNode thumbnails, ordered dialogue pages, character speaker selection, choice target editing, edge-to-choice navigation, project-level Characters, Character attributes, project-level Resources, complete Story Logic Conditions, complete Story Logic Effects, and runtime helper functions for condition/effect execution.
 
 Story Logic is complete for the MVP editor/runtime-helper layer.
+
+Post-audit blockers and high-priority data consistency issues from `docs/AUDIT_EPIC_6_TO_7.md` have been addressed.
 
 Story Player is the next major milestone.
 
@@ -99,6 +102,7 @@ Architecture note:
 - React Flow edges are not domain objects.
 - Edges are projections of `Choice.targetSceneId`.
 - `Choice` is the single source of truth for connections.
+- Scene deletion now preserves graph integrity by repairing `Project.startSceneId`, clearing incoming choice targets, and resetting dangling scene-reference backgrounds.
 
 ---
 
@@ -137,6 +141,10 @@ Deliverable status:
 | E4-07 | Asset search/filtering for large libraries | [AI] | Backlog |
 | E4-08 | Image compression / resizing before localStorage save | [BOTH] | Backlog |
 
+Deliverable status:
+- Background system is ready for Story Player background rendering.
+- Deleting a scene now resets other scenes whose `scene_reference` background pointed to the deleted scene.
+
 ---
 
 ## EPIC 5 — Characters & Resources
@@ -152,6 +160,7 @@ Deliverable status:
 | E5-07 | Add / edit / delete resource: key + default value | [AI] | ✅ Done |
 | E5-08 | Validation for duplicate character attribute/resource keys | [AI] | ✅ Done |
 | E5-09 | Warn before deleting referenced Resource / Character / Character Attribute | [AI] | ✅ Done |
+| E5-10 | Cascade Story Logic references on Character Attribute key rename | [AI] | ✅ Done |
 
 Deliverable status:
 - Project has complete Characters and Resources data needed by Story Logic and Story Player.
@@ -161,6 +170,7 @@ Deliverable status:
 - Duplicate resource keys are resolved project-wide.
 - Negative and decimal numeric defaults are supported.
 - Deletion warnings protect Story Logic references.
+- Character Attribute key renames preserve matching condition/effect references for the same character.
 
 ---
 
@@ -179,6 +189,7 @@ Deliverable status:
 | E6-07 | Character Attribute condition selector | [AI] | ✅ Done |
 | E6-08 | Character Attribute condition validation warnings | [AI] | ✅ Done |
 | E6-09 | Refactor condition editor components into `src/features/story-logic/` | [AI] | ✅ Done |
+| E6-09B | Empty condition group authoring UX safety | [AI] | ✅ Done |
 
 Deliverable status:
 - Condition groups implement OR between groups and AND inside a group.
@@ -191,6 +202,8 @@ Deliverable status:
 - Hint text is editable per condition.
 - Inline visual warnings exist for missing/deleted resource, character, and attribute references.
 - Validation is visual only.
+- `+ Add OR Group` creates a group with one default condition.
+- Empty condition groups remain legal but display an informational always-pass warning.
 
 ### EPIC 6B — Effects
 
@@ -210,6 +223,7 @@ Deliverable status:
 - The editor displays effect operation labels as `+`, `-`, and `=`.
 - Effects validation is visual only.
 - Broken references are not auto-fixed.
+- Character Attribute key renames preserve matching effect references for the same character.
 
 ### EPIC 6C — Logic Runtime Helpers
 
@@ -258,7 +272,44 @@ Deliverable status:
 
 ---
 
+## EPIC 6E — Post-Audit Stabilization Sprint
+
+Source:
+- `docs/AUDIT_EPIC_6_TO_7.md`
+
+Goal:
+Fix targeted data consistency and authoring safety issues before starting EPIC 7.
+
+| ID | Task | Who | Status |
+|---|---|---|---|
+| PA-01 | Preserve valid `Project.startSceneId` after scene deletion | [AI] | ✅ Done |
+| PA-02 | Reset dangling `scene_reference` backgrounds after scene deletion | [AI] | ✅ Done |
+| PA-03 | Add minimal `startSceneId` invariant to project normalization | [AI] | ✅ Done |
+| PA-04 | Normalize full current Project shape on load | [AI] | ✅ Done |
+| PA-05 | Preserve Character Attribute Story Logic references on rename | [AI] | ✅ Done |
+| PA-06 | Improve empty condition group authoring UX | [AI] | ✅ Done |
+
+Completed commits:
+- `472e268` — `fix: preserve valid start scene after scene deletion`
+- `b9ed4db` — `fix: preserve character attribute references on rename`
+- `53e21d5` — `ux: improve empty condition group authoring`
+
+Deliverable status:
+- EPIC 7 blockers from the audit are resolved.
+- Story Player implementation can assume a normalized Project model after load.
+- Story Player implementation can assume `Project.startSceneId` is valid when scenes exist.
+- Scene deletion keeps scene graph and scene-reference backgrounds consistent.
+- Character Attribute renames no longer silently break Story Logic.
+- Empty condition groups remain semantically valid but are safer to author.
+
+Notes:
+- The full normalization batch was completed and accepted, but the exact commit hash was not available during this documentation update. Check git history for the commit that changed `src/store/projectMigrations.ts`.
+
+---
+
 ## EPIC 7 — Story Player
+
+All blockers identified in `docs/AUDIT_EPIC_6_TO_7.md` have been resolved. Story Player implementation can now assume a normalized Project model, valid `startSceneId`, safer scene deletion semantics, and safer Story Logic authoring behavior.
 
 | ID | Task | Who | Status |
 |---|---|---|---|
@@ -312,6 +363,10 @@ Recommended implementation order:
 | E9-07 | Asset library extraction and filtering | [AI] | Backlog |
 | E9-08 | Empty/error states polish | [AI] | Backlog |
 | E9-09 | Accessibility review | [BOTH] | Backlog |
+| E9-10 | Warn on character deletion when used as dialogue speaker | [AI] | Backlog |
+| E9-11 | Synchronize workspace metadata from normalized project data on load | [AI] | Backlog |
+| E9-12 | Clear missing/corrupt active workspace project id on load | [AI] | Backlog |
+| E9-13 | Runtime helper unit tests | [BOTH] | Backlog |
 
 ---
 
@@ -333,3 +388,4 @@ Acceptance direction:
 - Set `currentPageIndex` to `0`.
 - No UI yet.
 - No player shell yet.
+- Include focused tests if a test setup is introduced; otherwise keep helper pure and easy to test later.

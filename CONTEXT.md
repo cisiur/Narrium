@@ -46,9 +46,9 @@ Workflow:
 - Codex prompts must be in English and ready to paste.
 - After each push, review the implementation against the accepted scope.
 - Prompts for Codex should include:
-  - implement scoped task
-  - run production build
-  - create commit with specified message
+  - implement scoped task only
+  - run `npm.cmd run build`
+  - create a commit with the specified message
   - do not push
 - After confirmed task batches, update documentation.
 
@@ -69,11 +69,42 @@ Workflow:
 
 ---
 
+## Current Project Status
+
+### Completed major areas
+
+```text
+Workspace Management       ██████████ 100%
+Canvas Graph Editor        ██████████ 100%
+Scene Editor Basics        ██████████ 100%
+Background System          ██████████ 100%
+Canvas / Choice UX         ██████████ 100%
+Characters & Resources     ██████████ 100%
+Story Logic — Conditions   ██████████ 100%
+Story Logic — Effects      ██████████ 100%
+Story Logic — Runtime      ██████████ 100%
+Post-Audit Stabilization   ██████████ 100%
+Story Player               ░░░░░░░░░░   0%
+Save / Export              █░░░░░░░░░  15%
+Polish & Production UX     ████░░░░░░  40%
+```
+
+Current state:
+Narrium has a usable local multi-project workspace, project settings sidebar, project thumbnails, React Flow scene graph editor, right-side scene editor, background system, asset library support, SceneNode thumbnails, ordered dialogue pages, character speaker selection, choice target editing, edge-to-choice navigation, project-level Characters, Character attributes, project-level Resources, complete Story Logic Conditions, complete Story Logic Effects, and runtime helper functions for condition/effect execution.
+
+EPIC 6 is complete for the MVP editor/runtime-helper layer.
+
+The Post-EPIC 6 UX Polish Sprint is complete.
+
+The Post-Audit Stabilization Sprint after `docs/AUDIT_EPIC_6_TO_7.md` is complete.
+
+The project is ready to begin **EPIC 7 — Story Player**, starting with `E7-01 — Player runtime: initialize RuntimeState from Project`.
+
+---
+
 ## Current Implementation Status
 
-### Completed
-
-#### Workspace / Projects
+### Workspace / Projects
 
 - My Projects screen.
 - Create local project.
@@ -94,7 +125,7 @@ Workflow:
   - `narrium_workspace`
   - `narrium_project_{id}`
 
-#### Project Navigation
+### Project Navigation
 
 - Project-level view state:
   - `canvas`
@@ -106,7 +137,7 @@ Workflow:
 - Characters and Resources use full-width main screens without the Scene Editor panel.
 - Obsolete My Projects Inspector placeholder has been removed.
 
-#### Shared UI
+### Shared UI
 
 - Reusable `RightSidebar` component:
   - overlay
@@ -118,7 +149,7 @@ Workflow:
 - Project Settings uses `RightSidebar`.
 - Scene Editor still uses its existing dedicated panel.
 
-#### Canvas Graph Editor
+### Canvas Graph Editor
 
 - React Flow canvas.
 - Background dots.
@@ -136,8 +167,12 @@ Workflow:
 - Dragging an edge always creates a new Choice.
 - Edge label comes from Choice text.
 - Clicking an edge opens the corresponding Choice inside Scene Editor.
+- Deleting an edge clears `choice.targetSceneId`.
+- Deleting a scene clears incoming `choice.targetSceneId` references.
+- Deleting the start scene repairs `Project.startSceneId`.
+- Deleting a scene resets dangling `scene_reference` backgrounds that pointed to the deleted scene.
 
-#### Scene Editor
+### Scene Editor
 
 - Right sidebar panel.
 - Scene name inline editing.
@@ -166,7 +201,7 @@ Workflow:
   - condition editor embedded under each Choice
   - effects editor embedded under each Choice
 
-#### Background System
+### Background System
 
 - Background picker modes:
   - `none`
@@ -191,7 +226,7 @@ Workflow:
   - one-level scene reference
   - placeholders for missing/no background
 
-#### Characters
+### Characters
 
 - Characters project view.
 - Character list.
@@ -201,6 +236,7 @@ Workflow:
 - Character attributes section per character.
 - Add character attribute.
 - Rename attribute key inline.
+- Renaming a Character Attribute cascades matching Story Logic references from old key to new key.
 - Edit numeric attribute default value.
 - Negative and decimal attribute values are supported.
 - Invalid attribute values are stored as `0`.
@@ -210,7 +246,7 @@ Workflow:
 - Deleting a Character used by Story Logic shows a warning before deletion.
 - Deleting a Character Attribute used by Story Logic shows a warning before deletion.
 
-#### Resources
+### Resources
 
 - Resources project view.
 - Resource list.
@@ -224,7 +260,7 @@ Workflow:
 - Resource mutations use `workspaceStore.updateActiveProject()`.
 - Deleting a Resource used by Story Logic shows a warning before deletion.
 
-#### Story Logic — Conditions
+### Story Logic — Conditions
 
 - `ConditionGroup` data model added.
 - `Choice.conditions` migrated to `Choice.conditionGroups`.
@@ -234,6 +270,12 @@ Workflow:
 - Condition groups represent:
   - OR between groups
   - AND inside each group
+- Runtime semantics:
+  - no groups means choice is available
+  - empty group passes
+- Editor UX safety:
+  - `+ Add OR Group` creates a group with one default condition
+  - empty groups display an inline warning: `This group has no conditions and will always pass.`
 - Choice editor includes a Conditions section.
 - Add/delete OR condition groups.
 - Add/delete condition rows inside groups.
@@ -257,7 +299,7 @@ Workflow:
 - Condition validation does not auto-fix stored data.
 - Condition editor code lives in `src/features/story-logic/`.
 
-#### Story Logic — Effects
+### Story Logic — Effects
 
 - Effect data model accepted.
 - Choice editor includes an Effects section.
@@ -288,8 +330,9 @@ Workflow:
 - Invalid numeric effect values are stored as `0`.
 - Effect validation is visual only.
 - Effect validation does not auto-fix stored data.
+- Character Attribute effects are preserved across attribute key renames through cascade reference updates.
 
-#### Story Logic — Runtime Helpers
+### Story Logic — Runtime Helpers
 
 Implemented in `src/features/story-logic/runtimeLogic.ts`:
 
@@ -313,7 +356,7 @@ Runtime helper behavior:
 - Effects apply in array order.
 - Runtime helpers are pure and do not mutate Project or RuntimeState.
 
-#### Story Logic — Reference Usage Warnings
+### Story Logic — Reference Usage Warnings
 
 Implemented in `src/features/story-logic/referenceUsage.ts`:
 
@@ -328,6 +371,35 @@ Implemented in `src/features/story-logic/referenceUsage.ts`:
 - Deletion is not blocked.
 - Confirmation cancel aborts deletion.
 - Confirmation accept deletes and leaves broken references visible through existing warnings.
+
+### Project Migrations / Normalization
+
+Implemented in `src/store/projectMigrations.ts`:
+
+- Normalizes legacy `Choice.conditions` into canonical `Choice.conditionGroups`.
+- Ensures `Project.thumbnail` exists.
+- Ensures full current Project shape exists on load:
+  - `startSceneId`
+  - `scenes`
+  - `characters`
+  - `resources`
+  - `groups`
+  - `assetLibrary`
+  - `settings`
+- Ensures each scene has:
+  - `background`
+  - `position`
+  - `dialoguePages`
+  - `choices`
+  - `groupId`
+- Ensures each choice has:
+  - `conditionGroups`
+  - `effects`
+- Ensures each dialogue page has:
+  - `speakerId`
+- Enforces valid `startSceneId` invariant:
+  - if scenes exist, `startSceneId` points to an existing scene
+  - if no scenes exist, `startSceneId` is `''`
 
 ---
 
@@ -361,6 +433,28 @@ Completed:
 - dialogue page reorder buttons
 - effect operator labels simplified
 
+### Post-Audit Stabilization Sprint
+
+Status: **completed**.
+
+Source audit:
+- `docs/AUDIT_EPIC_6_TO_7.md`
+
+Completed:
+- start scene deletion integrity:
+  - deleting the start scene repairs `Project.startSceneId`
+  - deleting the final scene sets `startSceneId` to `''`
+- scene reference cleanup:
+  - deleting a scene resets dangling `scene_reference` backgrounds
+- fuller project normalization:
+  - old localStorage projects are normalized to the current Project shape on load
+  - invalid `startSceneId` is repaired during normalization
+- safe Character Attribute renames:
+  - matching Story Logic condition/effect references are cascade-updated
+- empty condition group UX safety:
+  - new OR groups start with one default condition
+  - empty groups show an informational always-pass warning
+
 ### Recommended next milestone
 
 ### EPIC 7 — Story Player
@@ -368,17 +462,21 @@ Completed:
 Goal:
 Build an in-browser preview/player that executes the existing Project model.
 
-Recommended first tasks:
+Recommended first task:
+1. `E7-01 — Player runtime: initialize RuntimeState from Project`
+
+Recommended EPIC 7 order:
 1. Initialize `RuntimeState` from `Project`.
 2. Add Story Player shell / preview mode.
 3. Render current scene background.
 4. Render dialogue pages in array order.
 5. Advance through dialogue pages before choices.
-6. Render choices after last dialogue page.
+6. Render choices after the final dialogue page.
 7. Use `isChoiceAvailable()` to disable unavailable choices.
 8. Use `resolveUnavailableChoiceHint()` to display unavailable-choice hint.
 9. Use `applyEffects()` when a choice is selected.
 10. Navigate to `choice.targetSceneId`.
+11. Add end state and restart preview.
 
 Important:
 - Story Player should consume the existing Project model.
@@ -388,6 +486,8 @@ Important:
 - `speakerId: null` means Narrator.
 - `speakerId: Character.id` means Character speaker.
 - Choices appear after the final dialogue page.
+- EPIC 7 can assume projects loaded through `normalizeProject()` have the current baseline shape.
+- EPIC 7 can assume `Project.startSceneId` points to an existing scene when scenes exist.
 
 ---
 
@@ -485,7 +585,13 @@ Story Logic must not introduce scripting in MVP.
 
 Conditions and effects should remain typed, explicit, and editor-friendly.
 
-### 10. Keep implementation prompts scoped
+### 10. Runtime helpers stay pure
+
+Story Logic runtime helpers should not mutate `Project` or `RuntimeState`.
+
+Player code should call helpers and then store the returned runtime state where needed.
+
+### 11. Keep implementation prompts scoped
 
 Each Codex prompt should:
 - work directly on `main`
@@ -493,6 +599,9 @@ Each Codex prompt should:
 - list relevant files
 - include acceptance criteria
 - say whether docs should or should not be updated
+- include `npm.cmd run build`
+- include a commit instruction
+- explicitly say `Do NOT push`
 - state which `ROADMAP.md` and `STORY_LOGIC.md` section it implements when applicable
 
 ---
@@ -563,6 +672,7 @@ Notes:
 - Project Settings uses shared `RightSidebar`.
 - Story Logic editing and runtime helper code lives under `src/features/story-logic/`.
 - Characters and Resources are full-screen project views inside the project shell.
+- `src/features/player/` is reserved for EPIC 7.
 
 ---
 
@@ -644,6 +754,9 @@ interface RuntimeState {
 Important notes:
 - `Project.thumbnail` stores project thumbnail as a Data URL or `null`.
 - `WorkspaceProjectMeta.thumbnailDataUrl` mirrors project thumbnail for fast My Projects rendering.
+- `Project.startSceneId` is the runtime entry point.
+- If a project has scenes, `startSceneId` should point to an existing scene.
+- If a project has no scenes, `startSceneId` should be `''`.
 - `DialoguePage.speakerId = null` means Narrator.
 - `DialoguePage.speakerId = Character.id` means Character speaker.
 - Dialogue pages are played in array order.
@@ -665,6 +778,11 @@ Important notes:
 - Scene groups are still pending.
 - Undo/redo is not implemented yet.
 - Full project validation pass is not implemented yet.
+- Runtime helper coverage is not backed by visible tests yet.
+- Character deletion warns about Story Logic references but not dialogue speaker references.
+- Workspace metadata can still drift from normalized project data on load.
+- Active workspace id can still point to a missing project until cleaned up.
+- Resource key rename implications for future save/runtime state are not solved yet.
 
 ---
 
@@ -678,8 +796,12 @@ When resuming work:
    - `docs/ROADMAP.md`
    - `docs/DATA_MODEL.md`
    - `docs/STORY_LOGIC.md`
+   - `docs/AUDIT_EPIC_6_TO_7.md`
+   - `docs/CHANGELOG.md`
 3. Confirm EPIC 6 is complete.
 4. Confirm Post-EPIC 6 UX Polish Sprint is complete.
-5. Start planning EPIC 7 — Story Player.
-6. Do not generate implementation code directly.
-7. Prepare English Codex prompts only after product-owner acceptance.
+5. Confirm Post-Audit Stabilization Sprint is complete.
+6. Start planning EPIC 7 — Story Player.
+7. First recommended task: `E7-01 — Player runtime: initialize RuntimeState from Project`.
+8. Do not generate implementation code directly.
+9. Prepare English Codex prompts only after product-owner acceptance.

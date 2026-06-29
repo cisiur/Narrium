@@ -9,7 +9,7 @@
 
 Narrium is a **no-code, browser-based visual novel editor**.
 
-Authors build branching interactive stories by connecting scene tiles on a visual canvas — no programming required. Each scene can contain a background image, dialogue pages, and response choices. Each choice can carry declarative condition groups and, later, declarative effects.
+Authors build branching interactive stories by connecting scene tiles on a visual canvas — no programming required. Each scene can contain a background image, ordered dialogue pages, and response choices. Choices can carry declarative condition groups and declarative effects.
 
 The finished story should eventually be playable in the browser and exportable as a standalone HTML file.
 
@@ -45,7 +45,12 @@ Workflow:
 - Codex prompts are created only after product-owner acceptance.
 - Codex prompts must be in English and ready to paste.
 - After each push, review the implementation against the accepted scope.
-- After confirmed task batches, update both `ROADMAP.md` and `CONTEXT.md`.
+- Prompts for Codex should include:
+  - implement scoped task
+  - run production build
+  - create commit with specified message
+  - do not push
+- After confirmed task batches, update documentation.
 
 ---
 
@@ -74,12 +79,20 @@ Workflow:
 - Create local project.
 - Open existing local project.
 - Return from canvas to My Projects.
-- Rename project from My Projects.
+- Project card grid.
+- Project settings opened from a `...` button.
+- Right-side Project Settings sidebar.
+- Rename project from Project Settings.
+- Delete project with confirmation.
+- Project thumbnail upload.
+- Project thumbnail preview on Project Card.
+- Replace project thumbnail.
+- Remove project thumbnail.
 - Active project name displayed in canvas header.
+- Multiple local projects.
 - Workspace persistence:
   - `narrium_workspace`
   - `narrium_project_{id}`
-- Multiple local projects.
 
 #### Project Navigation
 
@@ -91,6 +104,19 @@ Workflow:
 - Opening a project defaults to Canvas.
 - Canvas keeps the right Scene Editor panel.
 - Characters and Resources use full-width main screens without the Scene Editor panel.
+- Obsolete My Projects Inspector placeholder has been removed.
+
+#### Shared UI
+
+- Reusable `RightSidebar` component:
+  - overlay
+  - slide-in panel
+  - close button
+  - outside click close
+  - Escape close
+  - title/subtitle/footer slots
+- Project Settings uses `RightSidebar`.
+- Scene Editor still uses its existing dedicated panel.
 
 #### Canvas Graph Editor
 
@@ -115,11 +141,21 @@ Workflow:
 
 - Right sidebar panel.
 - Scene name inline editing.
+- Background, Dialogue Pages, and Choices sections start collapsed by default.
+- Sections expand/collapse on click.
 - Dialogue pages:
   - add
-  - edit
+  - edit text
   - delete
   - last page cannot be deleted
+  - speaker selector
+  - Narrator support through `speakerId: null`
+  - Character speaker support through `speakerId: Character.id`
+  - missing/deleted character speaker warning
+  - move page up
+  - move page down
+  - order persists in `scene.dialoguePages`
+- Dialogue page order is runtime order.
 - Choices:
   - add
   - edit text
@@ -128,6 +164,7 @@ Workflow:
   - target scene dropdown
   - edge-click highlight + scroll into view
   - condition editor embedded under each Choice
+  - effects editor embedded under each Choice
 
 #### Background System
 
@@ -170,6 +207,8 @@ Workflow:
 - Delete character attribute.
 - Duplicate attribute keys are resolved per character with suffixes such as `strength_2`, `strength_3`.
 - Character mutations use `workspaceStore.updateActiveProject()`.
+- Deleting a Character used by Story Logic shows a warning before deletion.
+- Deleting a Character Attribute used by Story Logic shows a warning before deletion.
 
 #### Resources
 
@@ -183,6 +222,7 @@ Workflow:
 - Delete resource.
 - Duplicate resource keys are resolved project-wide with suffixes such as `gold_2`, `gold_3`.
 - Resource mutations use `workspaceStore.updateActiveProject()`.
+- Deleting a Resource used by Story Logic shows a warning before deletion.
 
 #### Story Logic — Conditions
 
@@ -194,7 +234,7 @@ Workflow:
 - Condition groups represent:
   - OR between groups
   - AND inside each group
-- Choice editor now includes a Conditions section.
+- Choice editor includes a Conditions section.
 - Add/delete OR condition groups.
 - Add/delete condition rows inside groups.
 - Resource conditions:
@@ -215,9 +255,79 @@ Workflow:
 - Invalid numeric condition values are stored as `0`.
 - Condition validation is visual only.
 - Condition validation does not auto-fix stored data.
-- No runtime condition evaluation yet.
-- No effects editor yet.
-- Condition editor has been refactored into `src/features/story-logic/`.
+- Condition editor code lives in `src/features/story-logic/`.
+
+#### Story Logic — Effects
+
+- Effect data model accepted.
+- Choice editor includes an Effects section.
+- Add/delete effects.
+- Resource effects:
+  - select project Resource
+  - display `Resource.key`
+  - store `Resource.id` in `effect.targetId`
+  - edit operation and value
+  - visual warnings for missing/deleted resources
+- Character Attribute effects:
+  - select Character
+  - display `Character.name`
+  - store `Character.id` in `effect.targetId`
+  - select Character Attribute
+  - display/store `CharacterAttribute.key` in `effect.attribute`
+  - edit operation and value
+  - visual warnings for missing/deleted characters and attributes
+- Effect operations are stored as:
+  - `+=`
+  - `-=`
+  - `=`
+- Effect operation labels are displayed in the editor as:
+  - `+`
+  - `-`
+  - `=`
+- Effect value input supports numeric values.
+- Invalid numeric effect values are stored as `0`.
+- Effect validation is visual only.
+- Effect validation does not auto-fix stored data.
+
+#### Story Logic — Runtime Helpers
+
+Implemented in `src/features/story-logic/runtimeLogic.ts`:
+
+- `compareNumbers()`
+- `evaluateCondition()`
+- `isChoiceAvailable()`
+- `resolveUnavailableChoiceHint()`
+- `applyNumericOperation()`
+- `applyEffects()`
+
+Runtime helper behavior:
+- A choice with no condition groups is available.
+- OR between condition groups.
+- AND inside a condition group.
+- Empty condition group passes.
+- Missing condition references fail.
+- Missing effect references are skipped.
+- Resource runtime values are keyed by `Resource.key`.
+- Character attribute runtime values are keyed by `character.id` and `attribute.key`.
+- Missing runtime values used by effects start at `0`.
+- Effects apply in array order.
+- Runtime helpers are pure and do not mutate Project or RuntimeState.
+
+#### Story Logic — Reference Usage Warnings
+
+Implemented in `src/features/story-logic/referenceUsage.ts`:
+
+- Finds Story Logic references to:
+  - Resources
+  - Characters
+  - Character Attributes
+- Checks both:
+  - `choice.conditionGroups`
+  - `choice.effects`
+- Used before deleting Resources, Characters, and Character Attributes.
+- Deletion is not blocked.
+- Confirmation cancel aborts deletion.
+- Confirmation accept deletes and leaves broken references visible through existing warnings.
 
 ---
 
@@ -225,33 +335,59 @@ Workflow:
 
 ### EPIC 6 — Story Logic
 
+Status: **completed for MVP editor + runtime helper layer**.
+
+Completed:
+- Conditions editor
+- Effects editor
+- missing-reference warnings
+- runtime condition evaluation helper
+- unavailable hint helper
+- runtime effect application helper
+- Story Logic reference usage warnings on deletion
+
+### Post-EPIC 6 UX Polish Sprint
+
+Status: **completed**.
+
+Completed:
+- collapsible Scene Editor sections start closed
+- Project Settings sidebar
+- reusable right sidebar shell
+- project delete
+- project thumbnail upload/remove/display
+- obsolete Inspector placeholder removed
+- dialogue speaker selector
+- dialogue page reorder buttons
+- effect operator labels simplified
+
+### Recommended next milestone
+
+### EPIC 7 — Story Player
+
 Goal:
-Allow authors to define declarative conditions and effects on choices.
+Build an in-browser preview/player that executes the existing Project model.
 
-Current state:
-- The Conditions part of Story Logic is implemented for MVP editor use.
-- Condition groups, resource conditions, character attribute conditions, and inline validation warnings are complete.
-- Condition editor code has been extracted from `SceneEditorPanel.tsx` into dedicated story-logic components.
-- Runtime evaluation is not implemented yet.
-- Effects UI is not implemented yet.
-
-Recommended next work:
-1. Effect data model review and final acceptance.
-2. Choice effect list UI foundation.
-3. Add/edit/delete resource effects.
-4. Add/edit/delete character attribute effects.
-5. Effects validation for missing/deleted resources, characters, and attributes.
-6. Runtime condition evaluation helper.
-7. Runtime effect application helper.
-8. Story Player / Preview integration.
+Recommended first tasks:
+1. Initialize `RuntimeState` from `Project`.
+2. Add Story Player shell / preview mode.
+3. Render current scene background.
+4. Render dialogue pages in array order.
+5. Advance through dialogue pages before choices.
+6. Render choices after last dialogue page.
+7. Use `isChoiceAvailable()` to disable unavailable choices.
+8. Use `resolveUnavailableChoiceHint()` to display unavailable-choice hint.
+9. Use `applyEffects()` when a choice is selected.
+10. Navigate to `choice.targetSceneId`.
 
 Important:
-- Characters and Resources are implemented.
-- Conditions use existing `Project.characters`, `Character.attributes`, and `Project.resources`.
-- Do not introduce scripting. Story Logic remains declarative.
-- Follow `docs/STORY_LOGIC.md`.
-- Each proposed task should state which roadmap/spec section it implements.
-- If a roadmap item is large, it may be split into smaller implementation tasks, but the functional order should remain aligned with `ROADMAP.md` and `STORY_LOGIC.md`.
+- Story Player should consume the existing Project model.
+- Do not introduce a second story/runtime data model.
+- Reuse Story Logic helpers from `runtimeLogic.ts`.
+- Dialogue page order in `scene.dialoguePages` is runtime order.
+- `speakerId: null` means Narrator.
+- `speakerId: Character.id` means Character speaker.
+- Choices appear after the final dialogue page.
 
 ---
 
@@ -300,13 +436,25 @@ Choice.conditionGroups
 Choice.effects
 ```
 
-### 4. Editors modify Project data
+### 4. DialoguePage order is runtime order
+
+Dialogue pages are stored in:
+
+```typescript
+Scene.dialoguePages
+```
+
+They should be played sequentially by index.
+
+The editor supports moving pages up/down.
+
+### 5. Editors modify Project data
 
 Editor panels and project data screens should call store actions that update the active Project.
 
 Do not duplicate persistence logic inside UI components.
 
-### 5. Persistence lives in workspaceStore
+### 6. Persistence lives in workspaceStore
 
 `workspaceStore.updateActiveProject()` is responsible for:
 - updating active project
@@ -314,7 +462,7 @@ Do not duplicate persistence logic inside UI components.
 - persisting full project to `narrium_project_{id}`
 - updating project metadata in `narrium_workspace`
 
-### 6. Canvas store synchronizes from Project
+### 7. Canvas store synchronizes from Project
 
 `useCanvasStore.syncFromProject()` rebuilds:
 - nodes
@@ -323,7 +471,7 @@ Do not duplicate persistence logic inside UI components.
 
 After a mutation that changes scene graph data, call `syncFromProject()`.
 
-### 7. Characters and Resources do not need their own domain stores
+### 8. Characters and Resources do not need their own domain stores
 
 Character and Resource data belongs directly to `Project`.
 
@@ -331,13 +479,13 @@ Characters and Resources screens should mutate data through `workspaceStore.upda
 
 UI-only state such as which row is being edited, which character is expanded, or which tab is active may live in local component state or small UI stores.
 
-### 8. Story Logic remains declarative
+### 9. Story Logic remains declarative
 
 Story Logic must not introduce scripting in MVP.
 
 Conditions and effects should remain typed, explicit, and editor-friendly.
 
-### 9. Keep implementation prompts scoped
+### 10. Keep implementation prompts scoped
 
 Each Codex prompt should:
 - work directly on `main`
@@ -345,7 +493,7 @@ Each Codex prompt should:
 - list relevant files
 - include acceptance criteria
 - say whether docs should or should not be updated
-- state which `ROADMAP.md` and `STORY_LOGIC.md` section it implements
+- state which `ROADMAP.md` and `STORY_LOGIC.md` section it implements when applicable
 
 ---
 
@@ -359,6 +507,7 @@ src/
 
   components/
     AppShell.tsx
+    RightSidebar.tsx
 
   features/
     workspace/
@@ -375,6 +524,10 @@ src/
       ConditionGroupsEditor.tsx
       ConditionGroupCard.tsx
       ConditionRow.tsx
+      EffectsEditor.tsx
+      EffectCard.tsx
+      referenceUsage.ts
+      runtimeLogic.ts
 
     characters/
       CharactersScreen.tsx
@@ -406,8 +559,9 @@ src/
 Notes:
 - The background asset management UI currently lives inside `SceneEditorPanel.tsx`.
 - This is acceptable for MVP but may later be extracted into smaller components.
-- The right sidebar is currently used for scene editing, choice editing, and embedded condition editing.
-- Story Logic condition editing now lives under `src/features/story-logic/`.
+- The Scene Editor right panel is dedicated to scene editing.
+- Project Settings uses shared `RightSidebar`.
+- Story Logic editing and runtime helper code lives under `src/features/story-logic/`.
 - Characters and Resources are full-screen project views inside the project shell.
 
 ---
@@ -423,6 +577,27 @@ src/types/index.ts
 Important structures:
 
 ```typescript
+interface Project {
+  id: string;
+  name: string;
+  thumbnail: string | null;
+  startSceneId: string;
+  scenes: Scene[];
+  characters: Character[];
+  resources: Resource[];
+  groups: SceneGroup[];
+  assetLibrary: AssetLibraryItem[];
+  settings: ProjectSettings;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface DialoguePage {
+  id: string;
+  speakerId: string | null;
+  text: string;
+}
+
 interface Choice {
   id: string;
   text: string;
@@ -455,220 +630,56 @@ interface Effect {
   value: number;
 }
 
-interface Character {
-  id: string;
-  name: string;
-  attributes: CharacterAttribute[];
-}
-
-interface CharacterAttribute {
-  key: string;
-  defaultValue: number;
-}
-
-interface Resource {
-  id: string;
-  key: string;
-  defaultValue: number;
+interface RuntimeState {
+  currentSceneId: string;
+  currentPageIndex: number;
+  variables: {
+    resources: Record<string, number>;
+    characterAttrs: Record<string, Record<string, number>>;
+  };
+  saveSlots?: RuntimeSaveSlot[];
 }
 ```
 
-Runtime structures are still planned:
-- `RuntimeState`
-- `RuntimeSaveSlot`
-
-Important model notes:
-- `Resource.key` is the canonical editor-facing resource identifier.
-- Resource conditions store `Resource.id` in `Condition.targetId`.
-- Character attribute conditions store `Character.id` in `Condition.targetId`.
-- Character attribute conditions store `CharacterAttribute.key` in `Condition.attribute`.
-- `CharacterAttribute` currently has no `id`.
-- If advanced migrations/reordering are introduced later, consider adding `CharacterAttribute.id`.
-
----
-
-## Store Architecture
-
-### `workspaceStore.ts`
-
-Responsibilities:
-- project list
-- active project
-- create project
-- open project
-- close project
-- rename project
-- update active project
-- persistence
-- project normalization on load
-
-Known actions:
-- `createProject()`
-- `openProject(projectId)`
-- `closeProject()`
-- `renameProject(projectId, newName)`
-- `updateActiveProject(updater)`
-
-Persistence:
-- workspace metadata saved to `narrium_workspace`
-- full project saved to `narrium_project_{id}`
-
-### `projectMigrations.ts`
-
-Responsibilities:
-- normalize loaded projects
-- preserve compatibility with older localStorage project shapes
-
-Current migration behavior:
-- Legacy `Choice.conditions` is converted to `Choice.conditionGroups`.
-- Non-empty legacy `conditions` become one `ConditionGroup`.
-- Empty legacy `conditions` become `conditionGroups: []`.
-- Normalized projects are saved back after load if changed.
-
-### `useCanvasStore.ts`
-
-Responsibilities:
-- React Flow nodes and edges
-- selected scene
-- selected choice
-- active canvas/editor view
-- scene mutations
-- dialogue mutations
-- choice mutations
-- background mutations
-- asset library mutations
-- sync from project
-
-### `useProjectViewStore.ts`
-
-Responsibilities:
-- UI-only project view selection.
-
-Known state:
-
-```typescript
-type ProjectView = 'canvas' | 'characters' | 'resources';
-```
-
-Important:
-- This store must not contain domain data.
+Important notes:
+- `Project.thumbnail` stores project thumbnail as a Data URL or `null`.
+- `WorkspaceProjectMeta.thumbnailDataUrl` mirrors project thumbnail for fast My Projects rendering.
+- `DialoguePage.speakerId = null` means Narrator.
+- `DialoguePage.speakerId = Character.id` means Character speaker.
+- Dialogue pages are played in array order.
+- Resource conditions/effects store `Resource.id`.
+- Character Attribute conditions/effects store `Character.id` plus `CharacterAttribute.key`.
+- Runtime resources use `Resource.key`.
+- Runtime character attributes use `variables.characterAttrs[character.id][attribute.key]`.
 
 ---
 
-## Story Logic Editor Architecture
+## Known Limitations / Backlog
 
-Story Logic condition editing is currently split into:
-
-```text
-src/features/story-logic/
-  ConditionGroupsEditor.tsx
-  ConditionGroupCard.tsx
-  ConditionRow.tsx
-```
-
-Responsibilities:
-
-### `ConditionGroupsEditor.tsx`
-
-- reads active project resources and characters
-- lists condition groups for a choice
-- adds condition groups
-- deletes condition groups
-- creates default conditions
-- updates nested conditions via callbacks
-- mutates Project through `workspaceStore.updateActiveProject()`
-
-### `ConditionGroupCard.tsx`
-
-- renders one condition group
-- displays group number
-- renders `No conditions`
-- adds a condition to the group
-- deletes the group
-- renders `ConditionRow` for each condition
-
-### `ConditionRow.tsx`
-
-- renders condition type selector
-- renders resource target selector
-- renders character selector
-- renders character attribute selector
-- renders operator selector
-- renders numeric value input
-- renders hint text input
-- renders delete condition button
-- renders visual validation warnings
-
-Validation is visual-only and currently includes:
-- `⚠ Select a resource`
-- `⚠ Referenced resource no longer exists`
-- `⚠ Select a character`
-- `⚠ Referenced character no longer exists`
-- `⚠ Select an attribute`
-- `⚠ Referenced attribute no longer exists`
+- Story Player / Preview is not implemented yet.
+- JSON export/import is not implemented yet.
+- Standalone HTML export is not implemented yet.
+- Dialogue page drag-and-drop reorder is not implemented; only up/down buttons exist.
+- Thumbnail upload does not resize or compress images yet.
+- Confirmation dialogs currently use native `window.confirm`.
+- Scene groups are still pending.
+- Undo/redo is not implemented yet.
+- Full project validation pass is not implemented yet.
 
 ---
 
-## Known Gaps / Next Work
+## Resume Checklist for Next Session
 
-### Near-term
+When resuming work:
 
-- Effects model review/final acceptance.
-- Effects editor foundation.
-- Resource effects.
-- Character attribute effects.
-- Effects validation warnings.
-- Runtime condition evaluation.
-- Runtime effect application.
-- Story Player / Preview.
-
-### Existing backlog
-
-- Delete project.
-- Duplicate project.
-- Project thumbnails.
-- Dialogue page speaker selector.
-- Unconnected choice warning.
-- Scene groups.
-- Asset filtering.
-- Import/export JSON.
-- Standalone HTML export.
-
----
-
-## Suggested prompt for a new session
-
-```text
-Przejmij rolę Project Managera projektu Narrium.
-
-Repo:
-https://github.com/cisiur/Narrium
-
-Workflow:
-- Ty jesteś PM.
-- Codex implementuje.
-- Ja podejmuję decyzje produktowe.
-- Nie generujesz kodu.
-- Najpierw analizujesz repo i dokumentację.
-- Prompty dla Codexa tworzysz dopiero po mojej akceptacji.
-- Wszystkie prompty dla Codexa są po angielsku i gotowe do wklejenia.
-- Po każdym pushu robisz review implementacji.
-- Aktualizujemy dokumentację po większych batchach zmian.
-
-Pracujemy wyłącznie na branchu main.
-
-Przed rozpoczęciem:
-1. Sprawdź aktualny branch.
-2. Przeczytaj:
-   - CONTEXT.md
-   - docs/ROADMAP.md
-   - docs/DATA_MODEL.md
-   - docs/STORY_LOGIC.md
-3. Zweryfikuj zgodność dokumentacji z kodem.
-4. Potwierdź aktualny stan projektu.
-5. Zaproponuj następny task zgodnie z ROADMAP i STORY_LOGIC.
-
-Każdy proponowany task powinien wskazywać, z którego punktu ROADMAP.md i STORY_LOGIC.md wynika.
-Nie wymyślaj nowych epików ani nie zmieniaj kolejności funkcjonalnej bez uzasadnienia.
-Jeśli większy punkt z ROADMAP wymaga rozbicia, zaproponuj mniejsze taski implementacyjne zachowujące tę samą kolejność.
-```
+1. Confirm current branch is `main`.
+2. Read:
+   - `CONTEXT.md`
+   - `docs/ROADMAP.md`
+   - `docs/DATA_MODEL.md`
+   - `docs/STORY_LOGIC.md`
+3. Confirm EPIC 6 is complete.
+4. Confirm Post-EPIC 6 UX Polish Sprint is complete.
+5. Start planning EPIC 7 — Story Player.
+6. Do not generate implementation code directly.
+7. Prepare English Codex prompts only after product-owner acceptance.

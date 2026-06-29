@@ -1,8 +1,8 @@
 # Story Logic — Narrium
 
-> **Version:** v1 draft  
-> **Status:** Product / architecture specification before EPIC 6 implementation  
-> **Scope:** Conditions, condition groups, effects, and runtime logic behavior for Narrium choices.
+> **Version:** v2 implemented specification after EPIC 6  
+> **Status:** Implemented for MVP editor and runtime helper layer  
+> **Scope:** Conditions, condition groups, effects, reference warnings, and runtime logic behavior for Narrium choices.
 
 ---
 
@@ -10,7 +10,7 @@
 
 Story Logic defines how Narrium stories can react to player state without scripting.
 
-Authors should be able to make choices available or unavailable based on declarative conditions, and change story state through declarative effects.
+Authors can make choices available or unavailable based on declarative conditions, and change story state through declarative effects.
 
 The goal is to support meaningful branching narratives while keeping the editor no-code and understandable for non-technical authors.
 
@@ -21,14 +21,15 @@ The goal is to support meaningful branching narratives while keeping the editor 
 - Story Logic must remain declarative.
 - No scripting language in MVP.
 - `Project` remains the single source of truth.
-- Logic should reference existing project data:
+- Logic references existing project data:
   - `Project.resources`
   - `Project.characters`
   - `Character.attributes`
 - Runtime state is derived from project defaults when preview/player starts.
 - Choices remain visible even when unavailable.
 - Unavailable choices are disabled and can show a hint.
-- The MVP logic model should be powerful enough for common visual novel / RPG scenarios but simple enough to explain in UI.
+- Effects modify runtime state, not editor project data.
+- Broken references should be visible in the editor and safe in runtime.
 
 ---
 
@@ -65,11 +66,17 @@ interface Resource {
 
 Runtime resource values are seeded from `Resource.defaultValue`.
 
+Editor-facing references display `Resource.key`.
+
+Conditions/effects store `Resource.id`.
+
+Runtime state stores resource values by `Resource.key`.
+
 ---
 
 ### 3.2 Characters
 
-Characters are story entities that can be used as dialogue speakers and later as logic targets.
+Characters are story entities used as dialogue speakers and logic targets.
 
 Characters are defined in:
 
@@ -86,6 +93,8 @@ interface Character {
   attributes: CharacterAttribute[];
 }
 ```
+
+Characters can be selected as dialogue speakers through `DialoguePage.speakerId`.
 
 ---
 
@@ -114,6 +123,16 @@ interface CharacterAttribute {
 
 Runtime character attribute values are seeded from each character's attribute defaults.
 
+Conditions/effects store:
+- `targetId = Character.id`
+- `attribute = CharacterAttribute.key`
+
+Runtime state stores character attributes as:
+
+```typescript
+variables.characterAttrs[character.id][attribute.key]
+```
+
 ---
 
 ## 4. Choice Logic
@@ -128,6 +147,30 @@ A choice can have:
 Conditions decide whether the choice is available.
 
 Effects are applied after the player selects the choice.
+
+Canonical shape:
+
+```typescript
+interface Choice {
+  id: string;
+  text: string;
+  targetSceneId: string | null;
+  conditionGroups: ConditionGroup[];
+  effects: Effect[];
+}
+```
+
+Legacy project data may contain:
+
+```typescript
+conditions: Condition[];
+```
+
+Migration compatibility:
+- `ConditionGroup` is the canonical Choice model.
+- Legacy `conditions` exists only for migration compatibility.
+- Existing `conditions` are normalized into one default AND group.
+- New code should use `conditionGroups`.
 
 ---
 
@@ -220,9 +263,7 @@ Field behavior:
 
 ## 6. Condition Groups
 
-The user explicitly wants `OR` support.
-
-To keep the MVP simple and understandable, Narrium should use:
+Narrium uses:
 
 ```text
 OR between groups
@@ -270,68 +311,48 @@ interface ConditionGroup {
 
 ---
 
-### 6.3 Choice Shape
-
-Canonical current shape:
-
-```typescript
-interface Choice {
-  id: string;
-  text: string;
-  targetSceneId: string | null;
-  conditionGroups: ConditionGroup[];
-  effects: Effect[];
-}
-```
-
-Legacy project data may still contain:
-
-```typescript
-conditions: Condition[];
-```
-
-Migration compatibility:
-
-- `ConditionGroup` is the canonical Choice model.
-- Legacy `conditions` exists only for migration compatibility.
-- Existing `conditions` are normalized into one default AND group.
-- New code should use `conditionGroups`.
-
----
-
 ## 7. Condition Evaluation
+
+Implemented helper:
+
+```typescript
+isChoiceAvailable(choice, project, runtimeState): boolean
+```
+
+Supporting helper:
+
+```typescript
+evaluateCondition(condition, project, runtimeState): boolean
+```
 
 ### 7.1 Empty Condition Groups
 
-Recommended MVP behavior:
+Implemented MVP behavior:
 
 - If a choice has no condition groups, it is available.
-- If a choice has condition groups but a group has no conditions, that empty group should pass.
+- If a choice has condition groups but a group has no conditions, that empty group passes.
 
 Rationale:
 
 An empty AND group is logically true, and this makes the editor forgiving during authoring.
 
-Potential UX warning:
-
-- A validation pass may warn about empty condition groups later.
-- It should not block editing.
-
 ---
 
 ### 7.2 Evaluation Algorithm
 
-Pseudocode:
+Runtime semantics:
 
 ```typescript
-function isChoiceAvailable(choice, runtimeState): boolean {
-  if (choice.conditionGroups.length === 0) {
+function isChoiceAvailable(choice, project, runtimeState): boolean {
+  const conditionGroups = choice.conditionGroups ?? [];
+
+  if (conditionGroups.length === 0) {
     return true;
   }
 
-  return choice.conditionGroups.some((group) =>
+  return conditionGroups.some((group) =>
     group.conditions.every((condition) =>
-      evaluateCondition(condition, runtimeState)
+      evaluateCondition(condition, project, runtimeState)
     )
   );
 }
@@ -347,13 +368,13 @@ If a condition references deleted or missing data:
 - missing character
 - missing character attribute
 
-Recommended MVP runtime behavior:
+Implemented runtime behavior:
 
 ```text
 The condition fails.
 ```
 
-Recommended editor behavior:
+Implemented editor behavior:
 
 ```text
 Show inline warning for invalid logic references.
@@ -363,24 +384,49 @@ This avoids accidentally making broken choices available.
 
 ---
 
+### 7.4 Runtime Value Lookup
+
+Resource condition lookup:
+
+```typescript
+const resource = project.resources.find((resource) => resource.id === condition.targetId);
+const runtimeValue = runtimeState.variables.resources[resource.key];
+```
+
+Character attribute condition lookup:
+
+```typescript
+const character = project.characters.find((character) => character.id === condition.targetId);
+const runtimeValue = runtimeState.variables.characterAttrs[character.id][condition.attribute];
+```
+
+Missing/non-finite values fail condition evaluation.
+
+---
+
 ## 8. Hints for Unavailable Choices
 
-Each condition currently has `hintText`.
+Implemented helper:
 
-For MVP, the unavailable-choice hint behavior should be:
+```typescript
+resolveUnavailableChoiceHint(choice, project, runtimeState): string | null
+```
 
-- If a disabled choice has one or more failing conditions with non-empty `hintText`, show the first relevant hint.
-- If multiple groups fail, choose the first failing condition with a hint from the first evaluated group.
-- If no hint exists, show a generic disabled state without explanatory text.
+Behavior:
 
-Alternative future improvement:
-
-- Move `hintText` from `Condition` to `ConditionGroup` or `Choice`.
-- This may be cleaner if authors want one message per unavailable choice instead of one message per condition.
+- If `isChoiceAvailable(...)` is true, return `null`.
+- Otherwise scan failing conditions in deterministic order:
+  - group order
+  - condition order inside group
+- Return the first non-empty trimmed `condition.hintText`.
+- If no failing condition has a hint, return `null`.
 
 MVP recommendation:
 
 Keep `hintText` on `Condition` for now.
+
+Future option:
+- Move hint text to `ConditionGroup` or `Choice` if authors need one message per unavailable choice.
 
 ---
 
@@ -422,7 +468,7 @@ Alice.trust += 1
 
 ### 9.2 Effect Operations
 
-MVP supports:
+Stored model supports:
 
 ```typescript
 '+=' | '-=' | '='
@@ -435,6 +481,19 @@ Semantics:
 | `+=` | add value |
 | `-=` | subtract value |
 | `=` | set absolute value |
+
+Editor display labels:
+
+| Stored value | UI label |
+|---|---|
+| `+=` | `+` |
+| `-=` | `-` |
+| `=` | `=` |
+
+Important:
+- UI labels are user-friendly only.
+- Stored values remain `+=`, `-=`, `=`.
+- Runtime helpers expect stored values.
 
 ---
 
@@ -466,9 +525,21 @@ Field behavior:
 
 ## 10. Effect Application
 
+Implemented helper:
+
+```typescript
+applyEffects(choice, project, runtimeState): RuntimeState
+```
+
+Supporting helper:
+
+```typescript
+applyNumericOperation(currentValue, operation, effectValue): number | null
+```
+
 Effects are applied when the player selects an available choice.
 
-Recommended order:
+Recommended player order:
 
 1. Validate selected choice is currently available.
 2. Apply effects in array order.
@@ -477,10 +548,56 @@ Recommended order:
 
 If `targetSceneId` is `null`, the player should remain in the current scene or treat it as an ending/invalid transition depending on future player UX.
 
-MVP recommendation:
+---
 
-- Editor should warn about unconnected choices.
-- Runtime should avoid crashing if `targetSceneId` is missing.
+### 10.1 Resource Effect Runtime Behavior
+
+For:
+
+```typescript
+effect.type === 'resource'
+```
+
+Runtime behavior:
+- Find resource by `effect.targetId`.
+- If resource is missing, skip effect.
+- Use runtime key `resource.key`.
+- Current missing runtime value is treated as `0`.
+- Apply `+=`, `-=`, or `=`.
+- Store updated value in returned `RuntimeState`.
+
+---
+
+### 10.2 Character Attribute Effect Runtime Behavior
+
+For:
+
+```typescript
+effect.type === 'character_attr'
+```
+
+Runtime behavior:
+- Find character by `effect.targetId`.
+- If character is missing, skip effect.
+- Require `effect.attribute`.
+- Verify the character still has that attribute key.
+- If attribute is missing, skip effect.
+- Current missing runtime value is treated as `0`.
+- Apply `+=`, `-=`, or `=`.
+- Create nested runtime objects when needed.
+- Store updated value in returned `RuntimeState`.
+
+---
+
+### 10.3 Purity
+
+`applyEffects()` must not mutate:
+
+- `choice`
+- `project`
+- `runtimeState`
+
+It returns a new `RuntimeState`.
 
 ---
 
@@ -488,7 +605,7 @@ MVP recommendation:
 
 Runtime state should be initialized from the `Project`.
 
-Current planned model:
+Current model:
 
 ```typescript
 interface RuntimeState {
@@ -504,7 +621,7 @@ interface RuntimeState {
 
 ### 11.1 Resource Runtime Keys
 
-Runtime resources should be keyed by `Resource.key`.
+Runtime resources are keyed by `Resource.key`.
 
 Example:
 
@@ -514,7 +631,7 @@ variables.resources.gold = 10;
 
 ### 11.2 Character Attribute Runtime Keys
 
-Recommended structure:
+Structure:
 
 ```typescript
 variables.characterAttrs[character.id][attribute.key] = attribute.defaultValue;
@@ -527,7 +644,6 @@ variables.characterAttrs["alice-id"].trust = 5;
 ```
 
 Reason:
-
 - Character `id` is stable.
 - Attribute `key` is author-readable.
 - Attribute model currently has no `id`.
@@ -548,14 +664,14 @@ but that is not recommended until needed.
 
 ### 12.1 Choice Editor Placement
 
-Story Logic UI should live inside the existing Scene Editor choice section.
+Story Logic UI lives inside the existing Scene Editor choice section.
 
-Each choice should eventually expose:
+Each choice exposes:
 
 - Conditions
 - Effects
 
-MVP order inside a choice card:
+MVP order inside a Choice editor:
 
 1. Choice text
 2. Target scene
@@ -564,289 +680,170 @@ MVP order inside a choice card:
 
 ---
 
-### 12.2 Conditions UI
+### 12.2 Conditions Editor
 
-Recommended MVP UI:
-
-```text
-Conditions
-
-Group 1
-  [Resource] [gold] [>=] [10] [hintText]
-  [Character Attribute] [Alice] [trust] [>=] [5] [hintText]
-  + Add Condition
-
-OR
-
-Group 2
-  ...
-  + Add Condition
-
-+ Add OR Group
-```
-
-Required actions:
-
+Implemented features:
 - Add OR group.
 - Delete OR group.
-- Add condition to group.
-- Edit condition type.
-- Edit target resource / character.
-- Edit attribute for character condition.
-- Edit operator.
-- Edit value.
-- Edit hint text.
+- Add condition inside a group.
 - Delete condition.
+- Select condition type:
+  - Resource
+  - Character Attribute
+- Select resource.
+- Select character.
+- Select character attribute.
+- Select operator.
+- Edit numeric value.
+- Edit unavailable hint.
+- Show inline warnings for missing references.
 
 ---
 
-### 12.3 Effects UI
+### 12.3 Effects Editor
 
-Recommended MVP UI:
+Implemented features:
+- Add effect.
+- Delete effect.
+- Select effect type:
+  - Resource
+  - Character Attribute
+- Select resource.
+- Select character.
+- Select character attribute.
+- Select operation.
+- Edit numeric value.
+- Show inline warnings for missing references.
+
+Default new effect:
+
+```typescript
+{
+  id: crypto.randomUUID(),
+  type: "resource",
+  targetId: "",
+  operation: "+=",
+  value: 0
+}
+```
+
+---
+
+### 12.4 Reference Warnings
+
+Implemented helper:
+
+```typescript
+findStoryLogicUsages(project, target)
+```
+
+Implemented warning formatting:
+
+```typescript
+formatStoryLogicUsageWarning(referenceLabel, usages)
+```
+
+Warnings are shown before deleting:
+- Resource
+- Character
+- Character Attribute
+
+The warning scans:
+- `choice.conditionGroups`
+- `choice.effects`
+
+Deletion is still allowed after confirmation.
+
+References are not auto-fixed.
+
+Existing inline missing-reference warnings remain responsible for showing broken logic after deletion.
+
+---
+
+## 13. Story Player Integration Plan
+
+Story Player should reuse the implemented runtime helpers.
+
+Recommended flow:
+
+1. Initialize `RuntimeState` from Project defaults.
+2. Set:
+   - `currentSceneId = Project.startSceneId`
+   - `currentPageIndex = 0`
+3. Resolve current scene.
+4. Show current dialogue page:
+   - `scene.dialoguePages[currentPageIndex]`
+5. Resolve speaker:
+   - `speakerId === null` → Narrator
+   - `speakerId === Character.id` → Character
+6. On Next:
+   - if more pages exist, increment `currentPageIndex`
+   - otherwise show choices
+7. For each choice:
+   - evaluate `isChoiceAvailable(choice, project, runtimeState)`
+   - disabled if unavailable
+   - show hint from `resolveUnavailableChoiceHint(...)` if unavailable
+8. On available choice selection:
+   - apply `applyEffects(choice, project, runtimeState)`
+   - navigate to `choice.targetSceneId`
+   - reset `currentPageIndex` to `0`
+
+---
+
+## 14. Implementation Files
+
+Story Logic editor/runtime files:
 
 ```text
-Effects
-
-[Resource] [gold] [-=] [10]
-[Character Attribute] [Alice] [trust] [+=] [1]
-
-+ Add Effect
+src/features/story-logic/
+  ConditionGroupsEditor.tsx
+  ConditionGroupCard.tsx
+  ConditionRow.tsx
+  EffectsEditor.tsx
+  EffectCard.tsx
+  referenceUsage.ts
+  runtimeLogic.ts
 ```
 
-Required actions:
+Related files:
 
-- Add effect.
-- Edit effect type.
-- Edit target resource / character.
-- Edit attribute for character effect.
-- Edit operation.
-- Edit value.
-- Delete effect.
-
----
-
-## 13. Validation
-
-Validation should eventually catch invalid references and incomplete logic.
-
-### 13.1 Condition Validation
-
-Potential warnings:
-
-- Missing target resource.
-- Missing target character.
-- Missing character attribute.
-- Empty condition group.
-- Condition with missing value.
-- Condition with duplicate or impossible logic.
-
-MVP required soon:
-
-- Inline warning for deleted resource/character/attribute references.
-- Do not crash.
-- Invalid conditions evaluate as false.
-
----
-
-### 13.2 Effect Validation
-
-Potential warnings:
-
-- Missing target resource.
-- Missing target character.
-- Missing character attribute.
-- Effect with missing value.
-
-MVP required soon:
-
-- Inline warning for deleted resource/character/attribute references.
-- Invalid effects are skipped at runtime.
-
----
-
-## 14. Migration Compatibility
-
-Legacy `Choice` data may contain:
-
-```typescript
-interface Choice {
-  id: string;
-  text: string;
-  targetSceneId: string | null;
-  conditions: Condition[];
-  effects: Effect[];
-}
-```
-
-Canonical current `Choice` model:
-
-```typescript
-interface Choice {
-  id: string;
-  text: string;
-  targetSceneId: string | null;
-  conditionGroups: ConditionGroup[];
-  effects: Effect[];
-}
-```
-
-Current migration helper behavior:
-
-```typescript
-function normalizeChoice(choice: Choice | LegacyChoice): Choice {
-  const hasLegacyConditions = 'conditions' in choice;
-  const conditionGroups = choice.conditionGroups ?? [];
-
-  if (!hasLegacyConditions) {
-    return {
-      ...choice,
-      conditionGroups,
-    };
-  }
-
-  const { conditions = [], ...choiceWithoutLegacyConditions } = choice;
-  let nextConditionGroups = conditionGroups;
-
-  if (nextConditionGroups.length === 0 && conditions.length > 0) {
-    nextConditionGroups = [{ id: crypto.randomUUID(), conditions }];
-  }
-
-  return {
-    ...choiceWithoutLegacyConditions,
-    conditionGroups: nextConditionGroups,
-  };
-}
-```
-
-Important:
-
-- `conditionGroups` is the canonical model for choices.
-- Legacy `conditions` exists only for migration compatibility.
-- Existing localStorage projects may still contain `conditions`, so project loading remains defensive.
-- The migration is non-destructive to existing condition data: legacy conditions become one condition group.
-
----
-
-## 15. Data Model for EPIC 6
-
-Current TypeScript model:
-
-```typescript
-export interface Choice {
-  id: string;
-  text: string;
-  targetSceneId: string | null;
-  conditionGroups: ConditionGroup[];
-  effects: Effect[];
-}
-
-export interface ConditionGroup {
-  id: string;
-  conditions: Condition[];
-}
-```
-
-Keep existing `Condition` and `Effect` mostly unchanged:
-
-```typescript
-export interface Condition {
-  id: string;
-  type: 'resource' | 'character_attr';
-  targetId: string;
-  attribute?: string;
-  operator: '>=' | '<=' | '==' | '>' | '<' | '!=';
-  value: number;
-  hintText: string;
-}
-
-export interface Effect {
-  id: string;
-  type: 'resource' | 'character_attr';
-  targetId: string;
-  attribute?: string;
-  operation: '+=' | '-=' | '=';
-  value: number;
-}
+```text
+src/features/editor/SceneEditorPanel.tsx
+src/features/characters/CharactersScreen.tsx
+src/features/resources/ResourcesScreen.tsx
+src/store/projectMigrations.ts
+src/store/useCanvasStore.ts
+src/store/workspaceStore.ts
+src/types/index.ts
 ```
 
 ---
 
-## 16. Implementation Sequence Recommendation
+## 15. EPIC 6 Completion Summary
 
-Recommended EPIC 6 order:
+EPIC 6 is complete for MVP.
 
-1. **E6-01 — Data model update**
-   - Add `ConditionGroup`.
-   - Replace new-choice creation with `conditionGroups: []`.
-   - Add compatibility helpers for old `conditions`.
-   - Keep UI unchanged except type compatibility.
+Completed:
+- Conditions data model and editor
+- Condition groups with OR/AND semantics
+- Legacy migration from `Choice.conditions`
+- Resource conditions
+- Character Attribute conditions
+- Inline validation warnings
+- Effects data model and editor
+- Resource effects
+- Character Attribute effects
+- Effects validation warnings
+- Runtime condition evaluation helper
+- Unavailable hint helper
+- Runtime effect application helper
+- Reference usage warnings before deleting resources/characters/attributes
 
-2. **E6-02 — Choice condition groups UI foundation**
-   - Render condition groups in Choice editor.
-   - Add/delete groups.
-   - Add/delete empty conditions.
-   - No full target selectors yet if too large.
+Not part of EPIC 6:
+- Story Player UI
+- Preview mode
+- JSON export/import
+- Standalone HTML export
 
-3. **E6-03 — Resource conditions**
-   - Add target resource selector.
-   - Add operator/value/hint editing.
-
-4. **E6-04 — Character attribute conditions**
-   - Add character selector.
-   - Add attribute selector.
-
-5. **E6-05 — Effect model review/final acceptance**
-   - Confirm effect model before UI.
-
-6. **E6-06 — Choice effects UI foundation**
-
-7. **E6-07 — Resource effects**
-
-8. **E6-08 — Character attribute effects**
-
-9. **E6-09 — Invalid reference warnings**
-
-10. **E6-10 — Runtime evaluation helpers**
-    - This may be part of Story Player if runtime is not implemented yet.
-
----
-
-## 17. Out of Scope for MVP
-
-Do not implement in MVP unless explicitly requested:
-
-- Nested logic trees.
-- Arbitrary parentheses.
-- Scripting.
-- String variables.
-- Boolean variables.
-- Inventory item stacks.
-- Timers.
-- Random checks.
-- Probability.
-- Complex formula expressions.
-- Global functions.
-- Author-defined custom operators.
-- Drag-and-drop condition reordering.
-- Cross-project reusable logic templates.
-
----
-
-## 18. Product Decision Summary
-
-Accepted for MVP:
-
-- Conditions and effects are declarative.
-- Conditions can target resources or character attributes.
-- Effects can modify resources or character attributes.
-- Operators: `>=`, `<=`, `==`, `>`, `<`, `!=`.
-- Effect operations: `+=`, `-=`, `=`.
-- OR support is implemented through condition groups.
-- AND applies within a condition group.
-- OR applies between condition groups.
-- No nested condition logic.
-- No scripting.
-- Broken conditions fail.
-- Broken effects are skipped.
-- `Resource.key` is the logic-facing identifier.
-- `CharacterAttribute.key` is the logic-facing attribute identifier.
+Next milestone:
+- EPIC 7 — Story Player

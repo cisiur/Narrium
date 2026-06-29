@@ -1,6 +1,6 @@
 # Roadmap — Narrium
 
-> **Version:** v4 documentation refresh after EPIC 6 Conditions  
+> **Version:** v5 documentation refresh after EPIC 6 + UX Polish Sprint  
 > **Workflow:** active development happens directly on `main`. Do not use a `dev` branch unless the project owner explicitly changes this workflow.
 
 ---
@@ -26,24 +26,19 @@ Background System          ██████████ 100%
 Canvas / Choice UX         ██████████ 100%
 Characters & Resources     ██████████ 100%
 Story Logic — Conditions   ██████████ 100%
-Story Logic — Effects      ░░░░░░░░░░   0%
+Story Logic — Effects      ██████████ 100%
+Story Logic — Runtime      ██████████ 100%
 Story Player               ░░░░░░░░░░   0%
 Save / Export              █░░░░░░░░░  15%
-Polish & Production UX     ██░░░░░░░░  20%
+Polish & Production UX     ████░░░░░░  40%
 ```
 
-Current state: the project has a usable local multi-project workspace, a React Flow scene graph editor, a right-side scene editor, a complete background system, asset library support, SceneNode thumbnails, choice target editing, edge-to-choice navigation, project-level Characters management, Character attributes, project-level Resources management, and a complete MVP editor for Story Logic Conditions.
+Current state:
+Narrium has a usable local multi-project workspace, project settings sidebar, project thumbnails, React Flow scene graph editor, right-side scene editor, background system, asset library support, SceneNode thumbnails, ordered dialogue pages, character speaker selection, choice target editing, edge-to-choice navigation, project-level Characters, Character attributes, project-level Resources, complete Story Logic Conditions, complete Story Logic Effects, and runtime helper functions for condition/effect execution.
 
-Story Logic Conditions currently support:
-- OR condition groups
-- AND conditions inside each group
-- Resource conditions
-- Character Attribute conditions
-- operator/value/hint editing
-- visual validation warnings for missing/deleted references
-- compatibility migration from legacy `Choice.conditions` to `Choice.conditionGroups`
+Story Logic is complete for the MVP editor/runtime-helper layer.
 
-Story Logic Effects, runtime evaluation, and Story Player are still pending.
+Story Player is the next major milestone.
 
 ---
 
@@ -71,11 +66,17 @@ Story Logic Effects, runtime evaluation, and Story Player are still pending.
 | E1-03 | Open existing project from My Projects | [AI] | ✅ Done |
 | E1-04 | Workspace persistence: `narrium_workspace` + `narrium_project_{id}` in localStorage | [AI] | ✅ Done |
 | E1-05 | Return from canvas to My Projects without deleting project | [AI] | ✅ Done |
-| E1-06 | Rename project from My Projects screen | [AI] | ✅ Done |
+| E1-06 | Rename project | [AI] | ✅ Done |
 | E1-07 | Show active project name in canvas header | [AI] | ✅ Done |
-| E1-08 | Delete project from My Projects screen | [AI] | ⏳ Pending |
+| E1-08 | Delete project from My Projects / Project Settings | [AI] | ✅ Done |
 | E1-09 | Duplicate project | [AI] | ⏳ Pending |
-| E1-10 | Project thumbnail preview in My Projects | [BOTH] | ⏳ Pending |
+| E1-10 | Project thumbnail preview in My Projects | [BOTH] | ✅ Done |
+| E1-11 | Project Settings right sidebar | [BOTH] | ✅ Done |
+
+Deliverable status:
+- Project management is complete for MVP.
+- Project thumbnails are stored in `Project.thumbnail` and mirrored in `WorkspaceProjectMeta.thumbnailDataUrl`.
+- Duplicate project remains backlog.
 
 ---
 
@@ -111,8 +112,15 @@ Architecture note:
 | E3-04 | Choices: add, edit text, delete; shows target scene name | [AI] | ✅ Done |
 | E3-05 | Choice Target dropdown: None + all other scenes | [AI] | ✅ Done |
 | E3-06 | Selected Choice highlight and scroll after edge click | [AI] | ✅ Done |
-| E3-07 | Dialogue page speaker selector | [AI] | ⏳ Pending (needs Characters integration) |
+| E3-07 | Dialogue page speaker selector | [AI] | ✅ Done |
 | E3-08 | Inline validation: warn on unconnected choice | [AI] | ⏳ Pending |
+| E3-09 | Dialogue page reorder buttons | [AI] | ✅ Done |
+| E3-10 | Collapsible sections default closed | [AI] | ✅ Done |
+
+Deliverable status:
+- Scene Editor is ready for Story Player MVP.
+- Dialogue pages are ordered and playable sequentially.
+- Choices contain target scene, conditions, and effects.
 
 ---
 
@@ -143,14 +151,16 @@ Architecture note:
 | E5-06 | Resource list | [AI] | ✅ Done |
 | E5-07 | Add / edit / delete resource: key + default value | [AI] | ✅ Done |
 | E5-08 | Validation for duplicate character attribute/resource keys | [AI] | ✅ Done |
+| E5-09 | Warn before deleting referenced Resource / Character / Character Attribute | [AI] | ✅ Done |
 
 Deliverable status:
-- Project has complete Characters and Resources data needed by Story Logic.
+- Project has complete Characters and Resources data needed by Story Logic and Story Player.
 - Character attributes are implemented as per-character numeric keyed values.
 - Resources are implemented as project-wide numeric keyed values.
 - Duplicate character attribute keys are resolved per character.
 - Duplicate resource keys are resolved project-wide.
 - Negative and decimal numeric defaults are supported.
+- Deletion warnings protect Story Logic references.
 
 ---
 
@@ -172,7 +182,7 @@ Deliverable status:
 
 Deliverable status:
 - Condition groups implement OR between groups and AND inside a group.
-- `Choice.conditionGroups` is now the canonical model.
+- `Choice.conditionGroups` is canonical.
 - Legacy `Choice.conditions` is migrated on project load for localStorage compatibility.
 - Resource conditions can select Project Resources by `Resource.id` while displaying `Resource.key`.
 - Character Attribute conditions can select Character by `Character.id` and attribute by `CharacterAttribute.key`.
@@ -181,35 +191,70 @@ Deliverable status:
 - Hint text is editable per condition.
 - Inline visual warnings exist for missing/deleted resource, character, and attribute references.
 - Validation is visual only.
-- Runtime evaluation is not implemented yet.
 
 ### EPIC 6B — Effects
 
 | ID | Task | Who | Status |
 |---|---|---|---|
-| E6-10 | Effect data model review and final acceptance | [PM] | ⏳ Pending |
-| E6-11 | Choice effects UI foundation | [BOTH] | ⏳ Pending |
-| E6-12 | Add/edit/delete resource effects | [BOTH] | ⏳ Pending |
-| E6-13 | Add/edit/delete character attribute effects | [BOTH] | ⏳ Pending |
-| E6-14 | Effects validation for deleted/missing references | [AI] | ⏳ Pending |
+| E6-10 | Effect data model review and final acceptance | [PM] | ✅ Done |
+| E6-11 | Choice effects UI foundation | [BOTH] | ✅ Done |
+| E6-12 | Add/edit/delete resource effects | [BOTH] | ✅ Done |
+| E6-13 | Add/edit/delete character attribute effects | [BOTH] | ✅ Done |
+| E6-14 | Effects validation for deleted/missing references | [AI] | ✅ Done |
+
+Deliverable status:
+- Effects are stored on `Choice.effects`.
+- Resource effects target `Resource.id`.
+- Character Attribute effects target `Character.id` + `CharacterAttribute.key`.
+- Effects support `+=`, `-=`, and `=`.
+- The editor displays effect operation labels as `+`, `-`, and `=`.
+- Effects validation is visual only.
+- Broken references are not auto-fixed.
 
 ### EPIC 6C — Logic Runtime Helpers
 
 | ID | Task | Who | Status |
 |---|---|---|---|
-| E6-15 | Runtime condition evaluation helper: `isChoiceAvailable` | [BOTH] | ⏳ Pending |
-| E6-16 | Unavailable choice hint resolution helper | [BOTH] | ⏳ Pending |
-| E6-17 | Runtime effect application helper: `applyEffects` | [BOTH] | ⏳ Pending |
+| E6-15 | Runtime condition evaluation helper: `isChoiceAvailable` | [BOTH] | ✅ Done |
+| E6-16 | Unavailable choice hint resolution helper | [BOTH] | ✅ Done |
+| E6-17 | Runtime effect application helper: `applyEffects` | [BOTH] | ✅ Done |
+
+Deliverable status:
+- `runtimeLogic.ts` contains pure helper functions for Story Player integration.
+- Conditions can be evaluated against `RuntimeState`.
+- Unavailable choice hint can be resolved from failing conditions.
+- Effects can be applied to `RuntimeState` without mutating inputs.
 
 Notes:
 - Story Logic is separated from Characters & Resources because it is a larger module.
-- Conditions and effects should use already implemented Characters, Character Attributes, and Resources.
+- Conditions and effects use already implemented Characters, Character Attributes, and Resources.
 - `Resource.key` is the canonical editor-facing resource identifier.
 - Resource conditions/effects store `Resource.id`.
 - Character Attribute conditions/effects store `Character.id` and `CharacterAttribute.key`.
 - Follow `docs/STORY_LOGIC.md`.
 - Each proposed task should indicate which roadmap item and `STORY_LOGIC.md` section it implements.
-- Large roadmap items may be split into smaller implementation tasks, but the functional order should stay aligned with this roadmap and `STORY_LOGIC.md`.
+
+---
+
+## EPIC 6D — Post-EPIC UX Polish Sprint
+
+| ID | Task | Who | Status |
+|---|---|---|---|
+| UX-01 | Collapse Scene Editor sections by default | [AI] | ✅ Done |
+| UX-02 | Project Settings sidebar from Project Card `...` menu | [AI] | ✅ Done |
+| UX-02B | Extract reusable `RightSidebar` component | [AI] | ✅ Done |
+| UX-03 | Warn before deleting referenced Resources / Characters | [AI] | ✅ Done |
+| BUG-01 | Project thumbnail upload / preview / remove | [AI] | ✅ Done |
+| BUG-02 | Remove obsolete Inspector placeholder | [AI] | ✅ Done |
+| BUG-03 | Warn before deleting referenced Character Attributes | [AI] | ✅ Done |
+| BUG-04 | Dialogue page character speaker selector | [AI] | ✅ Done |
+| UX-04 | Friendly Effect operation labels | [AI] | ✅ Done |
+| UX-05 | Dialogue page reorder buttons | [AI] | ✅ Done |
+
+Deliverable status:
+- Editor UX is ready for Story Player work.
+- Manual QA pass completed by project owner.
+- Remaining polish items moved to backlog.
 
 ---
 
@@ -218,15 +263,27 @@ Notes:
 | ID | Task | Who | Status |
 |---|---|---|---|
 | E7-01 | Player runtime: initialize `RuntimeState` from `Project` | [BOTH] | ⏳ Pending |
-| E7-02 | Player UI: background, dialogue page, speaker, text, choices | [AI] | ⏳ Pending |
-| E7-03 | Multi-page dialogue: Next button before choices | [AI] | ⏳ Pending |
-| E7-04 | Choice navigation: advance to `targetSceneId` | [AI] | ⏳ Pending |
-| E7-05 | Apply effects on choice selection | [AI] | ⏳ Pending |
-| E7-06 | Evaluate conditions and grey out unavailable choices | [BOTH] | ⏳ Pending |
-| E7-07 | Show `hintText` when condition fails | [AI] | ⏳ Pending |
-| E7-08 | End state for scene with no choices | [AI] | ⏳ Pending |
-| E7-09 | Preview button on canvas toolbar | [AI] | ⏳ Pending |
-| E7-10 | Restart preview | [AI] | ⏳ Pending |
+| E7-02 | Player shell / Preview mode | [BOTH] | ⏳ Pending |
+| E7-03 | Player UI: background, dialogue page, speaker, text, choices | [AI] | ⏳ Pending |
+| E7-04 | Multi-page dialogue: Next button before choices | [AI] | ⏳ Pending |
+| E7-05 | Choice navigation: advance to `targetSceneId` | [AI] | ⏳ Pending |
+| E7-06 | Apply effects on choice selection | [AI] | ⏳ Pending |
+| E7-07 | Evaluate conditions and disable unavailable choices | [BOTH] | ⏳ Pending |
+| E7-08 | Show `hintText` when condition fails | [AI] | ⏳ Pending |
+| E7-09 | End state for scene with no choices | [AI] | ⏳ Pending |
+| E7-10 | Preview button on canvas toolbar | [AI] | ⏳ Pending |
+| E7-11 | Restart preview | [AI] | ⏳ Pending |
+
+Recommended implementation order:
+1. `RuntimeState` initialization from Project.
+2. Player shell.
+3. Scene background + dialogue rendering.
+4. Multi-page dialogue sequencing.
+5. Choice rendering and navigation.
+6. Apply effects.
+7. Condition evaluation and disabled choices.
+8. Hint display.
+9. End state and restart preview.
 
 ---
 
@@ -248,58 +305,31 @@ Notes:
 |---|---|---|---|
 | E9-01 | Keyboard shortcuts: Delete selected node/choice, Esc close/cancel | [AI] | ⏳ Pending |
 | E9-02 | Undo/redo for scene and project edits | [BOTH] | ⏳ Pending |
-| E9-03 | Onboarding tutorial overlay for first project | [BOTH] | ⏳ Pending |
-| E9-04 | Project-wide validation panel | [BOTH] | ⏳ Pending |
-| E9-05 | Dark / light mode toggle | [AI] | ⏳ Pending |
-| E9-06 | Responsive layout: desktop-first, minimum 1280px | [AI] | ⏳ Pending |
-| E9-07 | Freemium limit hooks: scene count gate in UI | [BOTH] | ⏳ Pending |
-| E9-08 | Large project performance review | [AI] | ⏳ Pending |
-| E9-09 | Accessibility pass for keyboard navigation and labels | [AI] | ⏳ Pending |
+| E9-03 | Better custom confirmation dialogs instead of `window.confirm` | [BOTH] | Backlog |
+| E9-04 | Drag-and-drop Dialogue Page reorder | [AI] | Backlog |
+| E9-05 | Thumbnail image resizing/compression before localStorage save | [BOTH] | Backlog |
+| E9-06 | Full project validation panel | [BOTH] | Backlog |
+| E9-07 | Asset library extraction and filtering | [AI] | Backlog |
+| E9-08 | Empty/error states polish | [AI] | Backlog |
+| E9-09 | Accessibility review | [BOTH] | Backlog |
 
 ---
 
-## Backlog
+## Next Immediate Step
 
-| Task | Notes |
-|---|---|
-| Cloud save | Supabase/Firebase or custom backend |
-| Collaborative editing | Requires cloud data model |
-| Publish story to sharable URL | Requires backend |
-| Sound/music per scene | Add audio fields to Scene |
-| Character portraits in player | Add portrait fields to Character |
-| Localization/multi-language story variants | Larger post-MVP feature |
-| Branching analytics | Track where players go |
-| Templates | Starter story templates |
-| AI-assisted authoring | Generate scenes, dialogue, conditions |
-| Scene graph auto-layout | Useful for large projects |
-| Search across scenes | Needed for large stories |
-| Story validation report | Missing backgrounds, broken links, invalid logic |
-| Versioned project schema migrations | Useful after import/export and public releases |
+Start **EPIC 7 — Story Player**.
 
----
+First recommended task:
 
-## Immediate Next Recommendation
+### E7-01 — Player runtime: initialize `RuntimeState` from `Project`
 
-Next recommended task:
-
-```text
-E6-10 — Effect data model review and final acceptance
-```
-
-Relevant spec section:
-
-```text
-docs/STORY_LOGIC.md
-Section 9 — Effects
-Section 10 — Effect Application
-Section 15 — Data Model Recommendation for EPIC 6
-```
-
-Suggested PM focus:
-- Confirm current `Effect` model is still acceptable.
-- Confirm effect operations: `+=`, `-=`, `=`.
-- Confirm resource effects store `Resource.id`.
-- Confirm character attribute effects store `Character.id` + `CharacterAttribute.key`.
-- Confirm effects are applied in array order.
-- Confirm invalid effects are skipped at runtime and warned in editor.
-- Only after this confirmation, proceed to Effects UI foundation.
+Acceptance direction:
+- Create a pure helper that builds initial runtime state from:
+  - `Project.startSceneId`
+  - `Project.resources`
+  - `Project.characters[].attributes`
+- Use `Resource.key` for resource runtime keys.
+- Use `Character.id` + `CharacterAttribute.key` for character attribute runtime keys.
+- Set `currentPageIndex` to `0`.
+- No UI yet.
+- No player shell yet.

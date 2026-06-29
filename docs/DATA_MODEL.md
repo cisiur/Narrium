@@ -10,8 +10,10 @@ This document defines the canonical data structures for Narrium. It is the prima
 - The same `Project` object is the source of truth for editor and exported player.
 - Scene logic is declarative only: conditions and effects, no scripting language.
 - Background assets are portable inside exported/imported project JSON.
+- Project thumbnails are stored in the full `Project` and mirrored into workspace metadata for fast project listing.
 - Workspace metadata is stored separately from full project payload.
 - Characters and Resources are project data, not separate stores.
+- React Flow is a projection of `Project.scenes`.
 
 ---
 
@@ -34,8 +36,9 @@ interface WorkspaceProjectMeta {
 #### Notes
 
 - `id` is the stable workspace-level project identifier.
-- `thumbnailDataUrl` is reserved for project previews.
+- `thumbnailDataUrl` mirrors `Project.thumbnail` for fast rendering on My Projects.
 - The full project is stored separately under `narrium_project_{id}`.
+- Workspace metadata should not become the source of truth for story data.
 
 ---
 
@@ -64,6 +67,7 @@ Canonical full editor project model.
 interface Project {
   id: string;
   name: string;
+  thumbnail: string | null;
   startSceneId: string;
   scenes: Scene[];
   characters: Character[];
@@ -78,6 +82,8 @@ interface Project {
 
 #### Notes
 
+- `thumbnail` is a Data URL or `null`.
+- `thumbnail` is part of the full project so JSON export/import can preserve it later.
 - `startSceneId` is the story entry point for preview and export.
 - Current implementation allows `startSceneId` to be an empty string when the project has no scenes yet.
 - `groups` are canvas-only organizational containers in MVP.
@@ -108,6 +114,8 @@ interface Scene {
 
 - `position` is editor-only canvas layout data.
 - `groupId` links the scene to a `SceneGroup`; null means ungrouped.
+- `dialoguePages` order is significant and is the runtime playback order.
+- Choices appear after the final dialogue page.
 - A scene may contain dialogue with zero choices, which represents an ending scene.
 
 ---
@@ -179,8 +187,11 @@ interface DialoguePage {
 
 - `speakerId = null` means narrator text.
 - When `speakerId` is set, it should point to `Character.id`.
+- If the referenced character is deleted, the editor should show a missing character warning.
 - Pages are displayed sequentially before choices appear.
 - Order in the array is significant.
+- Current editor supports moving pages up/down.
+- Drag-and-drop reordering is backlog.
 
 ---
 
@@ -203,6 +214,7 @@ interface Choice {
 - Conditions inside one group use AND semantics.
 - Condition groups use OR semantics between groups.
 - `effects` are applied immediately after the choice is selected.
+- Effects apply in array order.
 - Legacy project data may contain `conditions: Condition[]`; `projectMigrations` normalizes those into `conditionGroups`.
 
 ---
@@ -222,9 +234,10 @@ interface Character {
 #### Notes
 
 - Characters can be used as dialogue speakers.
-- Characters can later be used as logic targets.
+- Characters can be used as logic targets.
 - `name` is user-facing display text.
 - Characters are stored in `Project.characters`.
+- Deleting a character used by Story Logic should show a warning before deletion.
 
 ---
 
@@ -247,7 +260,9 @@ interface CharacterAttribute {
 - Attribute keys must be unique within a single character.
 - Attribute keys do not need to be unique across different characters.
 - Duplicate attribute keys should be resolved with suffixes such as `trust_2`, `trust_3`.
-- Current implementation identifies attributes by array index. Consider adding an `id` field before advanced Story Logic, reordering, or migration-sensitive references.
+- Conditions/effects reference attributes by `Character.id` + `CharacterAttribute.key`.
+- Deleting an attribute used by Story Logic should show a warning before deletion.
+- Current implementation identifies attributes by key. Consider adding an `id` field only if future requirements need stable attribute identity across renames.
 
 ---
 
@@ -272,12 +287,15 @@ interface Resource {
 - Invalid numeric editor input should be stored as `0`.
 - Resource keys must be unique project-wide.
 - Duplicate resource keys should be resolved with suffixes such as `gold_2`, `gold_3`.
+- Conditions/effects reference resources by `Resource.id`.
+- Runtime state stores resources by `Resource.key`.
+- Deleting a resource used by Story Logic should show a warning before deletion.
 
 ---
 
 ## Story logic models
 
-Story Logic conditions are modeled on choices through `ConditionGroup[]`. Effects remain modeled on choices through `Effect[]`.
+Story Logic conditions and effects are modeled on choices through `ConditionGroup[]` and `Effect[]`.
 
 ### ConditionGroup
 
@@ -294,6 +312,9 @@ interface ConditionGroup {
 - Conditions inside one group all need to pass for that group to pass.
 - A choice with multiple groups is available if at least one group passes.
 - Legacy `Choice.conditions` exists only for migration compatibility and is normalized into one condition group when needed.
+- Empty condition groups pass in runtime helper semantics.
+
+---
 
 ### Condition
 
@@ -316,6 +337,8 @@ interface Condition {
 - For `character_attr`, `attribute` currently refers to `CharacterAttribute.key`.
 - `hintText` is shown when the condition is not met; the choice stays visible but disabled.
 - The editor shows lightweight validation warnings for missing or deleted resource, character, and attribute references.
+- Missing references fail in runtime condition evaluation.
+- Condition validation is visual only and should not auto-fix data.
 
 ---
 
@@ -338,9 +361,14 @@ interface Effect {
 - `type='resource'` uses `targetId = Resource.id`.
 - `type='character_attr'` uses `targetId = Character.id` and requires `attribute`.
 - For `character_attr`, `attribute` currently refers to `CharacterAttribute.key`.
+- `operation='+='` adds a value.
+- `operation='-='` subtracts a value.
 - `operation='='` sets an absolute value.
+- The editor may display user-friendly operation labels `+`, `-`, `=`, but the stored model remains `+=`, `-=`, `=`.
 - Multiple effects can be attached to one choice.
-- Future implementation should validate references after resource, character, or attribute deletion.
+- Effects are applied in array order.
+- The editor shows lightweight validation warnings for missing or deleted resource, character, and attribute references.
+- Broken effects are skipped by runtime helper semantics.
 
 ---
 
@@ -403,10 +431,20 @@ interface RuntimeState {
 #### Notes
 
 - Runtime state is built from `Project` defaults when preview starts.
+- `currentSceneId` points to the currently displayed scene.
+- `currentPageIndex` points to the current dialogue page within the current scene.
 - `variables.resources` should be seeded from `Project.resources`.
 - `variables.characterAttrs` should be seeded from `Project.characters[].attributes`.
 - Resource runtime keys should be derived from `Resource.key`.
 - Character attribute runtime keys should be derived from `CharacterAttribute.key`.
+- Character attributes are nested under `Character.id`.
+
+Example:
+
+```typescript
+runtimeState.variables.resources.gold = 10;
+runtimeState.variables.characterAttrs[aliceId].trust = 5;
+```
 
 ---
 
@@ -433,7 +471,24 @@ interface RuntimeSaveSlot {
 |---|---|
 | `narrium_workspace` | Serialized `WorkspaceState` |
 | `narrium_project_{id}` | Serialized `Project` |
-| `narrium_player_save_{projectId}` | Exported player runtime save data |
+| `narrium_player_save_{projectId}` | Future exported player runtime save data |
+
+---
+
+## Migration rules
+
+Current implemented migrations:
+
+- Legacy `Choice.conditions` is normalized into `Choice.conditionGroups`.
+- Missing `Project.thumbnail` is normalized to `null`.
+- Missing `WorkspaceProjectMeta.thumbnailDataUrl` is normalized to `null` when loading workspace metadata.
+
+Migration principles:
+
+- Migrations should be centralized in `projectMigrations.ts` when they affect full Project payloads.
+- Workspace metadata normalization can live in `workspaceStore` if it only affects the workspace list.
+- Migrations should preserve author data whenever possible.
+- Migrations should mark changed projects for persistence after loading.
 
 ---
 
@@ -443,6 +498,7 @@ A valid project should satisfy all of the following:
 
 - `Project.startSceneId` points to an existing scene, unless the project has no scenes yet.
 - Every `Scene.id`, `Choice.id`, `DialoguePage.id`, `Character.id`, `Resource.id`, `SceneGroup.id`, and `AssetLibraryItem.id` is unique within its collection.
+- Every `DialoguePage.speakerId`, when present, points to an existing `Character.id`.
 - Every `Choice.targetSceneId`, when present, points to an existing scene.
 - Every `Condition.targetId` and `Effect.targetId` points to an existing resource or character depending on type.
 - Every `Condition.attribute` / `Effect.attribute` for `character_attr` exists on the target character.
@@ -450,6 +506,7 @@ A valid project should satisfy all of the following:
 - Every `SceneBackground.assetId` or `sourceSceneId`, when used, points to an existing entity.
 - Every `CharacterAttribute.key` is unique within its character.
 - Every `Resource.key` is unique project-wide.
+- `Project.thumbnail`, when present, should be a Data URL.
 
 ---
 
@@ -457,19 +514,52 @@ A valid project should satisfy all of the following:
 
 Recommended defaults when creating a new project:
 
-- Project name: `Untitled Project`
-- Empty scene list is currently allowed.
-- Empty character list.
-- Empty resource list.
-- Empty asset library.
-- `settings.allowSessionSaveLoad = true`
-- Auto-generated thumbnail from starter scene once a background is assigned in future.
+```typescript
+Project.thumbnail = null
+Project.startSceneId = ''
+Project.scenes = []
+Project.characters = []
+Project.resources = []
+Project.groups = []
+Project.assetLibrary = []
+Project.settings.allowSessionSaveLoad = true
+```
 
-Recommended defaults when creating editor entities:
+Recommended defaults when creating a new scene:
 
-- Character name: `New Character`
-- Character attributes: `[]`
-- Character attribute key: `New Attribute`
-- Character attribute default value: `0`
-- Resource key: `New Resource`
-- Resource default value: `0`
+```typescript
+Scene.background = {
+  mode: 'none',
+  assetId: null,
+  sourceSceneId: null,
+  url: ''
+}
+
+Scene.dialoguePages = [
+  {
+    id: generatedId,
+    speakerId: null,
+    text: ''
+  }
+]
+
+Scene.choices = []
+Scene.groupId = null
+```
+
+Recommended defaults when creating a new choice:
+
+```typescript
+Choice.targetSceneId = null
+Choice.conditionGroups = []
+Choice.effects = []
+```
+
+Recommended default runtime state when starting preview:
+
+```typescript
+RuntimeState.currentSceneId = Project.startSceneId
+RuntimeState.currentPageIndex = 0
+RuntimeState.variables.resources = seeded from Project.resources by Resource.key
+RuntimeState.variables.characterAttrs = seeded from Project.characters by Character.id and CharacterAttribute.key
+```

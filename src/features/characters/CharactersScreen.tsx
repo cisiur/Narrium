@@ -276,6 +276,30 @@ export function CharactersScreen() {
   };
 
   const deleteAttribute = (characterId: string, attributeIndex: number) => {
+    if (!activeProject) {
+      return;
+    }
+
+    const character = characters.find((item) => item.id === characterId);
+    const attribute = character?.attributes[attributeIndex];
+
+    if (!attribute) {
+      return;
+    }
+
+    const usages = findStoryLogicUsages(activeProject, {
+      kind: 'character_attr',
+      id: characterId,
+      attribute: attribute.key,
+    });
+
+    if (
+      usages.length > 0 &&
+      !window.confirm(formatStoryLogicUsageWarning('Character Attribute', usages))
+    ) {
+      return;
+    }
+
     updateActiveProject((project) => ({
       ...project,
       characters: project.characters.map((character) =>

@@ -1,6 +1,6 @@
 import type { Project } from '../../types';
 
-export type StoryLogicReferenceKind = 'resource' | 'character';
+export type StoryLogicReferenceKind = 'resource' | 'character' | 'character_attr';
 export type StoryLogicUsageType = 'Condition' | 'Effect';
 
 export interface StoryLogicUsage {
@@ -12,6 +12,7 @@ export interface StoryLogicUsage {
 interface StoryLogicReferenceTarget {
   kind: StoryLogicReferenceKind;
   id: string;
+  attribute?: string;
 }
 
 function isStoryLogicReference(
@@ -19,12 +20,22 @@ function isStoryLogicReference(
   targetKind: StoryLogicReferenceKind,
   targetId: string,
   referenceId: string,
+  referenceAttribute?: string,
+  targetAttribute?: string,
 ): boolean {
   if (targetKind === 'resource') {
     return referenceType === 'resource' && targetId === referenceId;
   }
 
-  return referenceType === 'character_attr' && targetId === referenceId;
+  if (targetKind === 'character') {
+    return referenceType === 'character_attr' && targetId === referenceId;
+  }
+
+  return (
+    referenceType === 'character_attr' &&
+    targetId === referenceId &&
+    referenceAttribute === targetAttribute
+  );
 }
 
 export function findStoryLogicUsages(
@@ -38,11 +49,25 @@ export function findStoryLogicUsages(
       const usageTypes: StoryLogicUsageType[] = [];
       const hasConditionUsage = (choice.conditionGroups ?? []).some((group) =>
         group.conditions.some((condition) =>
-          isStoryLogicReference(condition.type, target.kind, condition.targetId, target.id),
+          isStoryLogicReference(
+            condition.type,
+            target.kind,
+            condition.targetId,
+            target.id,
+            condition.attribute,
+            target.attribute,
+          ),
         ),
       );
       const hasEffectUsage = (choice.effects ?? []).some((effect) =>
-        isStoryLogicReference(effect.type, target.kind, effect.targetId, target.id),
+        isStoryLogicReference(
+          effect.type,
+          target.kind,
+          effect.targetId,
+          target.id,
+          effect.attribute,
+          target.attribute,
+        ),
       );
 
       if (hasConditionUsage) {

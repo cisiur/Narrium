@@ -40,12 +40,29 @@ function resolveSpeakerName(project: Project, speakerId: string | null): string 
 }
 
 export function StoryPlayer({ project, onExitPreview }: StoryPlayerProps) {
-  const [runtimeState] = useState(() => createInitialRuntimeState(project));
+  const [runtimeState, setRuntimeState] = useState(() => createInitialRuntimeState(project));
   const currentScene =
     project.scenes.find((scene) => scene.id === runtimeState.currentSceneId) ?? null;
   const currentPage = currentScene?.dialoguePages[runtimeState.currentPageIndex] ?? null;
   const backgroundUrl = currentScene ? resolveSceneBackgroundUrl(project, currentScene) : null;
   const speakerName = currentPage ? resolveSpeakerName(project, currentPage.speakerId) : null;
+  const hasNextPage = currentScene
+    ? runtimeState.currentPageIndex < currentScene.dialoguePages.length - 1
+    : false;
+
+  const goToNextPage = () => {
+    if (!currentScene) {
+      return;
+    }
+
+    setRuntimeState((current) => ({
+      ...current,
+      currentPageIndex: Math.min(
+        current.currentPageIndex + 1,
+        currentScene.dialoguePages.length - 1,
+      ),
+    }));
+  };
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
@@ -93,6 +110,17 @@ export function StoryPlayer({ project, onExitPreview }: StoryPlayerProps) {
                 <p className="mt-3 whitespace-pre-wrap text-base leading-7 text-gray-100">
                   {currentPage.text}
                 </p>
+                {hasNextPage ? (
+                  <div className="mt-5 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={goToNextPage}
+                      className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500"
+                    >
+                      Next
+                    </button>
+                  </div>
+                ) : null}
               </div>
             )}
           </div>

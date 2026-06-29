@@ -9,6 +9,7 @@ interface AppShellProps {
   rightPanel?: ReactNode;
   onAddScene?: () => void;
   onBackToProjects?: () => void;
+  onEnterPreview?: () => void;
   onProjectViewChange?: (view: ProjectView) => void;
 }
 
@@ -20,6 +21,7 @@ export function AppShell({
   rightPanel,
   onAddScene,
   onBackToProjects,
+  onEnterPreview,
   onProjectViewChange,
 }: AppShellProps) {
   const projectNavItems: { view: ProjectView; label: string; title: string }[] = [
@@ -72,14 +74,16 @@ export function AppShell({
               >
                 + Add Scene
               </button>
+              <button
+                type="button"
+                onClick={onEnterPreview}
+                className="rounded bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-500"
+              >
+                Preview
+              </button>
             </>
           ) : (
-            <button
-              type="button"
-              className="rounded-md border border-ink-950/10 px-3 py-1.5 text-sm font-medium text-ink-600"
-            >
-              Preview
-            </button>
+            null
           )}
         </div>
       </header>

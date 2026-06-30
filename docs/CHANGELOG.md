@@ -8,15 +8,220 @@ This changelog records milestone-level project changes. It is intentionally conc
 
 ### Planned
 
-- EPIC 7 — Story Player
-  - `E7-01`: initialize `RuntimeState` from `Project`
-  - player shell / preview mode
-  - background, dialogue, speaker, text and choices rendering
-  - choice navigation
-  - effects application
-  - condition evaluation
-  - unavailable-choice hints
-  - end state and restart preview
+- EPIC 8 — Save, Load, Export
+  - `E8-02`: export project as JSON
+  - `E8-03`: import project from JSON
+  - `E8-04`: export story as standalone HTML player
+  - `E8-05`: exported player save/load slots
+
+---
+
+## v0.7.0 — Story Player MVP
+
+Status: **completed**
+
+Purpose:
+- Add a playable in-browser Preview mode that executes the existing Project model.
+- Reuse Story Logic runtime helpers from EPIC 6.
+- Keep the Preview runtime local and non-persistent for now.
+
+Completed:
+
+### Runtime initialization
+
+Commit:
+- `9d3da3d` — `feat: initialize player runtime state from project`
+
+Changes:
+- Added `createInitialRuntimeState(project)`.
+- Initializes:
+  - `currentSceneId` from `Project.startSceneId`
+  - `currentPageIndex` to `0`
+  - runtime resources from `Resource.key` + `Resource.defaultValue`
+  - runtime character attributes from `Character.id` + `CharacterAttribute.key` + `defaultValue`
+- Helper is pure and does not mutate Project data.
+
+### Preview shell
+
+Commit:
+- `bfc9642` — `feat: add story player preview shell`
+
+Changes:
+- Added initial `StoryPlayer`.
+- Added Preview mode entry from the editor shell.
+- Preview owns local runtime state.
+- Preview can exit back to the editor.
+
+### Current scene rendering
+
+Commit:
+- `61c1bef` — `feat: render current scene in story player`
+
+Changes:
+- Story Player resolves the current scene from runtime state.
+- Renders:
+  - current scene background
+  - speaker name
+  - dialogue text
+- Supports basic background modes:
+  - URL
+  - upload
+  - asset
+  - one-level scene reference
+- Missing scene/page states render placeholders.
+- `speakerId: null` displays Narrator.
+- Missing speakers display `Unknown Speaker`.
+
+### Multi-page dialogue
+
+Commit:
+- `7a61d8b` — `feat: support multi-page dialogue in story player`
+
+Changes:
+- Added `Next` button.
+- `Next` advances `currentPageIndex`.
+- Page index is bounded.
+- `Next` appears only when another dialogue page exists.
+
+### Choice rendering
+
+Commit:
+- `26e2cd6` — `feat: render story choices`
+
+Changes:
+- Choices render after the final dialogue page.
+- Initial implementation rendered choices as inert list items before navigation was added.
+
+### Choice navigation
+
+Commit:
+- `58b0693` — `feat: support story choice navigation`
+
+Changes:
+- Choices became clickable buttons.
+- Valid `targetSceneId` navigates to the target scene.
+- Navigation resets `currentPageIndex` to `0`.
+- Choices with no target or missing target scenes are disabled.
+
+### Effects on choice selection
+
+Commit:
+- `7f9b679` — `feat: apply story choice effects`
+
+Changes:
+- Story Player now uses existing `applyEffects()` helper.
+- Effects apply before scene navigation.
+- Runtime state remains local to Preview.
+
+### Conditions and unavailable hints
+
+Commit:
+- `5a504ca` — `feat: integrate story choice conditions`
+
+Changes:
+- Story Player now uses:
+  - `isChoiceAvailable()`
+  - `resolveUnavailableChoiceHint()`
+- All choices remain visible.
+- Unavailable choices are disabled.
+- Unavailable choices show hint text when available.
+- Enabled choice behavior remains unchanged.
+
+### End-of-story state
+
+Commit:
+- `9a07171` — `feat: add story end state`
+
+Changes:
+- Scenes with no choices on the final dialogue page display a simple end panel.
+- End panel includes `The End`, a short message, and `Exit Preview`.
+
+### Preview restart
+
+Commit:
+- `18e08f4` — `feat: add preview restart`
+
+Changes:
+- Added `Restart` button to Preview header.
+- Restart recreates runtime state through `createInitialRuntimeState(project)`.
+- Restart returns to the project start scene and resets resources, character attributes, and page index.
+- Existing Exit Preview behavior remains unchanged.
+
+Result:
+- EPIC 7 Story Player MVP is complete.
+- Preview now supports a full playable loop:
+  - scene rendering
+  - multi-page dialogue
+  - choices
+  - scene navigation
+  - effects
+  - conditions
+  - unavailable hints
+  - end state
+  - restart
+
+---
+
+## v0.7.1 — Player Stabilization
+
+Status: **completed**
+
+Purpose:
+- Add focused test coverage for runtime/player foundations.
+- Improve Story Player maintainability before EPIC 8.
+
+Completed:
+
+### Runtime and Story Logic tests
+
+Commit:
+- `4c9d9d7` — `test: add runtime and story logic tests`
+
+Changes:
+- Added Vitest.
+- Added `npm.cmd test` script through `vitest run`.
+- Added tests for `createInitialRuntimeState()`:
+  - current scene initialization
+  - page index initialization
+  - resource defaults
+  - character attribute defaults
+  - no mutation of source Project
+- Added tests for Story Logic runtime helpers:
+  - `applyEffects()`
+  - `isChoiceAvailable()`
+  - `resolveUnavailableChoiceHint()`
+
+Validation:
+- `npm.cmd test`
+- `npm.cmd run build`
+
+### Story Player refactor
+
+Commit:
+- `4f9974e` — `refactor: split story player into reusable components`
+
+Changes:
+- Refactored Story Player into focused modules:
+  - `StoryPlayer.tsx`
+  - `StoryPlayerHeader.tsx`
+  - `DialoguePanel.tsx`
+  - `ChoiceList.tsx`
+  - `playerHelpers.ts`
+  - `runtimeState.ts`
+- StoryPlayer now primarily owns local runtime state, coordinates flow, and composes child components.
+- Extracted reusable helper logic:
+  - background resolution
+  - speaker resolution
+  - choice view model / availability mapping
+- Behavior and UI classes were preserved.
+
+Validation:
+- `npm.cmd test`
+- `npm.cmd run build`
+
+Result:
+- Runtime foundation is now covered by focused automated tests.
+- Story Player is easier to extend for future Save/Load and export work.
 
 ---
 

@@ -1,6 +1,6 @@
 # Roadmap — Narrium
 
-> **Version:** v6 documentation refresh after EPIC 6 + UX Polish Sprint + Post-Audit Stabilization Sprint  
+> **Version:** v7 documentation refresh after EPIC 7 Story Player MVP + player stabilization  
 > **Workflow:** active development happens directly on `main`. Do not use a `dev` branch unless the project owner explicitly changes this workflow.
 
 ---
@@ -29,19 +29,32 @@ Story Logic — Conditions   ██████████ 100%
 Story Logic — Effects      ██████████ 100%
 Story Logic — Runtime      ██████████ 100%
 Post-Audit Stabilization   ██████████ 100%
-Story Player               ░░░░░░░░░░   0%
+Story Player               ██████████ 100%
 Save / Export              █░░░░░░░░░  15%
 Polish & Production UX     ████░░░░░░  40%
 ```
 
 Current state:
-Narrium has a usable local multi-project workspace, project settings sidebar, project thumbnails, React Flow scene graph editor, right-side scene editor, background system, asset library support, SceneNode thumbnails, ordered dialogue pages, character speaker selection, choice target editing, edge-to-choice navigation, project-level Characters, Character attributes, project-level Resources, complete Story Logic Conditions, complete Story Logic Effects, and runtime helper functions for condition/effect execution.
+Narrium has a usable local multi-project workspace, project settings sidebar, project thumbnails, React Flow scene graph editor, right-side scene editor, background system, asset library support, SceneNode thumbnails, ordered dialogue pages, character speaker selection, choice target editing, edge-to-choice navigation, project-level Characters, Character attributes, project-level Resources, complete Story Logic Conditions, complete Story Logic Effects, runtime helper functions for condition/effect execution, and a functional in-browser Story Player preview.
 
-Story Logic is complete for the MVP editor/runtime-helper layer.
+Story Player MVP is complete:
+- preview mode can be entered from the canvas toolbar,
+- runtime state initializes from the active Project,
+- current scene backgrounds render,
+- dialogue pages render in order,
+- speaker names resolve,
+- choices render after the final dialogue page,
+- choices navigate to target scenes,
+- effects apply on selection,
+- conditions disable unavailable choices,
+- unavailable-choice hints display,
+- scenes with no choices can end the story,
+- preview can be restarted.
 
-Post-audit blockers and high-priority data consistency issues from `docs/AUDIT_EPIC_6_TO_7.md` have been addressed.
+Runtime helper tests are now present through Vitest.
 
-Story Player is the next major milestone.
+Next major roadmap area:
+**EPIC 8 — Save, Load, Export**.
 
 ---
 
@@ -102,7 +115,7 @@ Architecture note:
 - React Flow edges are not domain objects.
 - Edges are projections of `Choice.targetSceneId`.
 - `Choice` is the single source of truth for connections.
-- Scene deletion now preserves graph integrity by repairing `Project.startSceneId`, clearing incoming choice targets, and resetting dangling scene-reference backgrounds.
+- Scene deletion preserves graph integrity by repairing `Project.startSceneId`, clearing incoming choice targets, and resetting dangling scene-reference backgrounds.
 
 ---
 
@@ -143,7 +156,8 @@ Deliverable status:
 
 Deliverable status:
 - Background system is ready for Story Player background rendering.
-- Deleting a scene now resets other scenes whose `scene_reference` background pointed to the deleted scene.
+- Story Player can render URL, upload, asset, and one-level scene-reference backgrounds.
+- Deleting a scene resets other scenes whose `scene_reference` background pointed to the deleted scene.
 
 ---
 
@@ -238,6 +252,7 @@ Deliverable status:
 - Conditions can be evaluated against `RuntimeState`.
 - Unavailable choice hint can be resolved from failing conditions.
 - Effects can be applied to `RuntimeState` without mutating inputs.
+- Runtime helpers now have focused Vitest coverage.
 
 Notes:
 - Story Logic is separated from Characters & Resources because it is a larger module.
@@ -246,7 +261,6 @@ Notes:
 - Resource conditions/effects store `Resource.id`.
 - Character Attribute conditions/effects store `Character.id` and `CharacterAttribute.key`.
 - Follow `docs/STORY_LOGIC.md`.
-- Each proposed task should indicate which roadmap item and `STORY_LOGIC.md` section it implements.
 
 ---
 
@@ -302,39 +316,65 @@ Deliverable status:
 - Character Attribute renames no longer silently break Story Logic.
 - Empty condition groups remain semantically valid but are safer to author.
 
-Notes:
-- The full normalization batch was completed and accepted, but the exact commit hash was not available during this documentation update. Check git history for the commit that changed `src/store/projectMigrations.ts`.
-
 ---
 
 ## EPIC 7 — Story Player
 
-All blockers identified in `docs/AUDIT_EPIC_6_TO_7.md` have been resolved. Story Player implementation can now assume a normalized Project model, valid `startSceneId`, safer scene deletion semantics, and safer Story Logic authoring behavior.
+All blockers identified in `docs/AUDIT_EPIC_6_TO_7.md` have been resolved. Story Player MVP is implemented and refactored into focused player modules.
 
 | ID | Task | Who | Status |
 |---|---|---|---|
-| E7-01 | Player runtime: initialize `RuntimeState` from `Project` | [BOTH] | ⏳ Pending |
-| E7-02 | Player shell / Preview mode | [BOTH] | ⏳ Pending |
-| E7-03 | Player UI: background, dialogue page, speaker, text, choices | [AI] | ⏳ Pending |
-| E7-04 | Multi-page dialogue: Next button before choices | [AI] | ⏳ Pending |
-| E7-05 | Choice navigation: advance to `targetSceneId` | [AI] | ⏳ Pending |
-| E7-06 | Apply effects on choice selection | [AI] | ⏳ Pending |
-| E7-07 | Evaluate conditions and disable unavailable choices | [BOTH] | ⏳ Pending |
-| E7-08 | Show `hintText` when condition fails | [AI] | ⏳ Pending |
-| E7-09 | End state for scene with no choices | [AI] | ⏳ Pending |
-| E7-10 | Preview button on canvas toolbar | [AI] | ⏳ Pending |
-| E7-11 | Restart preview | [AI] | ⏳ Pending |
+| E7-01 | Player runtime: initialize `RuntimeState` from `Project` | [BOTH] | ✅ Done |
+| E7-02 | Player shell / Preview mode | [BOTH] | ✅ Done |
+| E7-03 | Player UI: background, dialogue page, speaker, text, choices | [AI] | ✅ Done |
+| E7-04 | Multi-page dialogue: Next button before choices | [AI] | ✅ Done |
+| E7-05 | Choice navigation: advance to `targetSceneId` | [AI] | ✅ Done |
+| E7-06 | Apply effects on choice selection | [AI] | ✅ Done |
+| E7-07 | Evaluate conditions and disable unavailable choices | [BOTH] | ✅ Done |
+| E7-08 | Show `hintText` when condition fails | [AI] | ✅ Done |
+| E7-09 | End state for scene with no choices | [AI] | ✅ Done |
+| E7-10 | Preview button on canvas toolbar | [AI] | ✅ Done |
+| E7-11 | Restart preview | [AI] | ✅ Done |
 
-Recommended implementation order:
-1. `RuntimeState` initialization from Project.
-2. Player shell.
-3. Scene background + dialogue rendering.
-4. Multi-page dialogue sequencing.
-5. Choice rendering and navigation.
-6. Apply effects.
-7. Condition evaluation and disabled choices.
-8. Hint display.
-9. End state and restart preview.
+Completed commits:
+- `9d3da3d` — `feat: initialize player runtime state from project`
+- `bfc9642` — `feat: add story player preview shell`
+- `61c1bef` — `feat: render current scene in story player`
+- `7a61d8b` — `feat: support multi-page dialogue in story player`
+- `26e2cd6` — `feat: render story choices`
+- `58b0693` — `feat: support story choice navigation`
+- `7f9b679` — `feat: apply story choice effects`
+- `5a504ca` — `feat: integrate story choice conditions`
+- `9a07171` — `feat: add story end state`
+- `18e08f4` — `feat: add preview restart`
+
+Stabilization commits:
+- `4c9d9d7` — `test: add runtime and story logic tests`
+- `4f9974e` — `refactor: split story player into reusable components`
+
+Deliverable status:
+- Preview mode is available from the canvas toolbar.
+- Story Player initializes local `RuntimeState` from `Project`.
+- Current scene background is resolved from URL, upload, asset, or one-level scene reference.
+- Dialogue pages render in runtime order.
+- `speakerId: null` displays Narrator.
+- Missing speakers display `Unknown Speaker`.
+- Choices display after the final dialogue page.
+- Choices with valid targets navigate to target scenes and reset page index to `0`.
+- Choices with missing/null targets are disabled.
+- Effects apply before navigation through `applyEffects()`.
+- Conditions are evaluated through `isChoiceAvailable()`.
+- Unavailable choices remain visible, disabled, and can display `hintText` through `resolveUnavailableChoiceHint()`.
+- Scenes with no choices show an end-of-story panel.
+- Preview can be restarted without reloading the app.
+- Player code has been split into smaller components/helpers:
+  - `StoryPlayer.tsx`
+  - `StoryPlayerHeader.tsx`
+  - `DialoguePanel.tsx`
+  - `ChoiceList.tsx`
+  - `playerHelpers.ts`
+  - `runtimeState.ts`
+- Runtime and Story Logic helper tests are covered with Vitest.
 
 ---
 
@@ -347,6 +387,12 @@ Recommended implementation order:
 | E8-03 | Import project from JSON | [AI] | ⏳ Pending |
 | E8-04 | Export story as standalone HTML player | [BOTH] | ⏳ Pending |
 | E8-05 | Exported player save/load slots | [BOTH] | ⏳ Pending |
+
+Recommended implementation order:
+1. Export project as JSON.
+2. Import project from JSON.
+3. Export story as standalone HTML player.
+4. Add exported player save/load slots.
 
 ---
 
@@ -366,26 +412,23 @@ Recommended implementation order:
 | E9-10 | Warn on character deletion when used as dialogue speaker | [AI] | Backlog |
 | E9-11 | Synchronize workspace metadata from normalized project data on load | [AI] | Backlog |
 | E9-12 | Clear missing/corrupt active workspace project id on load | [AI] | Backlog |
-| E9-13 | Runtime helper unit tests | [BOTH] | Backlog |
+| E9-13 | Runtime helper unit tests | [BOTH] | ✅ Done |
+| E9-14 | Story Player component-level tests | [BOTH] | Backlog |
 
 ---
 
 ## Next Immediate Step
 
-Start **EPIC 7 — Story Player**.
+Start **EPIC 8 — Save, Load, Export**.
 
 First recommended task:
 
-### E7-01 — Player runtime: initialize `RuntimeState` from `Project`
+### E8-02 — Export project as JSON
 
 Acceptance direction:
-- Create a pure helper that builds initial runtime state from:
-  - `Project.startSceneId`
-  - `Project.resources`
-  - `Project.characters[].attributes`
-- Use `Resource.key` for resource runtime keys.
-- Use `Character.id` + `CharacterAttribute.key` for character attribute runtime keys.
-- Set `currentPageIndex` to `0`.
-- No UI yet.
-- No player shell yet.
-- Include focused tests if a test setup is introduced; otherwise keep helper pure and easy to test later.
+- Add a safe export action for the active Project.
+- Export the current full `Project` object as formatted JSON.
+- Preserve embedded Data URLs already stored in the Project.
+- Do not implement import in the same task.
+- Do not implement standalone HTML export yet.
+- Run `npm.cmd test` and `npm.cmd run build`.

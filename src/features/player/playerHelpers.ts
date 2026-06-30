@@ -49,7 +49,8 @@ export function createChoiceViewModels(
 ): ChoiceViewModel[] {
   return choices.map((choice) => {
     const hasValidTarget = Boolean(
-      choice.targetSceneId && project.scenes.some((scene) => scene.id === choice.targetSceneId),
+      choice.targetSceneId === null ||
+        project.scenes.some((scene) => scene.id === choice.targetSceneId),
     );
     const isAvailable = isChoiceAvailable(choice, project, runtimeState);
 

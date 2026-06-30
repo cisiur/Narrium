@@ -212,14 +212,19 @@ export function advanceRuntimeForChoice(
 
   if (
     !isChoiceAvailable(choice, project, runtimeState) ||
-    !targetSceneId ||
-    !project.scenes.some((scene) => scene.id === targetSceneId)
+    (targetSceneId !== null && !project.scenes.some((scene) => scene.id === targetSceneId))
   ) {
     return runtimeState;
   }
 
+  const nextState = applyEffects(choice, project, runtimeState);
+
+  if (targetSceneId === null) {
+    return nextState;
+  }
+
   return {
-    ...applyEffects(choice, project, runtimeState),
+    ...nextState,
     currentSceneId: targetSceneId,
     currentPageIndex: 0,
   };

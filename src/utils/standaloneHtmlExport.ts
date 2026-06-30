@@ -423,7 +423,8 @@ function createStandaloneHtml(project: Project) {
     function createChoiceViewModels(choices, project, runtimeState) {
       return choices.map((choice) => {
         const hasValidTarget = Boolean(
-          choice.targetSceneId && project.scenes.some((scene) => scene.id === choice.targetSceneId)
+          choice.targetSceneId === null ||
+            project.scenes.some((scene) => scene.id === choice.targetSceneId)
         );
         const isAvailable = isChoiceAvailable(choice, project, runtimeState);
 
@@ -442,14 +443,19 @@ function createStandaloneHtml(project: Project) {
 
       if (
         !isChoiceAvailable(choice, project, runtimeState) ||
-        !targetSceneId ||
-        !project.scenes.some((scene) => scene.id === targetSceneId)
+        (targetSceneId !== null && !project.scenes.some((scene) => scene.id === targetSceneId))
       ) {
         return runtimeState;
       }
 
+      const nextState = applyEffects(choice, project, runtimeState);
+
+      if (targetSceneId === null) {
+        return nextState;
+      }
+
       return {
-        ...applyEffects(choice, project, runtimeState),
+        ...nextState,
         currentSceneId: targetSceneId,
         currentPageIndex: 0
       };

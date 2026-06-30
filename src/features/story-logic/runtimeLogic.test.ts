@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Choice, Project, RuntimeState } from '../../types';
+import { createChoiceViewModels } from '../player/playerHelpers';
 import {
   advanceRuntimeForChoice,
   applyEffects,
@@ -57,6 +58,23 @@ function createRuntimeState(): RuntimeState {
   };
 }
 
+function createScene(id: string, name: string = id): Project['scenes'][number] {
+  return {
+    id,
+    name,
+    background: {
+      mode: 'none',
+      assetId: null,
+      sourceSceneId: null,
+      url: '',
+    },
+    position: { x: 0, y: 0 },
+    dialoguePages: [],
+    choices: [],
+    groupId: null,
+  };
+}
+
 describe('applyEffects', () => {
   it('applies resource and character attribute effects without mutating the input state', () => {
     const project = createProject();
@@ -98,36 +116,7 @@ describe('advanceRuntimeForChoice', () => {
   it('applies effects and navigates when a choice is available and has a valid target', () => {
     const project: Project = {
       ...createProject(),
-      scenes: [
-        {
-          id: 'scene-start',
-          name: 'Start',
-          background: {
-            mode: 'none',
-            assetId: null,
-            sourceSceneId: null,
-            url: '',
-          },
-          position: { x: 0, y: 0 },
-          dialoguePages: [],
-          choices: [],
-          groupId: null,
-        },
-        {
-          id: 'scene-next',
-          name: 'Next',
-          background: {
-            mode: 'none',
-            assetId: null,
-            sourceSceneId: null,
-            url: '',
-          },
-          position: { x: 200, y: 0 },
-          dialoguePages: [],
-          choices: [],
-          groupId: null,
-        },
-      ],
+      scenes: [createScene('scene-start', 'Start'), createScene('scene-next', 'Next')],
     };
     const runtimeState = createRuntimeState();
     const choice: Choice = {
@@ -153,11 +142,11 @@ describe('advanceRuntimeForChoice', () => {
     expect(nextState.variables.resources.gold).toBe(3);
   });
 
-  it('does not advance when the choice has no valid target', () => {
+  it('applies effects and stays on the current scene and page when the choice has no target', () => {
     const runtimeState = createRuntimeState();
     const choice: Choice = {
       id: 'choice-1',
-      text: 'Stay',
+      text: 'Gather gold',
       targetSceneId: null,
       conditionGroups: [],
       effects: [
@@ -165,15 +154,137 @@ describe('advanceRuntimeForChoice', () => {
           id: 'effect-gold',
           type: 'resource',
           targetId: 'resource-gold',
-          operation: '-=',
+          operation: '+=',
           value: 2,
+        },
+        {
+          id: 'effect-courage',
+          type: 'character_attr',
+          targetId: 'character-hero',
+          attribute: 'courage',
+          operation: '+=',
+          value: 1,
         },
       ],
     };
 
     const nextState = advanceRuntimeForChoice(choice, createProject(), runtimeState);
 
+    expect(nextState.currentSceneId).toBe('scene-start');
+    expect(nextState.currentPageIndex).toBe(0);
+    expect(nextState.variables.resources.gold).toBe(7);
+    expect(nextState.variables.characterAttrs['character-hero'].courage).toBe(2);
+  });
+
+  it('does not apply effects or advance when the choice has an invalid non-null target', () => {
+    const project: Project = {
+      ...createProject(),
+      scenes: [createScene('scene-start', 'Start')],
+    };
+    const runtimeState = createRuntimeState();
+    const choice: Choice = {
+      id: 'choice-1',
+      text: 'Go nowhere',
+      targetSceneId: 'missing-scene',
+      conditionGroups: [],
+      effects: [
+        {
+          id: 'effect-gold',
+          type: 'resource',
+          targetId: 'resource-gold',
+          operation: '+=',
+          value: 2,
+        },
+      ],
+    };
+
+    const nextState = advanceRuntimeForChoice(choice, project, runtimeState);
+
     expect(nextState).toBe(runtimeState);
+    expect(nextState.variables.resources.gold).toBe(5);
+  });
+});
+
+describe('createChoiceViewModels', () => {
+  it('enables newly available action choices after runtime variables update', () => {
+    const project: Project = {
+      ...createProject(),
+      scenes: [createScene('scene-start', 'Start')],
+    };
+    const actionChoice: Choice = {
+      id: 'choice-action',
+      text: 'Find gold',
+      targetSceneId: null,
+      conditionGroups: [],
+      effects: [
+        {
+          id: 'effect-gold',
+          type: 'resource',
+          targetId: 'resource-gold',
+          operation: '+=',
+          value: 5,
+        },
+      ],
+    };
+    const gatedChoice: Choice = {
+      id: 'choice-gated',
+      text: 'Buy passage',
+      targetSceneId: 'scene-start',
+      conditionGroups: [
+        {
+          id: 'group-gold',
+          conditions: [
+            {
+              id: 'condition-gold',
+              type: 'resource',
+              targetId: 'resource-gold',
+              operator: '>=',
+              value: 10,
+              hintText: 'Need more gold.',
+            },
+          ],
+        },
+      ],
+      effects: [],
+    };
+    const runtimeState = createRuntimeState();
+
+    const initialChoices = createChoiceViewModels([actionChoice, gatedChoice], project, runtimeState);
+    const nextState = advanceRuntimeForChoice(actionChoice, project, runtimeState);
+    const rerenderedChoices = createChoiceViewModels([actionChoice, gatedChoice], project, nextState);
+
+    expect(initialChoices.map((choice) => choice.isEnabled)).toEqual([true, false]);
+    expect(nextState.variables.resources.gold).toBe(10);
+    expect(rerenderedChoices.map((choice) => choice.isEnabled)).toEqual([true, true]);
+  });
+
+  it('disables choices with invalid non-null targets', () => {
+    const project: Project = {
+      ...createProject(),
+      scenes: [createScene('scene-start', 'Start')],
+    };
+    const choices = createChoiceViewModels(
+      [
+        {
+          id: 'choice-action',
+          text: 'Stay here',
+          targetSceneId: null,
+          conditionGroups: [],
+          effects: [],
+        },
+        {
+          id: 'choice-invalid-target',
+          text: 'Missing path',
+          targetSceneId: 'missing-scene',
+          conditionGroups: [],
+          effects: [],
+        },
+      ],
+      project,
+      createRuntimeState(),
+    );
+
+    expect(choices.map((choice) => choice.isEnabled)).toEqual([true, false]);
   });
 });
 

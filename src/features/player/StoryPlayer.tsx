@@ -1,9 +1,6 @@
 import { useState } from 'react';
 import type { Choice, Project } from '../../types';
-import {
-  applyEffects,
-  isChoiceAvailable,
-} from '../story-logic/runtimeLogic';
+import { advanceRuntimeForChoice } from '../story-logic/runtimeLogic';
 import { DialoguePanel } from './DialoguePanel';
 import {
   createChoiceViewModels,
@@ -33,21 +30,7 @@ export function StoryPlayer({ project, onExitPreview }: StoryPlayerProps) {
   const isEndOfStory = Boolean(currentScene && currentPage && !hasNextPage && visibleChoices.length === 0);
 
   const goToChoiceTarget = (choice: Choice) => {
-    const targetSceneId = choice.targetSceneId;
-
-    if (
-      !isChoiceAvailable(choice, project, runtimeState) ||
-      !targetSceneId ||
-      !project.scenes.some((scene) => scene.id === targetSceneId)
-    ) {
-      return;
-    }
-
-    setRuntimeState((current) => ({
-      ...applyEffects(choice, project, current),
-      currentSceneId: targetSceneId,
-      currentPageIndex: 0,
-    }));
+    setRuntimeState((current) => advanceRuntimeForChoice(choice, project, current));
   };
 
   const goToNextPage = () => {

@@ -202,3 +202,25 @@ export function applyEffects(
     },
   };
 }
+
+export function advanceRuntimeForChoice(
+  choice: Choice,
+  project: Project,
+  runtimeState: RuntimeState,
+): RuntimeState {
+  const targetSceneId = choice.targetSceneId;
+
+  if (
+    !isChoiceAvailable(choice, project, runtimeState) ||
+    !targetSceneId ||
+    !project.scenes.some((scene) => scene.id === targetSceneId)
+  ) {
+    return runtimeState;
+  }
+
+  return {
+    ...applyEffects(choice, project, runtimeState),
+    currentSceneId: targetSceneId,
+    currentPageIndex: 0,
+  };
+}

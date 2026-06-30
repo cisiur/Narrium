@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Choice, Project, RuntimeState } from '../../types';
 import {
+  advanceRuntimeForChoice,
   applyEffects,
   isChoiceAvailable,
   resolveUnavailableChoiceHint,
@@ -90,6 +91,89 @@ describe('applyEffects', () => {
     expect(nextState.variables.characterAttrs['character-hero'].courage).toBe(5);
     expect(runtimeState.variables.resources.gold).toBe(5);
     expect(runtimeState.variables.characterAttrs['character-hero'].courage).toBe(1);
+  });
+});
+
+describe('advanceRuntimeForChoice', () => {
+  it('applies effects and navigates when a choice is available and has a valid target', () => {
+    const project: Project = {
+      ...createProject(),
+      scenes: [
+        {
+          id: 'scene-start',
+          name: 'Start',
+          background: {
+            mode: 'none',
+            assetId: null,
+            sourceSceneId: null,
+            url: '',
+          },
+          position: { x: 0, y: 0 },
+          dialoguePages: [],
+          choices: [],
+          groupId: null,
+        },
+        {
+          id: 'scene-next',
+          name: 'Next',
+          background: {
+            mode: 'none',
+            assetId: null,
+            sourceSceneId: null,
+            url: '',
+          },
+          position: { x: 200, y: 0 },
+          dialoguePages: [],
+          choices: [],
+          groupId: null,
+        },
+      ],
+    };
+    const runtimeState = createRuntimeState();
+    const choice: Choice = {
+      id: 'choice-1',
+      text: 'Pay',
+      targetSceneId: 'scene-next',
+      conditionGroups: [],
+      effects: [
+        {
+          id: 'effect-gold',
+          type: 'resource',
+          targetId: 'resource-gold',
+          operation: '-=',
+          value: 2,
+        },
+      ],
+    };
+
+    const nextState = advanceRuntimeForChoice(choice, project, runtimeState);
+
+    expect(nextState.currentSceneId).toBe('scene-next');
+    expect(nextState.currentPageIndex).toBe(0);
+    expect(nextState.variables.resources.gold).toBe(3);
+  });
+
+  it('does not advance when the choice has no valid target', () => {
+    const runtimeState = createRuntimeState();
+    const choice: Choice = {
+      id: 'choice-1',
+      text: 'Stay',
+      targetSceneId: null,
+      conditionGroups: [],
+      effects: [
+        {
+          id: 'effect-gold',
+          type: 'resource',
+          targetId: 'resource-gold',
+          operation: '-=',
+          value: 2,
+        },
+      ],
+    };
+
+    const nextState = advanceRuntimeForChoice(choice, createProject(), runtimeState);
+
+    expect(nextState).toBe(runtimeState);
   });
 });
 

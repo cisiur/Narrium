@@ -91,8 +91,17 @@ function createStandaloneHtml(project: Project) {
     button.secondary {
       background: rgba(255, 255, 255, 0.14);
     }
+    button:disabled {
+      background: rgba(255, 255, 255, 0.08);
+      color: rgba(247, 240, 223, 0.45);
+      cursor: not-allowed;
+      filter: none;
+    }
     button:hover {
       filter: brightness(1.1);
+    }
+    button:disabled:hover {
+      filter: none;
     }
     main {
       display: flex;
@@ -135,6 +144,28 @@ function createStandaloneHtml(project: Project) {
       width: 100%;
       text-align: left;
     }
+    .hint {
+      margin: -0.35rem 0 0;
+      padding: 0 0.85rem;
+      color: rgba(247, 240, 223, 0.5);
+      font-size: 0.8rem;
+    }
+    .end {
+      margin: 1.25rem 0 0;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 0.4rem;
+      background: rgba(255, 255, 255, 0.08);
+      padding: 1rem;
+    }
+    .end-title {
+      margin: 0;
+      font-weight: 700;
+    }
+    .end-text {
+      margin: 0.5rem 0 0;
+      color: rgba(247, 240, 223, 0.68);
+      font-size: 0.9rem;
+    }
     .muted {
       color: rgba(247, 240, 223, 0.72);
     }
@@ -169,6 +200,30 @@ function createStandaloneHtml(project: Project) {
     const restartButton = document.getElementById('restart');
     let currentSceneId = project.startSceneId || (project.scenes[0] && project.scenes[0].id) || null;
     let currentPageIndex = 0;
+    let runtimeState = createInitialRuntimeState(project);
+
+    function createInitialRuntimeState(project) {
+      const resources = Object.fromEntries(
+        project.resources.map((resource) => [resource.key, resource.defaultValue])
+      );
+      const characterAttrs = Object.fromEntries(
+        project.characters.map((character) => [
+          character.id,
+          Object.fromEntries(
+            character.attributes.map((attribute) => [attribute.key, attribute.defaultValue])
+          )
+        ])
+      );
+
+      return {
+        currentSceneId: project.startSceneId,
+        currentPageIndex: 0,
+        variables: {
+          resources,
+          characterAttrs
+        }
+      };
+    }
 
     function findScene(sceneId) {
       return project.scenes.find((scene) => scene.id === sceneId) || null;
@@ -184,6 +239,220 @@ function createStandaloneHtml(project: Project) {
       }
 
       return findCharacter(speakerId)?.name || 'Unknown Speaker';
+    }
+
+    function isFiniteNumber(value) {
+      return typeof value === 'number' && Number.isFinite(value);
+    }
+
+    function compareNumbers(leftValue, operator, rightValue) {
+      if (!isFiniteNumber(leftValue) || !isFiniteNumber(rightValue)) {
+        return false;
+      }
+
+      switch (operator) {
+        case '>=':
+          return leftValue >= rightValue;
+        case '<=':
+          return leftValue <= rightValue;
+        case '==':
+          return leftValue === rightValue;
+        case '>':
+          return leftValue > rightValue;
+        case '<':
+          return leftValue < rightValue;
+        case '!=':
+          return leftValue !== rightValue;
+        default:
+          return false;
+      }
+    }
+
+    function applyNumericOperation(currentValue, operation, effectValue) {
+      switch (operation) {
+        case '+=':
+          return currentValue + effectValue;
+        case '-=':
+          return currentValue - effectValue;
+        case '=':
+          return effectValue;
+        default:
+          return null;
+      }
+    }
+
+    function evaluateCondition(condition, project, runtimeState) {
+      if (condition.type === 'resource') {
+        const resource = project.resources.find((item) => item.id === condition.targetId);
+
+        if (!resource) {
+          return false;
+        }
+
+        const runtimeValue = runtimeState.variables.resources[resource.key];
+
+        return compareNumbers(runtimeValue, condition.operator, condition.value);
+      }
+
+      if (condition.type === 'character_attr') {
+        const character = project.characters.find((item) => item.id === condition.targetId);
+
+        if (!character || !condition.attribute) {
+          return false;
+        }
+
+        if (!character.attributes.some((attribute) => attribute.key === condition.attribute)) {
+          return false;
+        }
+
+        const runtimeValue = runtimeState.variables.characterAttrs[character.id]?.[condition.attribute];
+
+        return compareNumbers(runtimeValue, condition.operator, condition.value);
+      }
+
+      return false;
+    }
+
+    function isChoiceAvailable(choice, project, runtimeState) {
+      const conditionGroups = choice.conditionGroups || [];
+
+      if (conditionGroups.length === 0) {
+        return true;
+      }
+
+      return conditionGroups.some((group) =>
+        group.conditions.every((condition) => evaluateCondition(condition, project, runtimeState))
+      );
+    }
+
+    function resolveUnavailableChoiceHint(choice, project, runtimeState) {
+      if (isChoiceAvailable(choice, project, runtimeState)) {
+        return null;
+      }
+
+      const conditionGroups = choice.conditionGroups || [];
+
+      for (const group of conditionGroups) {
+        for (const condition of group.conditions) {
+          if (evaluateCondition(condition, project, runtimeState)) {
+            continue;
+          }
+
+          const hintText = condition.hintText.trim();
+
+          if (hintText !== '') {
+            return hintText;
+          }
+        }
+      }
+
+      return null;
+    }
+
+    function applyEffects(choice, project, runtimeState) {
+      const effects = choice.effects;
+
+      if (!effects) {
+        return runtimeState;
+      }
+
+      let nextResources = runtimeState.variables.resources;
+      let nextCharacterAttrs = runtimeState.variables.characterAttrs;
+
+      for (const effect of effects) {
+        if (effect.type === 'resource') {
+          const resource = project.resources.find((item) => item.id === effect.targetId);
+
+          if (!resource) {
+            continue;
+          }
+
+          const currentValue = nextResources[resource.key] ?? 0;
+          const nextValue = applyNumericOperation(currentValue, effect.operation, effect.value);
+
+          if (nextValue === null) {
+            continue;
+          }
+
+          nextResources = {
+            ...nextResources,
+            [resource.key]: nextValue
+          };
+          continue;
+        }
+
+        if (effect.type === 'character_attr') {
+          const character = project.characters.find((item) => item.id === effect.targetId);
+
+          if (!character || !effect.attribute) {
+            continue;
+          }
+
+          if (!character.attributes.some((attribute) => attribute.key === effect.attribute)) {
+            continue;
+          }
+
+          const currentCharacterAttrs = nextCharacterAttrs[character.id] || {};
+          const currentValue = currentCharacterAttrs[effect.attribute] ?? 0;
+          const nextValue = applyNumericOperation(currentValue, effect.operation, effect.value);
+
+          if (nextValue === null) {
+            continue;
+          }
+
+          nextCharacterAttrs = {
+            ...nextCharacterAttrs,
+            [character.id]: {
+              ...currentCharacterAttrs,
+              [effect.attribute]: nextValue
+            }
+          };
+        }
+      }
+
+      return {
+        ...runtimeState,
+        variables: {
+          ...runtimeState.variables,
+          resources: nextResources,
+          characterAttrs: nextCharacterAttrs
+        }
+      };
+    }
+
+    function createChoiceViewModels(choices, project, runtimeState) {
+      return choices.map((choice) => {
+        const hasValidTarget = Boolean(
+          choice.targetSceneId && project.scenes.some((scene) => scene.id === choice.targetSceneId)
+        );
+        const isAvailable = isChoiceAvailable(choice, project, runtimeState);
+
+        return {
+          choice,
+          isEnabled: isAvailable && hasValidTarget,
+          unavailableHint: isAvailable
+            ? null
+            : resolveUnavailableChoiceHint(choice, project, runtimeState)
+        };
+      });
+    }
+
+    function advanceRuntimeForChoice(choice, project, runtimeState) {
+      const targetSceneId = choice.targetSceneId;
+
+      if (
+        !isChoiceAvailable(choice, project, runtimeState) ||
+        !targetSceneId ||
+        !project.scenes.some((scene) => scene.id === targetSceneId)
+      ) {
+        return runtimeState;
+      }
+
+      return {
+        ...applyEffects(choice, project, runtimeState),
+        currentSceneId: targetSceneId,
+        currentPageIndex: 0
+      };
     }
 
     function resolveDirectBackgroundUrl(scene) {
@@ -242,31 +511,53 @@ function createStandaloneHtml(project: Project) {
       actions.hidden = true;
     }
 
-    function renderChoices(scene) {
+    function renderChoices(choiceViewModels) {
       clearChoices();
-      actions.hidden = true;
 
-      if (!scene.choices.length) {
-        renderEndState(scene);
+      if (!choiceViewModels.length) {
         return;
       }
 
-      scene.choices.forEach((choice) => {
+      choiceViewModels.forEach(({ choice, isEnabled, unavailableHint }) => {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'choice secondary';
+        button.disabled = !isEnabled;
         button.textContent = choice.text || 'Continue';
         button.addEventListener('click', () => {
-          currentSceneId = choice.targetSceneId;
-          currentPageIndex = 0;
+          runtimeState = advanceRuntimeForChoice(choice, project, runtimeState);
+          currentSceneId = runtimeState.currentSceneId;
+          currentPageIndex = runtimeState.currentPageIndex;
           render();
         });
         choices.append(button);
+
+        if (unavailableHint) {
+          const hint = document.createElement('p');
+          hint.className = 'hint';
+          hint.textContent = unavailableHint;
+          choices.append(hint);
+        }
       });
     }
 
+    function renderEndNotice() {
+      clearChoices();
+      const end = document.createElement('div');
+      const endTitle = document.createElement('p');
+      const endText = document.createElement('p');
+
+      end.className = 'end';
+      endTitle.className = 'end-title';
+      endTitle.textContent = 'The End';
+      endText.className = 'end-text';
+      endText.textContent = 'This story has reached its final scene.';
+      end.append(endTitle, endText);
+      choices.append(end);
+    }
+
     function render() {
-      const scene = findScene(currentSceneId);
+      const scene = findScene(runtimeState.currentSceneId);
       title.textContent = project.name || 'Narrium Story';
 
       if (!scene) {
@@ -277,39 +568,49 @@ function createStandaloneHtml(project: Project) {
 
       setBackground(scene);
       const pages = scene.dialoguePages || [];
-      const page = pages[currentPageIndex] || null;
+      const page = pages[runtimeState.currentPageIndex] || null;
+      const hasNextPage = runtimeState.currentPageIndex < pages.length - 1;
+      const visibleChoices = page && !hasNextPage ? scene.choices : [];
+      const choiceViewModels = createChoiceViewModels(visibleChoices, project, runtimeState);
+      const isEndOfStory = Boolean(page && !hasNextPage && visibleChoices.length === 0);
 
       if (page) {
         speaker.textContent = resolveSpeakerName(page.speakerId);
         text.textContent = page.text || '';
-        clearChoices();
-        actions.hidden = false;
-        nextButton.textContent = currentPageIndex < pages.length - 1 ? 'Next' : 'Show Choices';
+        if (isEndOfStory) {
+          renderEndNotice();
+        } else {
+          renderChoices(choiceViewModels);
+        }
+        actions.hidden = !hasNextPage;
+        nextButton.textContent = 'Next';
         return;
       }
 
-      speaker.textContent = scene.name;
-      text.textContent = 'Choose what happens next.';
-      renderChoices(scene);
+      speaker.textContent = 'Dialogue page not found';
+      text.textContent = 'No dialogue page exists at the current runtime page index.';
+      clearChoices();
+      actions.hidden = true;
     }
 
     nextButton.addEventListener('click', () => {
-      const scene = findScene(currentSceneId);
+      const scene = findScene(runtimeState.currentSceneId);
       const pages = scene?.dialoguePages || [];
 
-      if (currentPageIndex < pages.length - 1) {
-        currentPageIndex += 1;
+      if (runtimeState.currentPageIndex < pages.length - 1) {
+        runtimeState = {
+          ...runtimeState,
+          currentPageIndex: runtimeState.currentPageIndex + 1
+        };
+        currentPageIndex = runtimeState.currentPageIndex;
         render();
-        return;
       }
-
-      currentPageIndex = pages.length;
-      render();
     });
 
     restartButton.addEventListener('click', () => {
-      currentSceneId = project.startSceneId || (project.scenes[0] && project.scenes[0].id) || null;
-      currentPageIndex = 0;
+      runtimeState = createInitialRuntimeState(project);
+      currentSceneId = runtimeState.currentSceneId;
+      currentPageIndex = runtimeState.currentPageIndex;
       render();
     });
 

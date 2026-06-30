@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { RightSidebar } from '../../components/RightSidebar';
 import { useWorkspaceStore } from '../../store/workspaceStore';
-import type { WorkspaceProjectMeta } from '../../types';
+import type { Project, WorkspaceProjectMeta } from '../../types';
+import { parseProjectImport } from '../../utils/projectImport';
 
 interface ProjectCardProps {
   project: WorkspaceProjectMeta;
@@ -242,12 +243,37 @@ function ProjectSettingsSidebar({
 export function MyProjectsScreen() {
   const projects = useWorkspaceStore((state) => state.projects);
   const createProject = useWorkspaceStore((state) => state.createProject);
+  const importProject = useWorkspaceStore((state) => state.importProject);
   const openProject = useWorkspaceStore((state) => state.openProject);
   const renameProject = useWorkspaceStore((state) => state.renameProject);
   const updateProjectThumbnail = useWorkspaceStore((state) => state.updateProjectThumbnail);
   const deleteProject = useWorkspaceStore((state) => state.deleteProject);
   const [settingsProjectId, setSettingsProjectId] = useState<string | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const importInputRef = useRef<HTMLInputElement | null>(null);
   const settingsProject = projects.find((project) => project.id === settingsProjectId) ?? null;
+
+  const importJson = async (file: File | undefined) => {
+    if (!file) {
+      return;
+    }
+
+    let project: Project | null = null;
+
+    try {
+      project = parseProjectImport(await file.text());
+    } catch {
+      project = null;
+    }
+
+    if (!project) {
+      setImportError('Invalid Narrium project file.');
+      return;
+    }
+
+    setImportError(null);
+    importProject(project);
+  };
 
   return (
     <section className="mx-auto max-w-5xl">
@@ -257,15 +283,37 @@ export function MyProjectsScreen() {
           <p className="mt-2 max-w-2xl text-sm leading-6 text-ink-600">
             Local project workspace for branching visual novels.
           </p>
+          {importError ? (
+            <p className="mt-2 text-sm font-medium text-red-700">{importError}</p>
+          ) : null}
         </div>
-        <button
-          type="button"
-          data-testid="create-project-button"
-          onClick={() => createProject()}
-          className="rounded-md bg-accent-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-accent-600"
-        >
-          Create Project
-        </button>
+        <div className="flex items-center gap-2">
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".json,application/json"
+            onChange={(event) => {
+              void importJson(event.target.files?.[0]);
+              event.currentTarget.value = '';
+            }}
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={() => importInputRef.current?.click()}
+            className="rounded-md border border-ink-950/10 bg-white px-4 py-2 text-sm font-semibold text-ink-800 shadow-sm transition hover:border-accent-500/40 hover:text-ink-950"
+          >
+            Import JSON
+          </button>
+          <button
+            type="button"
+            data-testid="create-project-button"
+            onClick={() => createProject()}
+            className="rounded-md bg-accent-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-accent-600"
+          >
+            Create Project
+          </button>
+        </div>
       </div>
 
       {projects.length === 0 ? (

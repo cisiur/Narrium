@@ -8,6 +8,7 @@ const PROJECT_STORAGE_PREFIX = 'narrium_project_';
 interface WorkspaceStore extends WorkspaceState {
   activeProject: Project | null;
   createProject: () => WorkspaceProjectMeta;
+  importProject: (project: Project) => WorkspaceProjectMeta;
   openProject: (projectId: string) => void;
   closeProject: () => void;
   renameProject: (projectId: string, newName: string) => void;
@@ -150,6 +151,41 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
       return {
         ...nextWorkspace,
         activeProject: project,
+      };
+    });
+
+    return projectMeta;
+  },
+  importProject: (project) => {
+    const now = new Date().toISOString();
+    const id = crypto.randomUUID();
+    const importedProject = {
+      ...project,
+      id,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const projectMeta: WorkspaceProjectMeta = {
+      id,
+      name: importedProject.name,
+      createdAt: now,
+      updatedAt: now,
+      thumbnailDataUrl: importedProject.thumbnail,
+    };
+
+    saveProject(importedProject);
+
+    set((state) => {
+      const nextWorkspace = {
+        projects: [...state.projects, projectMeta],
+        activeProjectId: id,
+      };
+
+      saveWorkspace(nextWorkspace);
+
+      return {
+        ...nextWorkspace,
+        activeProject: importedProject,
       };
     });
 

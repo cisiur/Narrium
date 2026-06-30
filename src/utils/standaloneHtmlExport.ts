@@ -30,6 +30,9 @@ function serializeProjectForScript(project: Project) {
 
 function createStandaloneHtml(project: Project) {
   const title = escapeHtml(project.name || 'Narrium Story');
+  const description = escapeHtml(
+    `Play ${project.name || 'a Narrium story'}, a standalone interactive story exported from Narrium.`
+  );
   const embeddedProject = serializeProjectForScript(project);
 
   return `<!doctype html>
@@ -37,20 +40,36 @@ function createStandaloneHtml(project: Project) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="${description}">
   <title>${title}</title>
   <style>
     * { box-sizing: border-box; }
     [hidden] { display: none !important; }
+    :root {
+      color-scheme: dark;
+      --bg: #080b12;
+      --ink: #fff7e8;
+      --muted: rgba(255, 247, 232, 0.68);
+      --soft: rgba(255, 247, 232, 0.1);
+      --line: rgba(255, 247, 232, 0.2);
+      --accent: #f59e0b;
+      --accent-strong: #f97316;
+      --blue: #60a5fa;
+      --panel: rgba(8, 11, 18, 0.82);
+    }
     body {
       margin: 0;
       min-height: 100vh;
-      background: #080b12;
-      color: #f7f0df;
-      font-family: Arial, sans-serif;
+      background: radial-gradient(circle at top left, #1f2937, var(--bg) 42rem);
+      color: var(--ink);
+      font-family:
+        Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        sans-serif;
     }
     .stage {
       display: flex;
       min-height: 100vh;
+      min-height: 100svh;
       flex-direction: column;
       background-position: center;
       background-size: cover;
@@ -59,7 +78,9 @@ function createStandaloneHtml(project: Project) {
       content: "";
       position: fixed;
       inset: 0;
-      background: linear-gradient(180deg, rgba(8, 11, 18, 0.35), rgba(8, 11, 18, 0.9));
+      background:
+        linear-gradient(180deg, rgba(8, 11, 18, 0.28), rgba(8, 11, 18, 0.7) 45%, rgba(8, 11, 18, 0.95)),
+        radial-gradient(circle at 50% 100%, rgba(245, 158, 11, 0.18), transparent 34rem);
       pointer-events: none;
     }
     header, main {
@@ -71,111 +92,214 @@ function createStandaloneHtml(project: Project) {
       align-items: center;
       justify-content: space-between;
       gap: 1rem;
-      padding: 1rem 1.25rem;
+      padding: clamp(1rem, 3vw, 1.6rem);
+    }
+    .brand {
+      min-width: 0;
+    }
+    .eyebrow {
+      margin: 0 0 0.25rem;
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
     }
     h1 {
       margin: 0;
-      font-size: 1rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
+      overflow-wrap: anywhere;
+      font-size: clamp(1rem, 2.5vw, 1.45rem);
+      font-weight: 800;
+      line-height: 1.15;
     }
     button {
-      border: 0;
-      border-radius: 0.4rem;
-      background: #2563eb;
-      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 0.5rem;
+      background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+      box-shadow: 0 0.8rem 1.8rem rgba(249, 115, 22, 0.22);
+      color: #16100a;
       cursor: pointer;
       font: inherit;
-      font-weight: 700;
-      padding: 0.65rem 0.9rem;
+      font-weight: 800;
+      line-height: 1.2;
+      padding: 0.78rem 1rem;
+      transition:
+        background 160ms ease,
+        border-color 160ms ease,
+        box-shadow 160ms ease,
+        transform 160ms ease;
     }
     button.secondary {
-      background: rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.1);
+      box-shadow: none;
+      color: var(--ink);
     }
     button:disabled {
-      background: rgba(255, 255, 255, 0.08);
-      color: rgba(247, 240, 223, 0.45);
+      border-color: rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.055);
+      box-shadow: none;
+      color: rgba(255, 247, 232, 0.46);
       cursor: not-allowed;
       filter: none;
     }
     button:hover {
-      filter: brightness(1.1);
+      transform: translateY(-1px);
     }
     button:disabled:hover {
       filter: none;
+      transform: none;
+    }
+    button:focus-visible {
+      outline: 3px solid rgba(96, 165, 250, 0.72);
+      outline-offset: 3px;
     }
     main {
       display: flex;
       flex: 1;
       align-items: flex-end;
       justify-content: center;
-      padding: 1.25rem;
+      padding: clamp(1rem, 4vw, 2.5rem);
     }
     .panel {
-      width: min(46rem, 100%);
-      border: 1px solid rgba(255, 255, 255, 0.16);
-      border-radius: 0.5rem;
-      background: rgba(8, 11, 18, 0.86);
-      box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, 0.4);
-      padding: 1.25rem;
+      width: min(52rem, 100%);
+      border: 1px solid var(--line);
+      border-radius: 0.75rem;
+      background: var(--panel);
+      box-shadow: 0 1.5rem 5rem rgba(0, 0, 0, 0.46);
+      padding: clamp(1rem, 3vw, 1.6rem);
+      backdrop-filter: blur(18px);
     }
     .speaker {
-      margin: 0 0 0.5rem;
-      color: #93c5fd;
-      font-size: 0.85rem;
-      font-weight: 700;
+      display: inline-flex;
+      max-width: 100%;
+      margin: 0 0 0.75rem;
+      border: 1px solid rgba(96, 165, 250, 0.28);
+      border-radius: 999px;
+      background: rgba(96, 165, 250, 0.12);
+      color: #bfdbfe;
+      font-size: 0.75rem;
+      font-weight: 800;
+      line-height: 1.2;
+      overflow-wrap: anywhere;
+      padding: 0.32rem 0.65rem;
       text-transform: uppercase;
     }
     .text {
       margin: 0;
-      font-size: 1.1rem;
-      line-height: 1.7;
+      color: rgba(255, 247, 232, 0.92);
+      font-size: clamp(1rem, 2.3vw, 1.18rem);
+      line-height: 1.75;
+      overflow-wrap: anywhere;
       white-space: pre-wrap;
     }
     .actions, .choices {
       display: flex;
       flex-wrap: wrap;
       gap: 0.75rem;
-      margin-top: 1.25rem;
+      margin-top: 1.35rem;
     }
     .choices {
       flex-direction: column;
     }
     .choice {
       width: 100%;
+      min-height: 3rem;
       text-align: left;
+    }
+    .choice:not(:disabled) {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--ink);
+    }
+    .choice:not(:disabled):hover {
+      border-color: rgba(245, 158, 11, 0.5);
+      background: rgba(245, 158, 11, 0.16);
     }
     .hint {
       margin: -0.35rem 0 0;
-      padding: 0 0.85rem;
-      color: rgba(247, 240, 223, 0.5);
-      font-size: 0.8rem;
+      border-left: 3px solid rgba(245, 158, 11, 0.72);
+      border-radius: 0.35rem;
+      background: rgba(245, 158, 11, 0.09);
+      color: rgba(255, 237, 213, 0.78);
+      font-size: 0.86rem;
+      line-height: 1.45;
+      padding: 0.55rem 0.75rem;
     }
+    .notice,
     .end {
-      margin: 1.25rem 0 0;
       border: 1px solid rgba(255, 255, 255, 0.14);
-      border-radius: 0.4rem;
+      border-radius: 0.65rem;
       background: rgba(255, 255, 255, 0.08);
       padding: 1rem;
     }
+    .notice {
+      margin-top: 1.25rem;
+    }
+    .notice-title,
     .end-title {
       margin: 0;
-      font-weight: 700;
+      color: var(--ink);
+      font-size: 1rem;
+      font-weight: 800;
     }
+    .notice-text,
     .end-text {
-      margin: 0.5rem 0 0;
-      color: rgba(247, 240, 223, 0.68);
-      font-size: 0.9rem;
+      margin: 0.45rem 0 0;
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.5;
+    }
+    .end {
+      margin: 1.25rem 0 0;
+      border-color: rgba(245, 158, 11, 0.28);
+      background:
+        linear-gradient(135deg, rgba(245, 158, 11, 0.14), rgba(96, 165, 250, 0.08)),
+        rgba(255, 255, 255, 0.06);
     }
     .muted {
-      color: rgba(247, 240, 223, 0.72);
+      color: var(--muted);
+    }
+    @media (max-width: 640px) {
+      header {
+        align-items: flex-start;
+      }
+      #restart {
+        flex: 0 0 auto;
+        padding-inline: 0.8rem;
+      }
+      main {
+        align-items: stretch;
+        padding-top: 0.5rem;
+      }
+      .panel {
+        align-self: flex-end;
+        border-radius: 0.65rem;
+      }
+      .actions {
+        flex-direction: column;
+      }
+      .actions button,
+      .choice {
+        width: 100%;
+      }
+    }
+    @media (max-width: 420px) {
+      header {
+        flex-direction: column;
+      }
+      #restart {
+        width: 100%;
+        text-align: left;
+      }
     }
   </style>
 </head>
 <body>
   <div id="app" class="stage">
     <header>
-      <h1></h1>
+      <div class="brand">
+        <p class="eyebrow">Narrium Player</p>
+        <h1></h1>
+      </div>
       <button id="restart" type="button" class="secondary">Restart</button>
     </header>
     <main>
@@ -515,6 +639,12 @@ function createStandaloneHtml(project: Project) {
       speaker.textContent = scene ? scene.name : 'Story';
       text.textContent = scene ? 'The story ends here.' : 'No starting scene is available.';
       clearChoices();
+      renderNotice(
+        scene ? 'End state' : 'Missing start scene',
+        scene
+          ? 'This scene has no further dialogue or choices.'
+          : 'The exported project does not currently point to a playable opening scene.'
+      );
       actions.hidden = true;
     }
 
@@ -563,6 +693,21 @@ function createStandaloneHtml(project: Project) {
       choices.append(end);
     }
 
+    function renderNotice(titleText, bodyText) {
+      clearChoices();
+      const notice = document.createElement('div');
+      const noticeTitle = document.createElement('p');
+      const noticeText = document.createElement('p');
+
+      notice.className = 'notice';
+      noticeTitle.className = 'notice-title';
+      noticeTitle.textContent = titleText;
+      noticeText.className = 'notice-text';
+      noticeText.textContent = bodyText;
+      notice.append(noticeTitle, noticeText);
+      choices.append(notice);
+    }
+
     function render() {
       const scene = findScene(runtimeState.currentSceneId);
       title.textContent = project.name || 'Narrium Story';
@@ -596,7 +741,10 @@ function createStandaloneHtml(project: Project) {
 
       speaker.textContent = 'Dialogue page not found';
       text.textContent = 'No dialogue page exists at the current runtime page index.';
-      clearChoices();
+      renderNotice(
+        'Missing dialogue page',
+        'The current scene does not contain a dialogue page for this point in the story.'
+      );
       actions.hidden = true;
     }
 

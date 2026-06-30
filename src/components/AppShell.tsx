@@ -9,6 +9,7 @@ interface AppShellProps {
   rightPanel?: ReactNode;
   onAddScene?: () => void;
   onBackToProjects?: () => void;
+  onExportProject?: () => void;
   onEnterPreview?: () => void;
   onProjectViewChange?: (view: ProjectView) => void;
 }
@@ -21,6 +22,7 @@ export function AppShell({
   rightPanel,
   onAddScene,
   onBackToProjects,
+  onExportProject,
   onEnterPreview,
   onProjectViewChange,
 }: AppShellProps) {
@@ -80,6 +82,13 @@ export function AppShell({
                 className="rounded bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-500"
               >
                 Preview
+              </button>
+              <button
+                type="button"
+                onClick={onExportProject}
+                className="rounded bg-gray-700 px-2 py-1 text-xs font-medium text-gray-100 hover:bg-gray-600"
+              >
+                Export JSON
               </button>
             </>
           ) : (

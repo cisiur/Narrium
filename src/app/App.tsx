@@ -9,6 +9,7 @@ import { MyProjectsScreen } from '../features/workspace/MyProjectsScreen';
 import { useCanvasStore } from '../store/useCanvasStore';
 import { useProjectViewStore } from '../store/useProjectViewStore';
 import { useWorkspaceStore } from '../store/workspaceStore';
+import { exportProjectAsJson } from '../utils/projectExport';
 
 export function App() {
   const [isPreviewMode, setIsPreviewMode] = useState(false);
@@ -47,6 +48,7 @@ export function App() {
         activeProjectView={activeProjectView}
         onAddScene={isCanvasView ? () => addScene('New Scene') : undefined}
         onBackToProjects={closeProject}
+        onExportProject={() => exportProjectAsJson(activeProject)}
         onEnterPreview={() => setIsPreviewMode(true)}
         onProjectViewChange={setActiveProjectView}
         rightPanel={isCanvasView ? <SceneEditorPanel /> : null}

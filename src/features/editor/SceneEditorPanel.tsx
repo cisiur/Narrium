@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useCanvasStore } from '../../store/useCanvasStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { ConditionGroupsEditor } from '../story-logic/ConditionGroupsEditor';
 import { EffectsEditor } from '../story-logic/EffectsEditor';
+import { VALIDATION_CODES, validateProject } from '../validation/projectValidation';
 import type {
   AssetLibraryItem,
   Character,
@@ -598,16 +599,23 @@ interface ChoiceItemProps {
   scenes: Scene[];
   isSelected: boolean;
   targetSceneName: string;
+  hasChoiceDoesNothingWarning: boolean;
 }
 
-function ChoiceItem({ choice, scene, scenes, isSelected, targetSceneName }: ChoiceItemProps) {
+function ChoiceItem({
+  choice,
+  scene,
+  scenes,
+  isSelected,
+  targetSceneName,
+  hasChoiceDoesNothingWarning,
+}: ChoiceItemProps) {
   const updateChoiceText = useCanvasStore((state) => state.updateChoiceText);
   const updateChoiceTarget = useCanvasStore((state) => state.updateChoiceTarget);
   const deleteChoice = useCanvasStore((state) => state.deleteChoice);
   const [isEditing, setIsEditing] = useState(false);
   const choiceRef = useRef<HTMLDivElement | null>(null);
   const targetScenes = scenes.filter((candidate) => candidate.id !== scene.id);
-  const doesChoiceDoNothing = choice.targetSceneId === null && (choice.effects ?? []).length === 0;
 
   useEffect(() => {
     if (!isSelected) {
@@ -678,7 +686,7 @@ function ChoiceItem({ choice, scene, scenes, isSelected, targetSceneName }: Choi
           ))}
         </select>
       </label>
-      {doesChoiceDoNothing ? (
+      {hasChoiceDoesNothingWarning ? (
         <p className="mt-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs leading-5 text-amber-200">
           ⚠ This choice does nothing. Add a target scene or at least one effect.
         </p>
@@ -697,6 +705,10 @@ export function SceneEditorPanel() {
   const addDialoguePage = useCanvasStore((state) => state.addDialoguePage);
   const addChoice = useCanvasStore((state) => state.addChoice);
   const scene = activeProject?.scenes.find((item) => item.id === selectedSceneId) ?? null;
+  const validationIssues = useMemo(
+    () => (activeProject ? validateProject(activeProject) : []),
+    [activeProject],
+  );
   const isOpen = Boolean(scene);
 
   return (
@@ -758,6 +770,12 @@ export function SceneEditorPanel() {
                   const targetScene = activeProject?.scenes.find(
                     (candidate) => candidate.id === choice.targetSceneId,
                   );
+                  const hasChoiceDoesNothingWarning = validationIssues.some(
+                    (issue) =>
+                      issue.code === VALIDATION_CODES.targetlessChoiceWithoutEffects &&
+                      issue.sceneId === scene.id &&
+                      issue.choiceId === choice.id,
+                  );
 
                   return (
                     <ChoiceItem
@@ -767,6 +785,7 @@ export function SceneEditorPanel() {
                       scenes={activeProject?.scenes ?? []}
                       isSelected={selectedChoiceId === choice.id}
                       targetSceneName={targetScene ? `→ ${targetScene.name}` : '→ not connected'}
+                      hasChoiceDoesNothingWarning={hasChoiceDoesNothingWarning}
                     />
                   );
                 })}

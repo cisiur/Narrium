@@ -607,6 +607,7 @@ function ChoiceItem({ choice, scene, scenes, isSelected, targetSceneName }: Choi
   const [isEditing, setIsEditing] = useState(false);
   const choiceRef = useRef<HTMLDivElement | null>(null);
   const targetScenes = scenes.filter((candidate) => candidate.id !== scene.id);
+  const doesChoiceDoNothing = choice.targetSceneId === null && (choice.effects ?? []).length === 0;
 
   useEffect(() => {
     if (!isSelected) {
@@ -677,6 +678,11 @@ function ChoiceItem({ choice, scene, scenes, isSelected, targetSceneName }: Choi
           ))}
         </select>
       </label>
+      {doesChoiceDoNothing ? (
+        <p className="mt-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs leading-5 text-amber-200">
+          ⚠ This choice does nothing. Add a target scene or at least one effect.
+        </p>
+      ) : null}
       <ConditionGroupsEditor choice={choice} scene={scene} />
       <EffectsEditor choice={choice} scene={scene} />
     </div>

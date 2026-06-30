@@ -9,10 +9,171 @@ This changelog records milestone-level project changes. It is intentionally conc
 ### Planned
 
 - EPIC 8 — Save, Load, Export
-  - `E8-02`: export project as JSON
-  - `E8-03`: import project from JSON
-  - `E8-04`: export story as standalone HTML player
+  - `E8-04C`: standalone HTML player polish
   - `E8-05`: exported player save/load slots
+
+### Backlog / Product polish
+
+- Warn when a targetless choice has no effects, because it is currently runtime-valid but does nothing.
+- Full project validation panel.
+- Story Player component-level tests.
+- Standalone HTML visual polish and responsive polish.
+- Exported player save/load slots.
+
+---
+
+## v0.8.0 — EPIC 8 Project Portability + Standalone HTML Runtime
+
+Status: **partially completed**
+
+Purpose:
+- Make Narrium projects portable through JSON export/import.
+- Add standalone HTML story export.
+- Keep the current full `Project` model as the single source of truth.
+- Preserve uploaded/Data URL assets.
+- Bring standalone HTML runtime behavior close to Preview behavior.
+- Introduce action choices where effects can run without scene navigation.
+
+Completed:
+
+### Export project as JSON
+
+Commit:
+- `7d3f228` — `feat: export active project as json`
+
+Changes:
+- Added `Export JSON` action in the project header.
+- Exports the active full `Project` object as formatted JSON.
+- Preserves embedded Data URLs.
+- Uses a safe filename derived from project name.
+- Does not mutate Project data or localStorage.
+
+Validation:
+- `npm.cmd test`
+- `npm.cmd run build`
+
+### Import project from JSON
+
+Commit:
+- `75f1bc3` — `feat: import project from json`
+
+Changes:
+- Added `Import JSON` action on My Projects.
+- Reads selected `.json` files.
+- Validates the file as a Narrium Project shape.
+- Runs imported data through `normalizeProject()`.
+- Imports as a new local project.
+- Replaces only:
+  - `Project.id`
+  - `createdAt`
+  - `updatedAt`
+- Preserves scenes, choices, backgrounds, asset library, Story Logic, thumbnail, and Data URLs.
+- Creates workspace metadata.
+- Saves and opens the imported project.
+- Shows `Invalid Narrium project file.` on invalid import.
+
+Validation:
+- `npm.cmd test`
+- `npm.cmd run build`
+
+### Standalone HTML export foundation
+
+Commit:
+- `169d62c` — `feat: add standalone html export foundation`
+
+Changes:
+- Added `Export HTML` action in the project header.
+- Added standalone HTML export helper.
+- Exports a single `.html` file.
+- Embeds the active full `Project`.
+- Preserves embedded Data URLs.
+- Opens directly from disk.
+- Does not require Narrium, npm, Vite, React dev server, or a local server.
+- Does not write to localStorage.
+- Initial standalone player supported:
+  - start scene
+  - dialogue pages
+  - Next button
+  - choices
+  - valid target navigation
+  - restart
+  - end state
+  - speaker names
+  - basic backgrounds
+
+Validation:
+- `npm.cmd test`
+- `npm.cmd run build`
+
+### Standalone runtime parity
+
+Commit:
+- `6312286` — `feat: add standalone runtime parity`
+
+Changes:
+- Added shared `advanceRuntimeForChoice()` helper in `runtimeLogic.ts`.
+- Preview now uses `advanceRuntimeForChoice()` for choice selection.
+- Standalone HTML runtime gained:
+  - runtime variables
+  - resource conditions
+  - character attribute conditions
+  - condition groups
+  - disabled unavailable choices
+  - hint text
+  - resource effects
+  - character attribute effects
+  - invalid target handling
+- Added runtime tests for choice advancement/effects and invalid target behavior.
+
+Validation:
+- `npm.cmd test`
+- `npm.cmd run build`
+
+### Action choices: effects without navigation
+
+Commit:
+- `3819863` — `feat: support action choices without navigation`
+
+Changes:
+- `advanceRuntimeForChoice()` now applies effects independently from navigation.
+- Targetless choices can execute effects and remain on the current scene/page.
+- Runtime variables update after targetless actions.
+- Re-render can enable newly available choices.
+- Preview and standalone choice view models now allow valid targetless action choices.
+- Invalid non-null targets remain disabled and do not execute effects.
+- Added tests for:
+  - targetless effects
+  - runtime updates
+  - newly available choices after re-render
+  - invalid non-null targets
+  - existing navigation behavior
+
+Validation:
+- `npm.cmd test`
+- `npm.cmd run build`
+
+### Standalone HTML UX fix
+
+Commit:
+- `989d1f0` — `fix: hide standalone next button during choices`
+
+Changes:
+- Fixed exported standalone HTML where `Next` remained visible when choices/actions were displayed.
+- Added `[hidden] { display: none !important; }` inside the exported HTML template.
+- Preserved existing standalone runtime behavior.
+- `Next` is now visible only while another dialogue page exists.
+
+Validation:
+- `npm.cmd test`
+- `npm.cmd run build`
+
+Result:
+- Project portability is functional.
+- Standalone HTML export is functional and playable.
+- Exported HTML runtime supports the same core Story Logic behavior as Preview.
+- Remaining EPIC 8 work:
+  - standalone HTML polish (`E8-04C`)
+  - exported player save/load slots (`E8-05`)
 
 ---
 
@@ -101,7 +262,8 @@ Changes:
 - Choices became clickable buttons.
 - Valid `targetSceneId` navigates to the target scene.
 - Navigation resets `currentPageIndex` to `0`.
-- Choices with no target or missing target scenes are disabled.
+- Initial behavior disabled choices with no target or missing target scenes.
+- Targetless action choices were added later in v0.8.0.
 
 ### Effects on choice selection
 
@@ -109,7 +271,7 @@ Commit:
 - `7f9b679` — `feat: apply story choice effects`
 
 Changes:
-- Story Player now uses existing `applyEffects()` helper.
+- Story Player uses existing `applyEffects()` helper.
 - Effects apply before scene navigation.
 - Runtime state remains local to Preview.
 
@@ -119,7 +281,7 @@ Commit:
 - `5a504ca` — `feat: integrate story choice conditions`
 
 Changes:
-- Story Player now uses:
+- Story Player uses:
   - `isChoiceAvailable()`
   - `resolveUnavailableChoiceHint()`
 - All choices remain visible.
@@ -149,7 +311,7 @@ Changes:
 
 Result:
 - EPIC 7 Story Player MVP is complete.
-- Preview now supports a full playable loop:
+- Preview supports:
   - scene rendering
   - multi-page dialogue
   - choices
@@ -220,7 +382,7 @@ Validation:
 - `npm.cmd run build`
 
 Result:
-- Runtime foundation is now covered by focused automated tests.
+- Runtime foundation is covered by focused automated tests.
 - Story Player is easier to extend for future Save/Load and export work.
 
 ---
@@ -252,7 +414,7 @@ Changes:
 ### Full project shape normalization
 
 Changes:
-- `normalizeProject()` now normalizes the current Project shape more completely.
+- `normalizeProject()` normalizes the current Project shape more completely.
 - Project-level collections are defaulted when missing:
   - `scenes`
   - `characters`
@@ -274,16 +436,13 @@ Changes:
 - Legacy `conditions` migration remains supported.
 - Existing data is preserved wherever possible.
 
-Note:
-- The exact commit hash for this batch was not available during this documentation update. Check git history for the commit that changed `src/store/projectMigrations.ts`.
-
 ### Character Attribute rename safety
 
 Commit:
 - `b9ed4db` — `fix: preserve character attribute references on rename`
 
 Changes:
-- Character Attribute key renames now cascade matching Story Logic references.
+- Character Attribute key renames cascade matching Story Logic references.
 - Matching `character_attr` conditions are updated from old key to new key.
 - Matching `character_attr` effects are updated from old key to new key.
 - Updates are limited to the renamed character.
@@ -295,9 +454,9 @@ Commit:
 - `53e21d5` — `ux: improve empty condition group authoring`
 
 Changes:
-- `+ Add OR Group` now creates a group with one default condition.
+- `+ Add OR Group` creates a group with one default condition.
 - Empty groups still remain valid according to runtime semantics.
-- Empty groups now display an inline warning:
+- Empty groups display an inline warning:
   - `This group has no conditions and will always pass.`
 - Runtime behavior and Story Logic semantics were not changed.
 
@@ -449,4 +608,3 @@ Completed before v0.6.0:
 - Resources screen.
 - Duplicate key handling.
 - Numeric defaults.
-- Delete warnings for Story Logic references.

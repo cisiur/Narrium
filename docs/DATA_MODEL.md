@@ -1,19 +1,20 @@
 # Data Model — Narrium
 
-This document defines the canonical data structures for Narrium. It is the primary reference for implementation in React, Zustand stores, player runtime, JSON import/export, and future migrations.
+This document defines the canonical data structures for Narrium. It is the primary reference for implementation in React, Zustand stores, player runtime, JSON import/export, standalone HTML export, and future migrations.
 
 ---
 
 ## Principles
 
 - The model must be JSON-serializable without transformation.
-- The same `Project` object is the source of truth for editor and exported player.
+- The same `Project` object is the source of truth for editor, Preview player, JSON export/import, and exported standalone HTML player.
 - Scene logic is declarative only: conditions and effects, no scripting language.
 - Background assets are portable inside exported/imported project JSON.
 - Project thumbnails are stored in the full `Project` and mirrored into workspace metadata for fast project listing.
 - Workspace metadata is stored separately from full project payload.
 - Characters and Resources are project data, not separate stores.
 - React Flow is a projection of `Project.scenes`.
+- Choice execution separates **effects** from **navigation**.
 
 ---
 
@@ -83,7 +84,7 @@ interface Project {
 #### Notes
 
 - `thumbnail` is a Data URL or `null`.
-- `thumbnail` is part of the full project so JSON export/import can preserve it later.
+- `thumbnail` is part of the full project so JSON export/import can preserve it.
 - `startSceneId` is the story entry point for preview and export.
 - Current implementation allows `startSceneId` to be an empty string when the project has no scenes yet.
 - `groups` are canvas-only organizational containers in MVP.
@@ -91,6 +92,8 @@ interface Project {
 - `characters` stores project-level speaker/logic entities.
 - `resources` stores project-wide numeric variables.
 - `updatedAt` must be refreshed on every meaningful editor change.
+- JSON export uses the full `Project` object.
+- Standalone HTML export embeds the full `Project` object.
 
 ---
 
@@ -147,6 +150,7 @@ interface SceneBackground {
 - `mode='upload'` requires `url` to be a data URL.
 - `mode='asset'` requires valid `assetId`.
 - `mode='scene_reference'` requires valid `sourceSceneId` and must not self-reference the same scene.
+- Preview and standalone HTML player support one-level `scene_reference` resolution.
 
 ---
 
@@ -209,12 +213,17 @@ interface Choice {
 
 #### Notes
 
-- `targetSceneId = null` means the choice is not connected yet and should be flagged by validation.
 - `conditionGroups` stores OR groups for choice availability.
 - Conditions inside one group use AND semantics.
 - Condition groups use OR semantics between groups.
-- `effects` are applied immediately after the choice is selected.
+- `effects` are applied immediately after an available choice is selected.
 - Effects apply in array order.
+- `targetSceneId` controls optional navigation:
+  - valid scene id: apply effects, navigate to that scene, reset `currentPageIndex` to `0`
+  - `null`: apply effects and stay on the current scene/page
+  - invalid non-null scene id: choice should be disabled and effects should not run
+- `targetSceneId = null` is valid for **action choices** such as `Take Key`, `Search Bookshelf`, or `Ask About Castle`.
+- A targetless choice with no effects is currently runtime-valid but should receive a future validation warning because it does nothing.
 - Legacy project data may contain `conditions: Condition[]`; `projectMigrations` normalizes those into `conditionGroups`.
 
 ---
@@ -367,6 +376,7 @@ interface Effect {
 - The editor may display user-friendly operation labels `+`, `-`, `=`, but the stored model remains `+=`, `-=`, `=`.
 - Multiple effects can be attached to one choice.
 - Effects are applied in array order.
+- Effects are independent from navigation.
 - The editor shows lightweight validation warnings for missing or deleted resource, character, and attribute references.
 - Broken effects are skipped by runtime helper semantics.
 
@@ -392,6 +402,8 @@ interface AssetLibraryItem {
 - MVP supports background assets only.
 - Uploaded assets are stored as base64 data URLs in `url`.
 - URL assets store their external URL directly.
+- JSON project export/import preserves asset library items.
+- Standalone HTML export embeds the full Project, so uploaded asset Data URLs remain available in the exported player.
 
 ---
 
@@ -409,6 +421,7 @@ interface ProjectSettings {
 
 - Governs whether exported player exposes save/load UI.
 - In MVP this should default to `true`.
+- Exported player save/load slots are not implemented yet.
 
 ---
 
@@ -430,7 +443,7 @@ interface RuntimeState {
 
 #### Notes
 
-- Runtime state is built from `Project` defaults when preview starts.
+- Runtime state is built from `Project` defaults when preview or standalone player starts.
 - `currentSceneId` points to the currently displayed scene.
 - `currentPageIndex` points to the current dialogue page within the current scene.
 - `variables.resources` should be seeded from `Project.resources`.
@@ -438,6 +451,8 @@ interface RuntimeState {
 - Resource runtime keys should be derived from `Resource.key`.
 - Character attribute runtime keys should be derived from `CharacterAttribute.key`.
 - Character attributes are nested under `Character.id`.
+- Preview runtime state is local and not persisted.
+- Standalone HTML runtime state is local and not persisted until `E8-05`.
 
 Example:
 
@@ -461,7 +476,8 @@ interface RuntimeSaveSlot {
 #### Notes
 
 - `saveSlots` exist only when save/load is enabled.
-- Exported HTML player persists slots using localStorage.
+- Exported HTML player save/load slots are planned for `E8-05`.
+- Future exported player persistence should use localStorage with a key such as `narrium_player_save_{projectId}`.
 
 ---
 
@@ -475,6 +491,56 @@ interface RuntimeSaveSlot {
 
 ---
 
+## Import / Export behavior
+
+### JSON project export
+
+- Exports the active full `Project` object as formatted JSON.
+- Uses the same canonical model as editor state.
+- Preserves Data URLs.
+- Does not mutate Project data.
+- Does not update localStorage.
+
+### JSON project import
+
+- Accepts a Narrium Project JSON file.
+- Parses and validates the file conservatively.
+- Passes parsed data through project normalization.
+- Creates a **new** project:
+  - new `Project.id`
+  - new `createdAt`
+  - new `updatedAt`
+- Preserves all story content and portable assets.
+- Creates matching `WorkspaceProjectMeta`.
+- Saves the imported project to localStorage.
+- Opens the imported project.
+- Invalid files do not crash the app and show `Invalid Narrium project file.`
+
+### Standalone HTML export
+
+- Exports a single `.html` file.
+- Embeds the active full `Project` object.
+- Preserves Data URLs.
+- Opens directly from disk.
+- Does not require the Narrium app, npm, Vite, React dev server, or a local server.
+- Does not use localStorage yet.
+- Supports Preview-equivalent runtime behavior for:
+  - dialogue pages
+  - speaker names
+  - choices
+  - conditions
+  - unavailable hints
+  - resource effects
+  - character attribute effects
+  - targetless action choices
+  - valid target navigation
+  - invalid target disabled behavior
+  - restart
+  - end state
+  - supported backgrounds
+
+---
+
 ## Migration rules
 
 Current implemented migrations:
@@ -482,6 +548,14 @@ Current implemented migrations:
 - Legacy `Choice.conditions` is normalized into `Choice.conditionGroups`.
 - Missing `Project.thumbnail` is normalized to `null`.
 - Missing `WorkspaceProjectMeta.thumbnailDataUrl` is normalized to `null` when loading workspace metadata.
+- Full current `Project` shape is normalized on load/import:
+  - collections
+  - settings
+  - scene backgrounds
+  - dialogue pages
+  - choices
+  - condition groups
+  - effects
 
 Migration principles:
 
@@ -499,7 +573,9 @@ A valid project should satisfy all of the following:
 - `Project.startSceneId` points to an existing scene, unless the project has no scenes yet.
 - Every `Scene.id`, `Choice.id`, `DialoguePage.id`, `Character.id`, `Resource.id`, `SceneGroup.id`, and `AssetLibraryItem.id` is unique within its collection.
 - Every `DialoguePage.speakerId`, when present, points to an existing `Character.id`.
-- Every `Choice.targetSceneId`, when present, points to an existing scene.
+- Every non-null `Choice.targetSceneId` points to an existing scene.
+- `Choice.targetSceneId = null` is allowed for targetless action choices.
+- A targetless choice without effects should eventually receive a validation warning because it does nothing.
 - Every `Condition.targetId` and `Effect.targetId` points to an existing resource or character depending on type.
 - Every `Condition.attribute` / `Effect.attribute` for `character_attr` exists on the target character.
 - Every `Scene.groupId`, when present, points to an existing group.
@@ -534,15 +610,13 @@ Scene.background = {
   sourceSceneId: null,
   url: ''
 }
-
 Scene.dialoguePages = [
   {
-    id: generatedId,
+    id: crypto.randomUUID(),
     speakerId: null,
     text: ''
   }
 ]
-
 Scene.choices = []
 Scene.groupId = null
 ```
@@ -555,11 +629,19 @@ Choice.conditionGroups = []
 Choice.effects = []
 ```
 
-Recommended default runtime state when starting preview:
+Recommended defaults when creating a new condition group:
 
 ```typescript
-RuntimeState.currentSceneId = Project.startSceneId
-RuntimeState.currentPageIndex = 0
-RuntimeState.variables.resources = seeded from Project.resources by Resource.key
-RuntimeState.variables.characterAttrs = seeded from Project.characters by Character.id and CharacterAttribute.key
+ConditionGroup.conditions = [
+  defaultCondition
+]
+```
+
+Recommended defaults when creating a new effect:
+
+```typescript
+Effect.type = 'resource'
+Effect.targetId = ''
+Effect.operation = '+='
+Effect.value = 0
 ```

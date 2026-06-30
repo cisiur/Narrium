@@ -11,7 +11,7 @@ Narrium is a **no-code, browser-based visual novel editor**.
 
 Authors build branching interactive stories by connecting scene tiles on a visual canvas — no programming required. Each scene can contain a background image, ordered dialogue pages, and response choices. Choices can carry declarative condition groups and declarative effects.
 
-The finished story should eventually be playable in the browser and exportable as a standalone HTML file.
+The finished story can be previewed in the browser and exported as a standalone HTML player file.
 
 Target user:
 - non-technical authors
@@ -65,7 +65,8 @@ Workflow:
 | Styling | Tailwind CSS v3 |
 | Storage | localStorage for MVP |
 | Project format | JSON-compatible `Project` object |
-| Runtime player | Embedded React preview player |
+| Runtime player | Embedded React Preview player |
+| Exported player | Standalone HTML file with embedded Project + minimal runtime |
 | Tests | Vitest |
 | Bundler | Vite |
 
@@ -86,23 +87,25 @@ Story Logic — Conditions   ██████████ 100%
 Story Logic — Effects      ██████████ 100%
 Story Logic — Runtime      ██████████ 100%
 Post-Audit Stabilization   ██████████ 100%
-Story Player               ██████████ 100%
-Save / Export              █░░░░░░░░░  15%
+Story Player Preview       ██████████ 100%
+Save / Export              ███████░░░  70%
 Polish & Production UX     ████░░░░░░  40%
 ```
 
 Current state:
-Narrium has a usable local multi-project workspace, project settings sidebar, project thumbnails, React Flow scene graph editor, right-side scene editor, background system, asset library support, SceneNode thumbnails, ordered dialogue pages, character speaker selection, choice target editing, edge-to-choice navigation, project-level Characters, Character attributes, project-level Resources, complete Story Logic Conditions, complete Story Logic Effects, runtime helper functions for condition/effect execution, and a functional in-browser Story Player preview.
+Narrium has a usable local multi-project workspace, project settings sidebar, project thumbnails, React Flow scene graph editor, right-side scene editor, background system, asset library support, SceneNode thumbnails, ordered dialogue pages, character speaker selection, choice target editing, edge-to-choice navigation, project-level Characters, Character attributes, project-level Resources, complete Story Logic Conditions, complete Story Logic Effects, runtime helper functions for condition/effect execution, a functional in-browser Story Player Preview, JSON project export/import, and a standalone HTML story export foundation with runtime parity.
 
-EPIC 6 is complete for the MVP editor/runtime-helper layer.
+Completed milestones:
+- EPIC 6 — Story Logic is complete for the MVP editor/runtime-helper layer.
+- Post-EPIC 6 UX Polish Sprint is complete.
+- Post-Audit Stabilization Sprint after `docs/AUDIT_EPIC_6_TO_7.md` is complete.
+- EPIC 7 — Story Player MVP is complete.
+- EPIC 8 JSON export/import is complete.
+- EPIC 8 standalone HTML export foundation and runtime parity are complete.
 
-The Post-EPIC 6 UX Polish Sprint is complete.
-
-The Post-Audit Stabilization Sprint after `docs/AUDIT_EPIC_6_TO_7.md` is complete.
-
-EPIC 7 — Story Player MVP is complete.
-
-The project is ready to begin **EPIC 8 — Save, Load, Export**, starting with `E8-02 — Export project as JSON`.
+Current recommended next milestone:
+- **E8-04C — Standalone HTML polish**
+- then **E8-05 — Exported player save/load slots**
 
 ---
 
@@ -128,6 +131,16 @@ The project is ready to begin **EPIC 8 — Save, Load, Export**, starting with `
 - Workspace persistence:
   - `narrium_workspace`
   - `narrium_project_{id}`
+- Import project from JSON:
+  - available from My Projects
+  - imports a valid Narrium `Project` JSON
+  - normalizes imported project data
+  - creates a new project id
+  - refreshes created/updated timestamps
+  - creates workspace metadata
+  - saves the imported project
+  - opens the imported project
+  - invalid import shows `Invalid Narrium project file.`
 
 ### Project Navigation
 
@@ -141,6 +154,12 @@ The project is ready to begin **EPIC 8 — Save, Load, Export**, starting with `
 - Characters and Resources use full-width main screens without the Scene Editor panel.
 - Obsolete My Projects Inspector placeholder has been removed.
 - Canvas toolbar includes Preview entry point for Story Player.
+- Project header includes:
+  - My Projects
+  - Add Scene
+  - Preview
+  - Export JSON
+  - Export HTML
 
 ### Shared UI
 
@@ -230,7 +249,7 @@ The project is ready to begin **EPIC 8 — Save, Load, Export**, starting with `
   - asset
   - one-level scene reference
   - placeholders for missing/no background
-- Story Player background rendering supports:
+- Story Player and standalone HTML background rendering supports:
   - URL
   - upload
   - asset
@@ -352,6 +371,7 @@ Implemented in `src/features/story-logic/runtimeLogic.ts`:
 - `resolveUnavailableChoiceHint()`
 - `applyNumericOperation()`
 - `applyEffects()`
+- `advanceRuntimeForChoice()`
 
 Runtime helper behavior:
 - A choice with no condition groups is available.
@@ -364,6 +384,10 @@ Runtime helper behavior:
 - Character attribute runtime values are keyed by `character.id` and `attribute.key`.
 - Missing runtime values used by effects start at `0`.
 - Effects apply in array order.
+- Effects are independent from navigation.
+- Choices with valid non-null `targetSceneId` apply effects, navigate, and reset `currentPageIndex` to `0`.
+- Choices with `targetSceneId: null` can act as **action choices**: apply effects, stay on the current scene/page, and allow the player to re-render with updated runtime variables.
+- Choices with invalid non-null `targetSceneId` do nothing and should be disabled in player UI.
 - Runtime helpers are pure and do not mutate Project or RuntimeState.
 - Runtime helpers have focused Vitest coverage.
 
@@ -423,6 +447,7 @@ Implemented in `src/features/player/`:
   - owns local `RuntimeState`
   - coordinates player flow
   - composes child components
+  - uses `advanceRuntimeForChoice()` for choice execution
 - `StoryPlayerHeader.tsx`
   - Preview header
   - Restart
@@ -463,12 +488,63 @@ Player behavior:
 - Dialogue pages play sequentially.
 - `Next` appears only when another dialogue page exists.
 - Choices appear only after the final dialogue page.
-- Choices with missing/null target scene are disabled.
-- Available choices navigate to `choice.targetSceneId` and reset `currentPageIndex` to `0`.
-- Choice effects apply before navigation.
+- Available choices can navigate to a valid target scene and reset `currentPageIndex` to `0`.
+- Targetless choices can be used as action choices: effects apply and the story stays on the current scene/page.
+- Choice effects apply before optional navigation.
 - Choice conditions disable unavailable choices.
 - Unavailable choices remain visible and display the first available `hintText`.
 - Final scene with no choices displays an end-of-story panel.
+
+### Save / Export
+
+Implemented:
+- Active project auto-save to `narrium_project_{id}`.
+- Export active project as formatted JSON.
+- Import Narrium project JSON as a new workspace project.
+- Export active story as standalone HTML player.
+
+JSON export:
+- Exports the current full `Project` object.
+- Uses formatted JSON.
+- Preserves embedded Data URLs.
+- Does not mutate Project or localStorage.
+
+JSON import:
+- Parses a Narrium Project JSON.
+- Performs conservative structure validation.
+- Passes data through `normalizeProject()`.
+- Creates a new `Project.id`.
+- Replaces `createdAt` and `updatedAt`.
+- Preserves story content, scenes, choices, Story Logic, asset library, backgrounds, thumbnails, and Data URLs.
+- Creates workspace metadata.
+- Opens the imported project.
+- Invalid files show `Invalid Narrium project file.`
+
+Standalone HTML export:
+- Exports a single `.html` file.
+- Embeds the full active `Project`.
+- Preserves embedded Data URLs.
+- Opens directly from disk.
+- Does not require Narrium, npm, Vite, React dev server, or a local server.
+- Does not write to localStorage.
+- Supports:
+  - start scene
+  - dialogue pages
+  - Next button only while more dialogue pages exist
+  - speaker names
+  - choices after final dialogue page
+  - conditions
+  - unavailable hints
+  - resource effects
+  - character attribute effects
+  - targetless action choices
+  - valid target navigation
+  - invalid target disabled behavior
+  - restart
+  - end state
+  - URL/upload/asset/one-level scene-reference backgrounds
+- Remaining polish is tracked as `E8-04C`.
+- Exported save/load slots remain pending as `E8-05`.
 
 ### Tests
 
@@ -480,49 +556,37 @@ Implemented:
   - `applyEffects()`
   - `isChoiceAvailable()`
   - `resolveUnavailableChoiceHint()`
+  - `advanceRuntimeForChoice()`
+  - navigation with valid target
+  - targetless action choices
+  - invalid non-null targets
+  - action choices enabling gated choices after runtime update
 
 ---
 
 ## Current Milestone
 
-### EPIC 7 — Story Player
-
-Status: **completed for MVP Preview Player**.
-
-Completed:
-- runtime state initialization
-- Preview shell
-- canvas toolbar Preview entry point
-- background rendering
-- dialogue rendering
-- speaker rendering
-- multi-page dialogue
-- choice rendering
-- choice navigation
-- effects application
-- condition evaluation
-- unavailable-choice hints
-- end-of-story state
-- restart preview
-- runtime/story-logic tests
-- StoryPlayer refactor into focused modules
-
-### Recommended next milestone
-
 ### EPIC 8 — Save, Load, Export
 
-Goal:
-Make projects portable and prepare for standalone story export.
+Status: **in progress, mostly complete for project portability and standalone playback**.
 
-Recommended first task:
-1. `E8-02 — Export project as JSON`
+Completed:
+- `E8-01` — Auto-save active project to `narrium_project_{id}`
+- `E8-02` — Export project as JSON
+- `E8-03` — Import project from JSON
+- `E8-04A` — Standalone HTML export foundation
+- `E8-04B` — Standalone runtime parity
+- `E8-04D` — Action choices without navigation
+- `E8-04E` — Standalone HTML UX fix for hiding Next during choices
+
+Next recommended task:
+1. `E8-04C — Standalone HTML polish`
 
 Important:
-- Export should use the current full `Project` model.
-- Do not introduce a second export data model yet.
+- The exported HTML player should keep using the current full `Project` model.
+- Do not introduce a second export data model.
 - Preserve embedded Data URLs already stored in Project fields.
-- Import should be handled separately after export.
-- Standalone HTML export should come after JSON import/export.
+- Save/load slots should remain scoped to `E8-05`.
 
 ---
 
@@ -571,7 +635,18 @@ Choice.conditionGroups
 Choice.effects
 ```
 
-### 4. DialoguePage order is runtime order
+### 4. Choice execution separates effects from navigation
+
+Selecting an available choice applies effects first.
+
+Navigation is optional:
+- if `targetSceneId` points to a valid scene, the player navigates and resets page index to `0`
+- if `targetSceneId` is `null`, the player remains in the current scene/page after applying effects
+- if `targetSceneId` is non-null but invalid, the choice should be disabled and runtime should not apply effects
+
+This enables targetless **action choices** such as `Take Key`, `Search Bookshelf`, or `Ask About Castle`.
+
+### 5. DialoguePage order is runtime order
 
 Dialogue pages are stored in:
 
@@ -583,13 +658,13 @@ They should be played sequentially by index.
 
 The editor supports moving pages up/down.
 
-### 5. Editors modify Project data
+### 6. Editors modify Project data
 
 Editor panels and project data screens should call store actions that update the active Project.
 
 Do not duplicate persistence logic inside UI components.
 
-### 6. Persistence lives in workspaceStore
+### 7. Persistence lives in workspaceStore
 
 `workspaceStore.updateActiveProject()` is responsible for:
 - updating active project
@@ -597,7 +672,7 @@ Do not duplicate persistence logic inside UI components.
 - persisting full project to `narrium_project_{id}`
 - updating project metadata in `narrium_workspace`
 
-### 7. Canvas store synchronizes from Project
+### 8. Canvas store synchronizes from Project
 
 `useCanvasStore.syncFromProject()` rebuilds:
 - nodes
@@ -606,7 +681,7 @@ Do not duplicate persistence logic inside UI components.
 
 After a mutation that changes scene graph data, call `syncFromProject()`.
 
-### 8. Characters and Resources do not need their own domain stores
+### 9. Characters and Resources do not need their own domain stores
 
 Character and Resource data belongs directly to `Project`.
 
@@ -614,25 +689,35 @@ Characters and Resources screens should mutate data through `workspaceStore.upda
 
 UI-only state such as which row is being edited, which character is expanded, or which tab is active may live in local component state or small UI stores.
 
-### 9. Story Logic remains declarative
+### 10. Story Logic remains declarative
 
 Story Logic must not introduce scripting in MVP.
 
 Conditions and effects should remain typed, explicit, and editor-friendly.
 
-### 10. Runtime helpers stay pure
+### 11. Runtime helpers stay pure
 
 Story Logic runtime helpers should not mutate `Project` or `RuntimeState`.
 
 Player code should call helpers and then store the returned runtime state where needed.
 
-### 11. Story Player keeps runtime local for Preview
+### 12. Story Player keeps runtime local for Preview
 
 Preview currently keeps `RuntimeState` local inside `StoryPlayer`.
 
 Do not persist Preview runtime state until Save/Load is explicitly scoped.
 
-### 12. Keep implementation prompts scoped
+### 13. Exported HTML is standalone
+
+The exported HTML player should:
+- be a single HTML file
+- embed the full `Project`
+- preserve Data URLs
+- open directly from disk
+- avoid localStorage until save/load slots are explicitly implemented
+- keep runtime behavior aligned with Preview
+
+### 14. Keep implementation prompts scoped
 
 Each Codex prompt should:
 - work directly on `main`
@@ -708,6 +793,11 @@ src/
   types/
     index.ts
 
+  utils/
+    projectExport.ts
+    projectImport.ts
+    standaloneHtmlExport.ts
+
   styles/
     index.css
 
@@ -722,6 +812,7 @@ Notes:
 - Story Logic editing and runtime helper code lives under `src/features/story-logic/`.
 - Characters and Resources are full-screen project views inside the project shell.
 - Story Player code lives under `src/features/player/`.
+- Project JSON export/import and standalone HTML export helpers live under `src/utils/`.
 
 ---
 
@@ -809,6 +900,7 @@ Important notes:
 - `DialoguePage.speakerId = null` means Narrator.
 - `DialoguePage.speakerId = Character.id` means Character speaker.
 - Dialogue pages are played in array order.
+- `Choice.targetSceneId = null` is valid for action choices that execute effects without navigation.
 - Resource conditions/effects store `Resource.id`.
 - Character Attribute conditions/effects store `Character.id` plus `CharacterAttribute.key`.
 - Runtime resources use `Resource.key`.
@@ -818,40 +910,21 @@ Important notes:
 
 ## Known Limitations / Backlog
 
-- JSON export/import is not implemented yet.
-- Standalone HTML export is not implemented yet.
+- Standalone HTML polish is still pending:
+  - layout polish
+  - responsive polish
+  - metadata
+  - favicon/title polish
+  - visual refinement
 - Exported player save/load slots are not implemented yet.
 - Dialogue page drag-and-drop reorder is not implemented; only up/down buttons exist.
 - Thumbnail upload does not resize or compress images yet.
 - Confirmation dialogs currently use native `window.confirm`.
 - Scene groups are still pending.
 - Undo/redo is not implemented yet.
-- Full project validation pass is not implemented yet.
+- Full project validation panel is not implemented yet.
 - Story Player component-level tests are not implemented yet.
 - Character deletion warns about Story Logic references but not dialogue speaker references.
 - Workspace metadata can still drift from normalized project data on load.
-- Active workspace id can still point to a missing project until cleaned up.
-- Resource key rename implications for future save/runtime state are not solved yet.
-
----
-
-## Resume Checklist for Next Session
-
-When resuming work:
-
-1. Confirm current branch is `main`.
-2. Read:
-   - `CONTEXT.md`
-   - `docs/ROADMAP.md`
-   - `docs/DATA_MODEL.md`
-   - `docs/STORY_LOGIC.md`
-   - `docs/AUDIT_EPIC_6_TO_7.md`
-   - `docs/CHANGELOG.md`
-3. Confirm EPIC 6 is complete.
-4. Confirm Post-EPIC 6 UX Polish Sprint is complete.
-5. Confirm Post-Audit Stabilization Sprint is complete.
-6. Confirm EPIC 7 — Story Player MVP is complete.
-7. Start planning EPIC 8 — Save, Load, Export.
-8. First recommended task: `E8-02 — Export project as JSON`.
-9. Do not generate implementation code directly.
-10. Prepare English Codex prompts only after product-owner acceptance.
+- Active workspace id can still point to a missing project until cleaned by a future task.
+- Targetless choice without effects is currently allowed by runtime but should likely receive a future validation warning because it does nothing.

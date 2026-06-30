@@ -1,6 +1,6 @@
 # Roadmap — Narrium
 
-> **Version:** v7 documentation refresh after EPIC 7 Story Player MVP + player stabilization  
+> **Version:** v8 documentation refresh after EPIC 8 JSON export/import + standalone HTML runtime parity  
 > **Workflow:** active development happens directly on `main`. Do not use a `dev` branch unless the project owner explicitly changes this workflow.
 
 ---
@@ -29,15 +29,15 @@ Story Logic — Conditions   ██████████ 100%
 Story Logic — Effects      ██████████ 100%
 Story Logic — Runtime      ██████████ 100%
 Post-Audit Stabilization   ██████████ 100%
-Story Player               ██████████ 100%
-Save / Export              █░░░░░░░░░  15%
+Story Player Preview       ██████████ 100%
+Save / Export              ███████░░░  70%
 Polish & Production UX     ████░░░░░░  40%
 ```
 
 Current state:
-Narrium has a usable local multi-project workspace, project settings sidebar, project thumbnails, React Flow scene graph editor, right-side scene editor, background system, asset library support, SceneNode thumbnails, ordered dialogue pages, character speaker selection, choice target editing, edge-to-choice navigation, project-level Characters, Character attributes, project-level Resources, complete Story Logic Conditions, complete Story Logic Effects, runtime helper functions for condition/effect execution, and a functional in-browser Story Player preview.
+Narrium has a usable local multi-project workspace, project settings sidebar, project thumbnails, React Flow scene graph editor, right-side scene editor, background system, asset library support, SceneNode thumbnails, ordered dialogue pages, character speaker selection, choice target editing, edge-to-choice navigation, project-level Characters, Character attributes, project-level Resources, complete Story Logic Conditions, complete Story Logic Effects, runtime helper functions for condition/effect execution, a functional in-browser Story Player preview, JSON project export/import, and standalone HTML story export with runtime parity.
 
-Story Player MVP is complete:
+Story Player Preview is complete:
 - preview mode can be entered from the canvas toolbar,
 - runtime state initializes from the active Project,
 - current scene backgrounds render,
@@ -45,16 +45,25 @@ Story Player MVP is complete:
 - speaker names resolve,
 - choices render after the final dialogue page,
 - choices navigate to target scenes,
+- targetless action choices execute effects without navigation,
 - effects apply on selection,
 - conditions disable unavailable choices,
 - unavailable-choice hints display,
 - scenes with no choices can end the story,
 - preview can be restarted.
 
-Runtime helper tests are now present through Vitest.
+Standalone HTML export is functional:
+- exports a single self-contained `.html` file,
+- embeds the active full `Project`,
+- preserves embedded Data URLs,
+- opens directly from disk,
+- supports dialogue, choices, conditions, effects, action choices, restart, end state, and basic backgrounds,
+- does not persist runtime state yet.
+
+Runtime helper tests are present through Vitest.
 
 Next major roadmap area:
-**EPIC 8 — Save, Load, Export**.
+**Finish EPIC 8 — Save, Load, Export**, starting with standalone HTML polish and then exported player save/load slots.
 
 ---
 
@@ -135,9 +144,10 @@ Architecture note:
 | E3-10 | Collapsible sections default closed | [AI] | ✅ Done |
 
 Deliverable status:
-- Scene Editor is ready for Story Player MVP.
+- Scene Editor is ready for Story Player and export work.
 - Dialogue pages are ordered and playable sequentially.
 - Choices contain target scene, conditions, and effects.
+- Targetless choices can now be valid action choices when used to apply effects without navigation.
 
 ---
 
@@ -155,8 +165,9 @@ Deliverable status:
 | E4-08 | Image compression / resizing before localStorage save | [BOTH] | Backlog |
 
 Deliverable status:
-- Background system is ready for Story Player background rendering.
+- Background system is ready for Story Player and standalone HTML background rendering.
 - Story Player can render URL, upload, asset, and one-level scene-reference backgrounds.
+- Standalone HTML player can render URL, upload, asset, and one-level scene-reference backgrounds.
 - Deleting a scene resets other scenes whose `scene_reference` background pointed to the deleted scene.
 
 ---
@@ -177,7 +188,7 @@ Deliverable status:
 | E5-10 | Cascade Story Logic references on Character Attribute key rename | [AI] | ✅ Done |
 
 Deliverable status:
-- Project has complete Characters and Resources data needed by Story Logic and Story Player.
+- Project has complete Characters and Resources data needed by Story Logic, Story Player, and standalone export.
 - Character attributes are implemented as per-character numeric keyed values.
 - Resources are implemented as project-wide numeric keyed values.
 - Duplicate character attribute keys are resolved per character.
@@ -246,13 +257,18 @@ Deliverable status:
 | E6-15 | Runtime condition evaluation helper: `isChoiceAvailable` | [BOTH] | ✅ Done |
 | E6-16 | Unavailable choice hint resolution helper | [BOTH] | ✅ Done |
 | E6-17 | Runtime effect application helper: `applyEffects` | [BOTH] | ✅ Done |
+| E6-18 | Shared choice advancement helper: `advanceRuntimeForChoice` | [AI] | ✅ Done |
+| E6-19 | Action choices: effects without navigation | [BOTH] | ✅ Done |
 
 Deliverable status:
-- `runtimeLogic.ts` contains pure helper functions for Story Player integration.
+- `runtimeLogic.ts` contains pure helper functions for Story Player and standalone export parity.
 - Conditions can be evaluated against `RuntimeState`.
 - Unavailable choice hint can be resolved from failing conditions.
 - Effects can be applied to `RuntimeState` without mutating inputs.
-- Runtime helpers now have focused Vitest coverage.
+- `advanceRuntimeForChoice()` centralizes choice execution semantics.
+- Effects are independent from navigation.
+- A valid targetless choice can apply effects while staying on the current scene/page.
+- Runtime helpers have focused Vitest coverage.
 
 Notes:
 - Story Logic is separated from Characters & Resources because it is a larger module.
@@ -280,7 +296,7 @@ Notes:
 | UX-05 | Dialogue page reorder buttons | [AI] | ✅ Done |
 
 Deliverable status:
-- Editor UX is ready for Story Player work.
+- Editor UX is ready for Story Player and export work.
 - Manual QA pass completed by project owner.
 - Remaining polish items moved to backlog.
 
@@ -361,8 +377,8 @@ Deliverable status:
 - Missing speakers display `Unknown Speaker`.
 - Choices display after the final dialogue page.
 - Choices with valid targets navigate to target scenes and reset page index to `0`.
-- Choices with missing/null targets are disabled.
-- Effects apply before navigation through `applyEffects()`.
+- Targetless choices can act as action choices after E8-04D.
+- Effects apply before optional navigation through `advanceRuntimeForChoice()`.
 - Conditions are evaluated through `isChoiceAvailable()`.
 - Unavailable choices remain visible, disabled, and can display `hintText` through `resolveUnavailableChoiceHint()`.
 - Scenes with no choices show an end-of-story panel.
@@ -383,16 +399,51 @@ Deliverable status:
 | ID | Task | Who | Status |
 |---|---|---|---|
 | E8-01 | Auto-save active project to `narrium_project_{id}` | [AI] | ✅ Done |
-| E8-02 | Export project as JSON | [BOTH] | ⏳ Pending |
-| E8-03 | Import project from JSON | [AI] | ⏳ Pending |
-| E8-04 | Export story as standalone HTML player | [BOTH] | ⏳ Pending |
+| E8-02 | Export project as JSON | [BOTH] | ✅ Done |
+| E8-03 | Import project from JSON | [AI] | ✅ Done |
+| E8-04A | Export story as standalone HTML player — foundation | [BOTH] | ✅ Done |
+| E8-04B | Standalone HTML player runtime parity | [BOTH] | ✅ Done |
+| E8-04C | Standalone HTML player polish | [BOTH] | ⏳ Pending |
+| E8-04D | Action choices: effects without navigation | [BOTH] | ✅ Done |
+| E8-04E | Standalone HTML UX fix: hide Next during choices | [AI] | ✅ Done |
 | E8-05 | Exported player save/load slots | [BOTH] | ⏳ Pending |
 
-Recommended implementation order:
-1. Export project as JSON.
-2. Import project from JSON.
-3. Export story as standalone HTML player.
-4. Add exported player save/load slots.
+Completed commits:
+- `7d3f228` — `feat: export active project as json`
+- `75f1bc3` — `feat: import project from json`
+- `169d62c` — `feat: add standalone html export foundation`
+- `6312286` — `feat: add standalone runtime parity`
+- `3819863` — `feat: support action choices without navigation`
+- `989d1f0` — `fix: hide standalone next button during choices`
+
+Deliverable status:
+- Active project can be exported as formatted JSON.
+- Imported JSON creates a new local project and preserves story content.
+- Standalone HTML export creates one self-contained `.html` file.
+- Exported HTML embeds the full Project and preserves Data URLs.
+- Exported HTML opens directly from disk without Narrium, npm, Vite, or a dev server.
+- Exported HTML supports:
+  - start scene
+  - dialogue pages
+  - Next button only when another dialogue page exists
+  - speaker names
+  - choices
+  - conditions
+  - unavailable hints
+  - resource effects
+  - character attribute effects
+  - targetless action choices
+  - valid target navigation
+  - invalid target disabled behavior
+  - restart
+  - end state
+  - URL/upload/asset/one-level scene-reference backgrounds
+- Exported HTML does not use localStorage yet.
+- Save/load slots remain pending.
+
+Recommended implementation order from here:
+1. Polish exported standalone HTML player UI (`E8-04C`).
+2. Add exported player save/load slots if still desired (`E8-05`).
 
 ---
 
@@ -414,21 +465,25 @@ Recommended implementation order:
 | E9-12 | Clear missing/corrupt active workspace project id on load | [AI] | Backlog |
 | E9-13 | Runtime helper unit tests | [BOTH] | ✅ Done |
 | E9-14 | Story Player component-level tests | [BOTH] | Backlog |
+| E9-15 | Warn on targetless choices with no effects | [BOTH] | Backlog |
 
 ---
 
 ## Next Immediate Step
 
-Start **EPIC 8 — Save, Load, Export**.
+Continue **EPIC 8 — Save, Load, Export**.
 
 First recommended task:
 
-### E8-02 — Export project as JSON
+### E8-04C — Standalone HTML player polish
 
 Acceptance direction:
-- Add a safe export action for the active Project.
-- Export the current full `Project` object as formatted JSON.
-- Preserve embedded Data URLs already stored in the Project.
-- Do not implement import in the same task.
-- Do not implement standalone HTML export yet.
+- Preserve current standalone runtime behavior.
+- Do not change Project model.
+- Do not implement save/load slots yet.
+- Improve exported HTML visual layout and responsive behavior.
+- Improve page metadata/title polish.
+- Consider favicon/branding if simple.
+- Keep the output a single `.html` file.
+- Preserve Data URLs and direct-from-disk behavior.
 - Run `npm.cmd test` and `npm.cmd run build`.

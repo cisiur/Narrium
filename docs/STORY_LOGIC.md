@@ -1,8 +1,8 @@
 # Story Logic — Narrium
 
-> **Version:** v2 implemented specification after EPIC 6  
-> **Status:** Implemented for MVP editor and runtime helper layer  
-> **Scope:** Conditions, condition groups, effects, reference warnings, and runtime logic behavior for Narrium choices.
+> **Version:** v3 implemented specification after EPIC 8 runtime parity + action choices  
+> **Status:** Implemented for MVP editor, Preview player, and standalone HTML player  
+> **Scope:** Conditions, condition groups, effects, reference warnings, runtime logic behavior, and action-choice behavior for Narrium choices.
 
 ---
 
@@ -29,6 +29,8 @@ The goal is to support meaningful branching narratives while keeping the editor 
 - Choices remain visible even when unavailable.
 - Unavailable choices are disabled and can show a hint.
 - Effects modify runtime state, not editor project data.
+- Effects are independent from navigation.
+- Targetless choices can be valid action choices.
 - Broken references should be visible in the editor and safe in runtime.
 
 ---
@@ -143,10 +145,13 @@ A choice can have:
 
 - condition groups
 - effects
+- optional navigation target
 
 Conditions decide whether the choice is available.
 
-Effects are applied after the player selects the choice.
+Effects are applied after the player selects an available choice.
+
+Navigation is optional.
 
 Canonical shape:
 
@@ -227,7 +232,7 @@ Semantics:
 | `>=` | greater than or equal |
 | `<=` | less than or equal |
 | `==` | equal |
-| `>` | greater than |
+| `>` | greater |
 | `<` | less than |
 | `!=` | not equal |
 
@@ -432,11 +437,13 @@ Future option:
 
 ## 9. Effects
 
-Effects modify runtime state after a player selects a choice.
+Effects modify runtime state after a player selects an available choice.
 
 Effects do not modify the editor `Project`.
 
 Effects are applied to `RuntimeState`.
+
+Effects are independent from navigation.
 
 ---
 
@@ -523,7 +530,7 @@ Field behavior:
 
 ---
 
-## 10. Effect Application
+## 10. Effect Application and Choice Advancement
 
 Implemented helper:
 
@@ -537,16 +544,31 @@ Supporting helper:
 applyNumericOperation(currentValue, operation, effectValue): number | null
 ```
 
+Implemented choice advancement helper:
+
+```typescript
+advanceRuntimeForChoice(choice, project, runtimeState): RuntimeState
+```
+
 Effects are applied when the player selects an available choice.
 
-Recommended player order:
+Current player order:
 
 1. Validate selected choice is currently available.
-2. Apply effects in array order.
-3. Navigate to `choice.targetSceneId`.
-4. Reset page index to `0`.
+2. If `targetSceneId` is non-null, validate that it points to an existing scene.
+3. Apply effects in array order.
+4. If `targetSceneId` is a valid scene id:
+   - navigate to `choice.targetSceneId`
+   - reset `currentPageIndex` to `0`
+5. If `targetSceneId` is `null`:
+   - remain in the current scene
+   - keep the current page
+   - re-render with updated runtime variables
 
-If `targetSceneId` is `null`, the player should remain in the current scene or treat it as an ending/invalid transition depending on future player UX.
+If `targetSceneId` is non-null but invalid:
+- runtime returns the original state
+- effects are not applied
+- player UI should disable the choice
 
 ---
 
@@ -591,17 +613,68 @@ Runtime behavior:
 
 ### 10.3 Purity
 
-`applyEffects()` must not mutate:
+Runtime helpers must not mutate:
 
 - `choice`
 - `project`
 - `runtimeState`
 
-It returns a new `RuntimeState`.
+They return a new `RuntimeState` when changes are applied.
 
 ---
 
-## 11. Runtime State
+## 11. Action Choices
+
+Action choices are choices that execute effects without changing scenes.
+
+They use the existing `Choice` model:
+
+```typescript
+targetSceneId: null
+effects: [...]
+```
+
+No new data model is required.
+
+### 11.1 Example — Take Key
+
+```text
+Choice: Take Key
+targetSceneId: null
+effect: has_key = 1
+```
+
+Runtime behavior:
+- conditions are checked
+- effects are applied
+- current scene remains unchanged
+- current page remains unchanged
+- choices are re-rendered using updated runtime variables
+
+### 11.2 Example — Unlock Door
+
+```text
+Choice: Open Door
+condition: has_key == 1
+targetSceneId: hall_scene
+```
+
+Runtime behavior:
+- unavailable until `has_key == 1`
+- after the player clicks `Take Key`, the choice becomes available
+- clicking `Open Door` navigates to the hall scene
+
+### 11.3 Targetless choice with no effects
+
+Runtime currently allows this if conditions pass.
+
+Product note:
+- this choice does nothing
+- future validation should warn authors about targetless choices with no effects
+
+---
+
+## 12. Runtime State
 
 Runtime state should be initialized from the `Project`.
 
@@ -619,7 +692,7 @@ interface RuntimeState {
 }
 ```
 
-### 11.1 Resource Runtime Keys
+### 12.1 Resource Runtime Keys
 
 Runtime resources are keyed by `Resource.key`.
 
@@ -629,7 +702,7 @@ Example:
 variables.resources.gold = 10;
 ```
 
-### 11.2 Character Attribute Runtime Keys
+### 12.2 Character Attribute Runtime Keys
 
 Structure:
 
@@ -660,14 +733,15 @@ but that is not recommended until needed.
 
 ---
 
-## 12. Editor UI Specification
+## 13. Editor UI Specification
 
-### 12.1 Choice Editor Placement
+### 13.1 Choice Editor Placement
 
 Story Logic UI lives inside the existing Scene Editor choice section.
 
 Each choice exposes:
 
+- Target scene
 - Conditions
 - Effects
 
@@ -678,9 +752,14 @@ MVP order inside a Choice editor:
 3. Conditions
 4. Effects
 
+Target scene can be `None`.
+- `None` may represent an unfinished choice.
+- `None` is also valid for targetless action choices when effects are present.
+- Future validation should warn if a targetless choice has no effects.
+
 ---
 
-### 12.2 Conditions Editor
+### 13.2 Conditions Editor
 
 Implemented features:
 - Add OR group.
@@ -700,7 +779,7 @@ Implemented features:
 
 ---
 
-### 12.3 Effects Editor
+### 13.3 Effects Editor
 
 Implemented features:
 - Add effect.
@@ -729,7 +808,7 @@ Default new effect:
 
 ---
 
-### 12.4 Reference Warnings
+### 13.4 Reference Warnings
 
 Implemented helper:
 
@@ -760,11 +839,11 @@ Existing inline missing-reference warnings remain responsible for showing broken
 
 ---
 
-## 13. Story Player Integration Plan
+## 14. Player Integration
 
-Story Player should reuse the implemented runtime helpers.
+Preview Player and standalone HTML player should follow the same runtime semantics.
 
-Recommended flow:
+Flow:
 
 1. Initialize `RuntimeState` from Project defaults.
 2. Set:
@@ -776,21 +855,52 @@ Recommended flow:
 5. Resolve speaker:
    - `speakerId === null` → Narrator
    - `speakerId === Character.id` → Character
+   - missing speaker → Unknown Speaker
 6. On Next:
    - if more pages exist, increment `currentPageIndex`
    - otherwise show choices
 7. For each choice:
    - evaluate `isChoiceAvailable(choice, project, runtimeState)`
-   - disabled if unavailable
+   - disable if unavailable
+   - disable if `targetSceneId` is non-null and invalid
+   - do not disable solely because `targetSceneId` is `null`
    - show hint from `resolveUnavailableChoiceHint(...)` if unavailable
-8. On available choice selection:
-   - apply `applyEffects(choice, project, runtimeState)`
-   - navigate to `choice.targetSceneId`
-   - reset `currentPageIndex` to `0`
+8. On enabled choice selection:
+   - call `advanceRuntimeForChoice(choice, project, runtimeState)`
+   - store returned runtime state
+   - re-render
 
 ---
 
-## 14. Implementation Files
+## 15. Exported Standalone HTML Runtime
+
+The standalone HTML export mirrors Preview runtime behavior in a self-contained file.
+
+Implemented behavior:
+- embeds the active full `Project`
+- initializes local runtime state from Project defaults
+- renders dialogue pages
+- shows Next only when another dialogue page exists
+- renders choices after the final dialogue page
+- evaluates conditions
+- disables unavailable choices
+- shows hints
+- applies effects
+- supports targetless action choices
+- supports valid target navigation
+- disables invalid non-null targets
+- supports restart
+- supports end state
+- supports URL/upload/asset/one-level scene-reference backgrounds
+- does not persist runtime state yet
+
+Known limitation:
+- Runtime logic is duplicated inside the standalone inline script for now because the output is a single HTML file without a bundler.
+- Keep semantics synchronized with `src/features/story-logic/runtimeLogic.ts`.
+
+---
+
+## 16. Implementation Files
 
 Story Logic editor/runtime files:
 
@@ -803,6 +913,29 @@ src/features/story-logic/
   EffectCard.tsx
   referenceUsage.ts
   runtimeLogic.ts
+  runtimeLogic.test.ts
+```
+
+Player files:
+
+```text
+src/features/player/
+  ChoiceList.tsx
+  DialoguePanel.tsx
+  playerHelpers.ts
+  runtimeState.ts
+  runtimeState.test.ts
+  StoryPlayer.tsx
+  StoryPlayerHeader.tsx
+```
+
+Export files:
+
+```text
+src/utils/
+  projectExport.ts
+  projectImport.ts
+  standaloneHtmlExport.ts
 ```
 
 Related files:
@@ -819,9 +952,13 @@ src/types/index.ts
 
 ---
 
-## 15. EPIC 6 Completion Summary
+## 17. Completion Summary
 
-EPIC 6 is complete for MVP.
+EPIC 6 is complete for MVP Story Logic.
+
+EPIC 7 is complete for Preview Player.
+
+EPIC 8 has extended Story Logic runtime behavior into project export/import and standalone HTML export.
 
 Completed:
 - Conditions data model and editor
@@ -837,13 +974,14 @@ Completed:
 - Runtime condition evaluation helper
 - Unavailable hint helper
 - Runtime effect application helper
+- Shared choice advancement helper
+- Action choices without navigation
 - Reference usage warnings before deleting resources/characters/attributes
+- Preview player runtime integration
+- Standalone HTML player runtime parity
 
-Not part of EPIC 6:
-- Story Player UI
-- Preview mode
-- JSON export/import
-- Standalone HTML export
-
-Next milestone:
-- EPIC 7 — Story Player
+Not yet complete:
+- Standalone HTML visual polish
+- Exported player save/load slots
+- Full project validation panel
+- Story Player component-level tests

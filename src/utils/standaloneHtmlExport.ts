@@ -34,6 +34,16 @@ function createStandaloneHtml(project: Project) {
     `Play ${project.name || 'a Narrium story'}, a standalone interactive story exported from Narrium.`
   );
   const embeddedProject = serializeProjectForScript(project);
+  const saveLoadControls =
+    project.settings?.allowSessionSaveLoad !== false
+      ? `
+        <div id="save-controls" class="save-controls" aria-label="Save controls">
+          <button id="save" type="button" class="secondary">Save</button>
+          <button id="load" type="button" class="secondary">Load</button>
+          <button id="clear-save" type="button" class="secondary">Clear Save</button>
+          <span id="save-status" class="save-status" aria-live="polite"></span>
+        </div>`
+      : '';
 
   return `<!doctype html>
 <html lang="en">
@@ -96,6 +106,31 @@ function createStandaloneHtml(project: Project) {
     }
     .brand {
       min-width: 0;
+    }
+    .header-actions {
+      display: flex;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 0.75rem;
+    }
+    .save-controls {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 0.5rem;
+    }
+    .save-controls button,
+    #restart {
+      padding: 0.68rem 0.82rem;
+    }
+    .save-status {
+      min-width: 6.25rem;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 700;
+      line-height: 1.25;
     }
     .eyebrow {
       margin: 0 0 0.25rem;
@@ -262,9 +297,16 @@ function createStandaloneHtml(project: Project) {
       header {
         align-items: flex-start;
       }
-      #restart {
-        flex: 0 0 auto;
-        padding-inline: 0.8rem;
+      .header-actions {
+        max-width: 17rem;
+      }
+      .save-controls {
+        justify-content: flex-end;
+      }
+      .save-status {
+        flex-basis: 100%;
+        min-width: 0;
+        text-align: right;
       }
       main {
         align-items: stretch;
@@ -286,6 +328,17 @@ function createStandaloneHtml(project: Project) {
       header {
         flex-direction: column;
       }
+      .header-actions,
+      .save-controls {
+        width: 100%;
+        justify-content: stretch;
+      }
+      .save-controls button {
+        flex: 1 1 calc(50% - 0.5rem);
+      }
+      .save-status {
+        text-align: left;
+      }
       #restart {
         width: 100%;
         text-align: left;
@@ -300,7 +353,10 @@ function createStandaloneHtml(project: Project) {
         <p class="eyebrow">Narrium Player</p>
         <h1></h1>
       </div>
-      <button id="restart" type="button" class="secondary">Restart</button>
+      <div class="header-actions">
+${saveLoadControls}
+        <button id="restart" type="button" class="secondary">Restart</button>
+      </div>
     </header>
     <main>
       <section class="panel" aria-live="polite">
@@ -323,9 +379,16 @@ function createStandaloneHtml(project: Project) {
     const actions = document.getElementById('actions');
     const nextButton = document.getElementById('next');
     const restartButton = document.getElementById('restart');
+    const saveButton = document.getElementById('save');
+    const loadButton = document.getElementById('load');
+    const clearSaveButton = document.getElementById('clear-save');
+    const saveStatus = document.getElementById('save-status');
+    const canUseSaveLoad = project.settings?.allowSessionSaveLoad !== false;
+    const saveStorageKey = 'narrium_player_save_' + project.id;
     let currentSceneId = project.startSceneId || (project.scenes[0] && project.scenes[0].id) || null;
     let currentPageIndex = 0;
     let runtimeState = createInitialRuntimeState(project);
+    let saveStatusTimeout = null;
 
     function createInitialRuntimeState(project) {
       const resources = Object.fromEntries(
@@ -356,6 +419,154 @@ function createStandaloneHtml(project: Project) {
 
     function findCharacter(characterId) {
       return project.characters.find((character) => character.id === characterId) || null;
+    }
+
+    function setSaveStatus(message) {
+      if (!saveStatus) {
+        return;
+      }
+
+      saveStatus.textContent = message;
+
+      if (saveStatusTimeout !== null) {
+        window.clearTimeout(saveStatusTimeout);
+      }
+
+      saveStatusTimeout = window.setTimeout(() => {
+        saveStatus.textContent = '';
+        saveStatusTimeout = null;
+      }, 2200);
+    }
+
+    function isPlainObject(value) {
+      return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+    }
+
+    function hasFiniteNumericValues(value) {
+      if (!isPlainObject(value)) {
+        return false;
+      }
+
+      return Object.values(value).every((item) => typeof item === 'number' && Number.isFinite(item));
+    }
+
+    function hasFiniteNestedNumericValues(value) {
+      if (!isPlainObject(value)) {
+        return false;
+      }
+
+      return Object.values(value).every((item) => hasFiniteNumericValues(item));
+    }
+
+    function createRuntimeSnapshot(state) {
+      return {
+        currentSceneId: state.currentSceneId,
+        currentPageIndex: state.currentPageIndex,
+        variables: {
+          resources: { ...state.variables.resources },
+          characterAttrs: Object.fromEntries(
+            Object.entries(state.variables.characterAttrs).map(([characterId, attributes]) => [
+              characterId,
+              { ...attributes }
+            ])
+          )
+        }
+      };
+    }
+
+    function isValidRuntimeSnapshot(value) {
+      if (!isPlainObject(value)) {
+        return false;
+      }
+
+      if (typeof value.currentSceneId !== 'string' || !findScene(value.currentSceneId)) {
+        return false;
+      }
+
+      if (!Number.isInteger(value.currentPageIndex) || value.currentPageIndex < 0) {
+        return false;
+      }
+
+      if (!isPlainObject(value.variables)) {
+        return false;
+      }
+
+      return (
+        hasFiniteNumericValues(value.variables.resources) &&
+        hasFiniteNestedNumericValues(value.variables.characterAttrs)
+      );
+    }
+
+    function readSavedRuntimeSnapshot() {
+      if (!canUseSaveLoad) {
+        return null;
+      }
+
+      try {
+        const savedValue = window.localStorage.getItem(saveStorageKey);
+
+        if (!savedValue) {
+          return null;
+        }
+
+        const parsedValue = JSON.parse(savedValue);
+
+        if (!isValidRuntimeSnapshot(parsedValue)) {
+          return null;
+        }
+
+        return createRuntimeSnapshot(parsedValue);
+      } catch {
+        return null;
+      }
+    }
+
+    function saveRuntimeSnapshot() {
+      if (!canUseSaveLoad) {
+        setSaveStatus('Save unavailable');
+        return;
+      }
+
+      try {
+        window.localStorage.setItem(saveStorageKey, JSON.stringify(createRuntimeSnapshot(runtimeState)));
+        setSaveStatus('Saved');
+      } catch {
+        setSaveStatus('Save unavailable');
+      }
+    }
+
+    function loadRuntimeSnapshot() {
+      if (!canUseSaveLoad) {
+        setSaveStatus('Save unavailable');
+        return;
+      }
+
+      const savedSnapshot = readSavedRuntimeSnapshot();
+
+      if (!savedSnapshot) {
+        setSaveStatus('No save found');
+        return;
+      }
+
+      runtimeState = savedSnapshot;
+      currentSceneId = runtimeState.currentSceneId;
+      currentPageIndex = runtimeState.currentPageIndex;
+      setSaveStatus('Loaded');
+      render();
+    }
+
+    function clearRuntimeSnapshot() {
+      if (!canUseSaveLoad) {
+        setSaveStatus('Save unavailable');
+        return;
+      }
+
+      try {
+        window.localStorage.removeItem(saveStorageKey);
+        setSaveStatus('Save cleared');
+      } catch {
+        setSaveStatus('Save unavailable');
+      }
     }
 
     function resolveSpeakerName(speakerId) {
@@ -768,6 +979,10 @@ function createStandaloneHtml(project: Project) {
       currentPageIndex = runtimeState.currentPageIndex;
       render();
     });
+
+    saveButton?.addEventListener('click', saveRuntimeSnapshot);
+    loadButton?.addEventListener('click', loadRuntimeSnapshot);
+    clearSaveButton?.addEventListener('click', clearRuntimeSnapshot);
 
     render();
   </script>

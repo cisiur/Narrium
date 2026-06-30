@@ -10,6 +10,7 @@ import { useCanvasStore } from '../store/useCanvasStore';
 import { useProjectViewStore } from '../store/useProjectViewStore';
 import { useWorkspaceStore } from '../store/workspaceStore';
 import { exportProjectAsJson } from '../utils/projectExport';
+import { exportProjectAsStandaloneHtml } from '../utils/standaloneHtmlExport';
 
 export function App() {
   const [isPreviewMode, setIsPreviewMode] = useState(false);
@@ -48,6 +49,7 @@ export function App() {
         activeProjectView={activeProjectView}
         onAddScene={isCanvasView ? () => addScene('New Scene') : undefined}
         onBackToProjects={closeProject}
+        onExportHtml={() => exportProjectAsStandaloneHtml(activeProject)}
         onExportProject={() => exportProjectAsJson(activeProject)}
         onEnterPreview={() => setIsPreviewMode(true)}
         onProjectViewChange={setActiveProjectView}

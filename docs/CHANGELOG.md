@@ -8,23 +8,23 @@ This changelog records milestone-level project changes. It is intentionally conc
 
 ### Planned
 
-- EPIC 8 — Save, Load, Export
-  - `E8-04C`: standalone HTML player polish
-  - `E8-05`: exported player save/load slots
+- EPIC 9 — Polish & Production UX
+  - Keyboard shortcuts
+  - Full project validation panel
+  - Empty/error states polish
+  - Authoring warnings for targetless choices with no effects
 
 ### Backlog / Product polish
 
 - Warn when a targetless choice has no effects, because it is currently runtime-valid but does nothing.
 - Full project validation panel.
 - Story Player component-level tests.
-- Standalone HTML visual polish and responsive polish.
-- Exported player save/load slots.
 
 ---
 
 ## v0.8.0 — EPIC 8 Project Portability + Standalone HTML Runtime
 
-Status: **partially completed**
+Status: **completed**
 
 Purpose:
 - Make Narrium projects portable through JSON export/import.
@@ -33,6 +33,8 @@ Purpose:
 - Preserve uploaded/Data URL assets.
 - Bring standalone HTML runtime behavior close to Preview behavior.
 - Introduce action choices where effects can run without scene navigation.
+- Polish the standalone HTML player experience.
+- Add exported standalone player save/load persistence.
 
 Completed:
 
@@ -167,13 +169,55 @@ Validation:
 - `npm.cmd test`
 - `npm.cmd run build`
 
+### Standalone HTML player polish
+
+Commit:
+- `9846109` — `feat: polish standalone html player`
+
+Changes:
+- Improved exported standalone player layout, spacing, typography, and visual hierarchy.
+- Improved dialogue panel styling.
+- Improved button styling for Restart, Next, choices, and disabled choices.
+- Improved unavailable hint and end/error state presentation.
+- Added responsive polish for narrow/mobile screens.
+- Added lightweight Narrium Player branding.
+- Added page metadata description.
+- Preserved existing standalone runtime behavior.
+
+Validation:
+- `npm.cmd test`
+- `npm.cmd run build`
+
+### Exported player save/load
+
+Commit:
+- `15bfbf4` — `feat: add standalone html save load`
+
+Changes:
+- Added standalone-only Save, Load, and Clear Save controls.
+- Save/load controls render only when `project.settings.allowSessionSaveLoad !== false`.
+- Runtime snapshots are saved to localStorage using `narrium_player_save_{projectId}`.
+- Saved snapshots include:
+  - `currentSceneId`
+  - `currentPageIndex`
+  - `variables.resources`
+  - `variables.characterAttrs`
+- The embedded Project is not saved to localStorage.
+- Added defensive load validation for missing, invalid, corrupted, or unsafe save data.
+- Added lightweight status feedback for save/load actions.
+- Preserved dialogue flow, choices, effects, restart behavior, backgrounds, Preview behavior, editor behavior, and Project interfaces.
+
+Validation:
+- `npm.cmd test`
+- `npm.cmd run build`
+
 Result:
-- Project portability is functional.
-- Standalone HTML export is functional and playable.
+- EPIC 8 is complete for MVP.
+- Project portability is functional through JSON export/import.
+- Standalone HTML export is functional, polished, playable, and directly portable.
 - Exported HTML runtime supports the same core Story Logic behavior as Preview.
-- Remaining EPIC 8 work:
-  - standalone HTML polish (`E8-04C`)
-  - exported player save/load slots (`E8-05`)
+- Exported standalone player supports manual runtime save/load persistence when enabled by project settings.
+- Remaining work moves to EPIC 9 polish and production UX.
 
 ---
 
@@ -220,15 +264,8 @@ Commit:
 
 Changes:
 - Story Player resolves the current scene from runtime state.
-- Renders:
-  - current scene background
-  - speaker name
-  - dialogue text
-- Supports basic background modes:
-  - URL
-  - upload
-  - asset
-  - one-level scene reference
+- Renders current scene background, speaker name, and dialogue text.
+- Supports URL, upload, asset, and one-level scene-reference backgrounds.
 - Missing scene/page states render placeholders.
 - `speakerId: null` displays Narrator.
 - Missing speakers display `Unknown Speaker`.
@@ -251,7 +288,6 @@ Commit:
 
 Changes:
 - Choices render after the final dialogue page.
-- Initial implementation rendered choices as inert list items before navigation was added.
 
 ### Choice navigation
 
@@ -262,7 +298,6 @@ Changes:
 - Choices became clickable buttons.
 - Valid `targetSceneId` navigates to the target scene.
 - Navigation resets `currentPageIndex` to `0`.
-- Initial behavior disabled choices with no target or missing target scenes.
 - Targetless action choices were added later in v0.8.0.
 
 ### Effects on choice selection
@@ -287,7 +322,6 @@ Changes:
 - All choices remain visible.
 - Unavailable choices are disabled.
 - Unavailable choices show hint text when available.
-- Enabled choice behavior remains unchanged.
 
 ### End-of-story state
 
@@ -296,7 +330,6 @@ Commit:
 
 Changes:
 - Scenes with no choices on the final dialogue page display a simple end panel.
-- End panel includes `The End`, a short message, and `Exit Preview`.
 
 ### Preview restart
 
@@ -307,20 +340,9 @@ Changes:
 - Added `Restart` button to Preview header.
 - Restart recreates runtime state through `createInitialRuntimeState(project)`.
 - Restart returns to the project start scene and resets resources, character attributes, and page index.
-- Existing Exit Preview behavior remains unchanged.
 
 Result:
 - EPIC 7 Story Player MVP is complete.
-- Preview supports:
-  - scene rendering
-  - multi-page dialogue
-  - choices
-  - scene navigation
-  - effects
-  - conditions
-  - unavailable hints
-  - end state
-  - restart
 
 ---
 
@@ -342,12 +364,7 @@ Commit:
 Changes:
 - Added Vitest.
 - Added `npm.cmd test` script through `vitest run`.
-- Added tests for `createInitialRuntimeState()`:
-  - current scene initialization
-  - page index initialization
-  - resource defaults
-  - character attribute defaults
-  - no mutation of source Project
+- Added tests for `createInitialRuntimeState()`.
 - Added tests for Story Logic runtime helpers:
   - `applyEffects()`
   - `isChoiceAvailable()`
@@ -370,11 +387,6 @@ Changes:
   - `ChoiceList.tsx`
   - `playerHelpers.ts`
   - `runtimeState.ts`
-- StoryPlayer now primarily owns local runtime state, coordinates flow, and composes child components.
-- Extracted reusable helper logic:
-  - background resolution
-  - speaker resolution
-  - choice view model / availability mapping
 - Behavior and UI classes were preserved.
 
 Validation:
@@ -415,26 +427,12 @@ Changes:
 
 Changes:
 - `normalizeProject()` normalizes the current Project shape more completely.
-- Project-level collections are defaulted when missing:
-  - `scenes`
-  - `characters`
-  - `resources`
-  - `groups`
-  - `assetLibrary`
+- Project-level collections are defaulted when missing.
 - Project settings are normalized.
-- Scenes are normalized to include:
-  - `background`
-  - `position`
-  - `dialoguePages`
-  - `choices`
-  - `groupId`
-- Dialogue pages are normalized to include:
-  - `speakerId`
-- Choices are normalized to include:
-  - `conditionGroups`
-  - `effects`
+- Scenes are normalized to include background, position, dialogue pages, choices, and group id.
+- Dialogue pages are normalized to include `speakerId`.
+- Choices are normalized to include `conditionGroups` and `effects`.
 - Legacy `conditions` migration remains supported.
-- Existing data is preserved wherever possible.
 
 ### Character Attribute rename safety
 
@@ -446,7 +444,6 @@ Changes:
 - Matching `character_attr` conditions are updated from old key to new key.
 - Matching `character_attr` effects are updated from old key to new key.
 - Updates are limited to the renamed character.
-- Resource references, dialogue speaker references, runtime logic and delete behavior were not changed.
 
 ### Empty condition group authoring UX
 
@@ -458,7 +455,6 @@ Changes:
 - Empty groups still remain valid according to runtime semantics.
 - Empty groups display an inline warning:
   - `This group has no conditions and will always pass.`
-- Runtime behavior and Story Logic semantics were not changed.
 
 Result:
 - EPIC 7 blockers from the audit are resolved.
@@ -479,18 +475,10 @@ Completed:
 - `ConditionGroup` model added.
 - Canonical `Choice.conditionGroups` implemented.
 - Legacy `Choice.conditions` migration supported.
-- Condition groups implement:
-  - OR between groups
-  - AND inside one group
+- Condition groups implement OR between groups and AND inside one group.
 - Resource conditions implemented.
 - Character Attribute conditions implemented.
-- Numeric operators implemented:
-  - `>=`
-  - `<=`
-  - `==`
-  - `>`
-  - `<`
-  - `!=`
+- Numeric operators implemented.
 - Missing-reference warnings implemented.
 - Condition editor components live in `src/features/story-logic/`.
 
@@ -503,108 +491,16 @@ Completed:
   - `+=`
   - `-=`
   - `=`
-- User-facing operation labels simplified to:
-  - `+`
-  - `-`
-  - `=`
+- User-facing operation labels simplified to `+`, `-`, and `=`.
 - Missing-reference warnings implemented.
 
 ### Story Logic — Runtime Helpers
 
 Implemented in `src/features/story-logic/runtimeLogic.ts`:
-
 - `compareNumbers()`
 - `evaluateCondition()`
 - `isChoiceAvailable()`
 - `resolveUnavailableChoiceHint()`
 - `applyNumericOperation()`
 - `applyEffects()`
-
-Runtime behavior:
-- no condition groups means choice is available
-- OR between groups
-- AND inside group
-- empty group passes
-- missing condition references fail
-- missing effect references are skipped
-- effects apply in array order
-- runtime helpers are pure
-
-### Reference usage warnings
-
-Implemented in `src/features/story-logic/referenceUsage.ts`:
-
-- Resource usage warnings before delete.
-- Character usage warnings before delete.
-- Character Attribute usage warnings before delete.
-- Checks both condition groups and effects.
-- Deletion is not blocked; user confirmation controls final action.
-
-### Post-EPIC 6 UX Polish
-
-Completed:
-- Scene Editor sections start collapsed.
-- Project Settings sidebar added.
-- `RightSidebar` extracted.
-- Project delete flow added.
-- Project thumbnail upload/preview/remove/display added.
-- Obsolete Inspector placeholder removed.
-- Dialogue speaker selector added.
-- Dialogue page reorder buttons added.
-- Effect operation labels simplified.
-
----
-
-## Earlier MVP Foundation
-
-Completed before v0.6.0:
-
-### Workspace / Projects
-
-- Local multi-project workspace.
-- My Projects screen.
-- Project cards.
-- Create/open/rename/delete project.
-- Project thumbnails.
-- Active project name in canvas header.
-- localStorage persistence:
-  - `narrium_workspace`
-  - `narrium_project_{id}`
-
-### Canvas Graph Editor
-
-- React Flow canvas.
-- Scene nodes.
-- Scene positions persisted.
-- Edge creation.
-- Edge deletion.
-- Edge click opens the corresponding Choice.
-- Choice target is the source of truth for graph edges.
-
-### Scene Editor
-
-- Scene name editing.
-- Background section.
-- Dialogue pages.
-- Choices.
-- Choice target dropdown.
-- Condition and effects editors embedded under choices.
-
-### Background System
-
-- Background modes:
-  - `none`
-  - `url`
-  - `upload`
-  - `asset`
-  - `scene_reference`
-- Asset library for reusable backgrounds.
-- SceneNode background thumbnails.
-
-### Characters & Resources
-
-- Characters screen.
-- Character attributes.
-- Resources screen.
-- Duplicate key handling.
-- Numeric defaults.
+- `advanceRuntimeForChoice()`

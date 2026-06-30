@@ -1,6 +1,6 @@
 # Roadmap — Narrium
 
-> **Version:** v8 documentation refresh after EPIC 8 JSON export/import + standalone HTML runtime parity  
+> **Version:** v9 documentation refresh after completed EPIC 8 Save, Load, Export  
 > **Workflow:** active development happens directly on `main`. Do not use a `dev` branch unless the project owner explicitly changes this workflow.
 
 ---
@@ -30,12 +30,12 @@ Story Logic — Effects      ██████████ 100%
 Story Logic — Runtime      ██████████ 100%
 Post-Audit Stabilization   ██████████ 100%
 Story Player Preview       ██████████ 100%
-Save / Export              ███████░░░  70%
+Save / Export              ██████████ 100%
 Polish & Production UX     ████░░░░░░  40%
 ```
 
 Current state:
-Narrium has a usable local multi-project workspace, project settings sidebar, project thumbnails, React Flow scene graph editor, right-side scene editor, background system, asset library support, SceneNode thumbnails, ordered dialogue pages, character speaker selection, choice target editing, edge-to-choice navigation, project-level Characters, Character attributes, project-level Resources, complete Story Logic Conditions, complete Story Logic Effects, runtime helper functions for condition/effect execution, a functional in-browser Story Player preview, JSON project export/import, and standalone HTML story export with runtime parity.
+Narrium has a usable local multi-project workspace, project settings sidebar, project thumbnails, React Flow scene graph editor, right-side scene editor, background system, asset library support, SceneNode thumbnails, ordered dialogue pages, character speaker selection, choice target editing, edge-to-choice navigation, project-level Characters, Character attributes, project-level Resources, complete Story Logic Conditions, complete Story Logic Effects, runtime helper functions for condition/effect execution, a functional in-browser Story Player preview, JSON project export/import, standalone HTML story export with runtime parity, polished standalone HTML playback, and exported standalone player save/load persistence.
 
 Story Player Preview is complete:
 - preview mode can be entered from the canvas toolbar,
@@ -52,18 +52,19 @@ Story Player Preview is complete:
 - scenes with no choices can end the story,
 - preview can be restarted.
 
-Standalone HTML export is functional:
+Standalone HTML export is complete for EPIC 8:
 - exports a single self-contained `.html` file,
 - embeds the active full `Project`,
 - preserves embedded Data URLs,
 - opens directly from disk,
-- supports dialogue, choices, conditions, effects, action choices, restart, end state, and basic backgrounds,
-- does not persist runtime state yet.
+- supports dialogue, choices, conditions, effects, action choices, restart, end state, and supported backgrounds,
+- includes polished standalone player layout and responsive behavior,
+- supports standalone runtime save/load persistence through localStorage when enabled by project settings.
 
 Runtime helper tests are present through Vitest.
 
 Next major roadmap area:
-**Finish EPIC 8 — Save, Load, Export**, starting with standalone HTML polish and then exported player save/load slots.
+**EPIC 9 — Polish & Production UX**, starting with targeted authoring and production-readiness improvements.
 
 ---
 
@@ -124,7 +125,6 @@ Architecture note:
 - React Flow edges are not domain objects.
 - Edges are projections of `Choice.targetSceneId`.
 - `Choice` is the single source of truth for connections.
-- Scene deletion preserves graph integrity by repairing `Project.startSceneId`, clearing incoming choice targets, and resetting dangling scene-reference backgrounds.
 
 ---
 
@@ -147,7 +147,7 @@ Deliverable status:
 - Scene Editor is ready for Story Player and export work.
 - Dialogue pages are ordered and playable sequentially.
 - Choices contain target scene, conditions, and effects.
-- Targetless choices can now be valid action choices when used to apply effects without navigation.
+- Targetless choices can be valid action choices when used to apply effects without navigation.
 
 ---
 
@@ -166,8 +166,7 @@ Deliverable status:
 
 Deliverable status:
 - Background system is ready for Story Player and standalone HTML background rendering.
-- Story Player can render URL, upload, asset, and one-level scene-reference backgrounds.
-- Standalone HTML player can render URL, upload, asset, and one-level scene-reference backgrounds.
+- Story Player and standalone HTML can render URL, upload, asset, and one-level scene-reference backgrounds.
 - Deleting a scene resets other scenes whose `scene_reference` background pointed to the deleted scene.
 
 ---
@@ -191,15 +190,13 @@ Deliverable status:
 - Project has complete Characters and Resources data needed by Story Logic, Story Player, and standalone export.
 - Character attributes are implemented as per-character numeric keyed values.
 - Resources are implemented as project-wide numeric keyed values.
-- Duplicate character attribute keys are resolved per character.
-- Duplicate resource keys are resolved project-wide.
-- Negative and decimal numeric defaults are supported.
 - Deletion warnings protect Story Logic references.
-- Character Attribute key renames preserve matching condition/effect references for the same character.
 
 ---
 
 ## EPIC 6 — Story Logic
+
+EPIC 6 is complete for MVP.
 
 ### EPIC 6A — Conditions
 
@@ -216,20 +213,6 @@ Deliverable status:
 | E6-09 | Refactor condition editor components into `src/features/story-logic/` | [AI] | ✅ Done |
 | E6-09B | Empty condition group authoring UX safety | [AI] | ✅ Done |
 
-Deliverable status:
-- Condition groups implement OR between groups and AND inside a group.
-- `Choice.conditionGroups` is canonical.
-- Legacy `Choice.conditions` is migrated on project load for localStorage compatibility.
-- Resource conditions can select Project Resources by `Resource.id` while displaying `Resource.key`.
-- Character Attribute conditions can select Character by `Character.id` and attribute by `CharacterAttribute.key`.
-- Operators supported: `>=`, `<=`, `==`, `>`, `<`, `!=`.
-- Numeric condition values support integers, decimals, and negative numbers.
-- Hint text is editable per condition.
-- Inline visual warnings exist for missing/deleted resource, character, and attribute references.
-- Validation is visual only.
-- `+ Add OR Group` creates a group with one default condition.
-- Empty condition groups remain legal but display an informational always-pass warning.
-
 ### EPIC 6B — Effects
 
 | ID | Task | Who | Status |
@@ -240,16 +223,6 @@ Deliverable status:
 | E6-13 | Add/edit/delete character attribute effects | [BOTH] | ✅ Done |
 | E6-14 | Effects validation for deleted/missing references | [AI] | ✅ Done |
 
-Deliverable status:
-- Effects are stored on `Choice.effects`.
-- Resource effects target `Resource.id`.
-- Character Attribute effects target `Character.id` + `CharacterAttribute.key`.
-- Effects support `+=`, `-=`, and `=`.
-- The editor displays effect operation labels as `+`, `-`, and `=`.
-- Effects validation is visual only.
-- Broken references are not auto-fixed.
-- Character Attribute key renames preserve matching effect references for the same character.
-
 ### EPIC 6C — Logic Runtime Helpers
 
 | ID | Task | Who | Status |
@@ -259,24 +232,6 @@ Deliverable status:
 | E6-17 | Runtime effect application helper: `applyEffects` | [BOTH] | ✅ Done |
 | E6-18 | Shared choice advancement helper: `advanceRuntimeForChoice` | [AI] | ✅ Done |
 | E6-19 | Action choices: effects without navigation | [BOTH] | ✅ Done |
-
-Deliverable status:
-- `runtimeLogic.ts` contains pure helper functions for Story Player and standalone export parity.
-- Conditions can be evaluated against `RuntimeState`.
-- Unavailable choice hint can be resolved from failing conditions.
-- Effects can be applied to `RuntimeState` without mutating inputs.
-- `advanceRuntimeForChoice()` centralizes choice execution semantics.
-- Effects are independent from navigation.
-- A valid targetless choice can apply effects while staying on the current scene/page.
-- Runtime helpers have focused Vitest coverage.
-
-Notes:
-- Story Logic is separated from Characters & Resources because it is a larger module.
-- Conditions and effects use already implemented Characters, Character Attributes, and Resources.
-- `Resource.key` is the canonical editor-facing resource identifier.
-- Resource conditions/effects store `Resource.id`.
-- Character Attribute conditions/effects store `Character.id` and `CharacterAttribute.key`.
-- Follow `docs/STORY_LOGIC.md`.
 
 ---
 
@@ -295,20 +250,12 @@ Notes:
 | UX-04 | Friendly Effect operation labels | [AI] | ✅ Done |
 | UX-05 | Dialogue page reorder buttons | [AI] | ✅ Done |
 
-Deliverable status:
-- Editor UX is ready for Story Player and export work.
-- Manual QA pass completed by project owner.
-- Remaining polish items moved to backlog.
-
 ---
 
 ## EPIC 6E — Post-Audit Stabilization Sprint
 
 Source:
 - `docs/AUDIT_EPIC_6_TO_7.md`
-
-Goal:
-Fix targeted data consistency and authoring safety issues before starting EPIC 7.
 
 | ID | Task | Who | Status |
 |---|---|---|---|
@@ -323,14 +270,6 @@ Completed commits:
 - `472e268` — `fix: preserve valid start scene after scene deletion`
 - `b9ed4db` — `fix: preserve character attribute references on rename`
 - `53e21d5` — `ux: improve empty condition group authoring`
-
-Deliverable status:
-- EPIC 7 blockers from the audit are resolved.
-- Story Player implementation can assume a normalized Project model after load.
-- Story Player implementation can assume `Project.startSceneId` is valid when scenes exist.
-- Scene deletion keeps scene graph and scene-reference backgrounds consistent.
-- Character Attribute renames no longer silently break Story Logic.
-- Empty condition groups remain semantically valid but are safer to author.
 
 ---
 
@@ -363,38 +302,14 @@ Completed commits:
 - `5a504ca` — `feat: integrate story choice conditions`
 - `9a07171` — `feat: add story end state`
 - `18e08f4` — `feat: add preview restart`
-
-Stabilization commits:
 - `4c9d9d7` — `test: add runtime and story logic tests`
 - `4f9974e` — `refactor: split story player into reusable components`
-
-Deliverable status:
-- Preview mode is available from the canvas toolbar.
-- Story Player initializes local `RuntimeState` from `Project`.
-- Current scene background is resolved from URL, upload, asset, or one-level scene reference.
-- Dialogue pages render in runtime order.
-- `speakerId: null` displays Narrator.
-- Missing speakers display `Unknown Speaker`.
-- Choices display after the final dialogue page.
-- Choices with valid targets navigate to target scenes and reset page index to `0`.
-- Targetless choices can act as action choices after E8-04D.
-- Effects apply before optional navigation through `advanceRuntimeForChoice()`.
-- Conditions are evaluated through `isChoiceAvailable()`.
-- Unavailable choices remain visible, disabled, and can display `hintText` through `resolveUnavailableChoiceHint()`.
-- Scenes with no choices show an end-of-story panel.
-- Preview can be restarted without reloading the app.
-- Player code has been split into smaller components/helpers:
-  - `StoryPlayer.tsx`
-  - `StoryPlayerHeader.tsx`
-  - `DialoguePanel.tsx`
-  - `ChoiceList.tsx`
-  - `playerHelpers.ts`
-  - `runtimeState.ts`
-- Runtime and Story Logic helper tests are covered with Vitest.
 
 ---
 
 ## EPIC 8 — Save, Load, Export
+
+Status: **complete for MVP**.
 
 | ID | Task | Who | Status |
 |---|---|---|---|
@@ -403,10 +318,10 @@ Deliverable status:
 | E8-03 | Import project from JSON | [AI] | ✅ Done |
 | E8-04A | Export story as standalone HTML player — foundation | [BOTH] | ✅ Done |
 | E8-04B | Standalone HTML player runtime parity | [BOTH] | ✅ Done |
-| E8-04C | Standalone HTML player polish | [BOTH] | ⏳ Pending |
+| E8-04C | Standalone HTML player polish | [BOTH] | ✅ Done |
 | E8-04D | Action choices: effects without navigation | [BOTH] | ✅ Done |
 | E8-04E | Standalone HTML UX fix: hide Next during choices | [AI] | ✅ Done |
-| E8-05 | Exported player save/load slots | [BOTH] | ⏳ Pending |
+| E8-05 | Exported player save/load slots | [BOTH] | ✅ Done |
 
 Completed commits:
 - `7d3f228` — `feat: export active project as json`
@@ -415,6 +330,8 @@ Completed commits:
 - `6312286` — `feat: add standalone runtime parity`
 - `3819863` — `feat: support action choices without navigation`
 - `989d1f0` — `fix: hide standalone next button during choices`
+- `9846109` — `feat: polish standalone html player`
+- `15bfbf4` — `feat: add standalone html save load`
 
 Deliverable status:
 - Active project can be exported as formatted JSON.
@@ -438,12 +355,14 @@ Deliverable status:
   - restart
   - end state
   - URL/upload/asset/one-level scene-reference backgrounds
-- Exported HTML does not use localStorage yet.
-- Save/load slots remain pending.
+- Exported HTML includes polished standalone player UI and responsive behavior.
+- Exported HTML supports manual Save, Load, and Clear Save controls when `project.settings.allowSessionSaveLoad !== false`.
+- Exported player save/load persists runtime snapshots to localStorage using `narrium_player_save_{projectId}`.
+- Save/load snapshots include only runtime state, not the embedded Project.
 
 Recommended implementation order from here:
-1. Polish exported standalone HTML player UI (`E8-04C`).
-2. Add exported player save/load slots if still desired (`E8-05`).
+1. Continue into EPIC 9 — Polish & Production UX.
+2. Prioritize targeted authoring safety, validation, and production-readiness improvements.
 
 ---
 
@@ -471,19 +390,12 @@ Recommended implementation order from here:
 
 ## Next Immediate Step
 
-Continue **EPIC 8 — Save, Load, Export**.
+Continue into **EPIC 9 — Polish & Production UX**.
 
-First recommended task:
+Recommended next task should be selected by the project owner.
 
-### E8-04C — Standalone HTML player polish
-
-Acceptance direction:
-- Preserve current standalone runtime behavior.
-- Do not change Project model.
-- Do not implement save/load slots yet.
-- Improve exported HTML visual layout and responsive behavior.
-- Improve page metadata/title polish.
-- Consider favicon/branding if simple.
-- Keep the output a single `.html` file.
-- Preserve Data URLs and direct-from-disk behavior.
-- Run `npm.cmd test` and `npm.cmd run build`.
+Good candidates:
+- `E9-01` — Keyboard shortcuts: Delete selected node/choice, Esc close/cancel
+- `E9-06` — Full project validation panel
+- `E9-08` — Empty/error states polish
+- `E9-15` — Warn on targetless choices with no effects

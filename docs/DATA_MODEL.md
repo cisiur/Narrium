@@ -15,6 +15,7 @@ This document defines the canonical data structures for Narrium. It is the prima
 - Characters and Resources are project data, not separate stores.
 - React Flow is a projection of `Project.scenes`.
 - Choice execution separates **effects** from **navigation**.
+- Exported standalone player save/load stores runtime snapshots only, not the embedded Project.
 
 ---
 
@@ -34,8 +35,7 @@ interface WorkspaceProjectMeta {
 }
 ```
 
-#### Notes
-
+Notes:
 - `id` is the stable workspace-level project identifier.
 - `thumbnailDataUrl` mirrors `Project.thumbnail` for fast rendering on My Projects.
 - The full project is stored separately under `narrium_project_{id}`.
@@ -52,8 +52,7 @@ interface WorkspaceState {
 }
 ```
 
-#### Notes
-
+Notes:
 - Stored under `narrium_workspace` in localStorage.
 - `activeProjectId` indicates the currently opened project in the editor.
 - Only one project can be active at a time.
@@ -81,8 +80,7 @@ interface Project {
 }
 ```
 
-#### Notes
-
+Notes:
 - `thumbnail` is a Data URL or `null`.
 - `thumbnail` is part of the full project so JSON export/import can preserve it.
 - `startSceneId` is the story entry point for preview and export.
@@ -113,8 +111,7 @@ interface Scene {
 }
 ```
 
-#### Notes
-
+Notes:
 - `position` is editor-only canvas layout data.
 - `groupId` links the scene to a `SceneGroup`; null means ungrouped.
 - `dialoguePages` order is significant and is the runtime playback order.
@@ -134,7 +131,7 @@ interface SceneBackground {
 }
 ```
 
-#### Mode behavior
+Mode behavior:
 
 | Mode | Meaning |
 |---|---|
@@ -144,8 +141,7 @@ interface SceneBackground {
 | `asset` | Uses reusable project asset from `assetLibrary` via `assetId` |
 | `scene_reference` | Reuses background from another scene via `sourceSceneId` |
 
-#### Validation rules
-
+Validation rules:
 - `mode='url'` requires non-empty `url`.
 - `mode='upload'` requires `url` to be a data URL.
 - `mode='asset'` requires valid `assetId`.
@@ -167,8 +163,7 @@ interface SceneGroup {
 }
 ```
 
-#### Notes
-
+Notes:
 - MVP uses groups as visual organizational containers on canvas.
 - `collapsed` is reserved for post-MVP group collapsing, but kept in the model now.
 - Group membership is controlled from `Scene.groupId`.
@@ -187,8 +182,7 @@ interface DialoguePage {
 }
 ```
 
-#### Notes
-
+Notes:
 - `speakerId = null` means narrator text.
 - When `speakerId` is set, it should point to `Character.id`.
 - If the referenced character is deleted, the editor should show a missing character warning.
@@ -211,8 +205,7 @@ interface Choice {
 }
 ```
 
-#### Notes
-
+Notes:
 - `conditionGroups` stores OR groups for choice availability.
 - Conditions inside one group use AND semantics.
 - Condition groups use OR semantics between groups.
@@ -240,8 +233,7 @@ interface Character {
 }
 ```
 
-#### Notes
-
+Notes:
 - Characters can be used as dialogue speakers.
 - Characters can be used as logic targets.
 - `name` is user-facing display text.
@@ -259,8 +251,7 @@ interface CharacterAttribute {
 }
 ```
 
-#### Notes
-
+Notes:
 - Character attributes are flexible numeric stats, e.g. `reputation`, `trust`, `fear`.
 - `key` is the logic-facing identifier within a character.
 - `defaultValue` seeds runtime state at story start.
@@ -285,8 +276,7 @@ interface Resource {
 }
 ```
 
-#### Notes
-
+Notes:
 - Resources are project-global numeric values, e.g. `gold`, `health`, `energy`.
 - Resources are stored in `Project.resources`.
 - `key` is the canonical logic-facing identifier.
@@ -315,8 +305,7 @@ interface ConditionGroup {
 }
 ```
 
-#### Notes
-
+Notes:
 - `Choice.conditionGroups` is the canonical choice condition model.
 - Conditions inside one group all need to pass for that group to pass.
 - A choice with multiple groups is available if at least one group passes.
@@ -339,8 +328,7 @@ interface Condition {
 }
 ```
 
-#### Notes
-
+Notes:
 - `type='resource'` uses `targetId = Resource.id`.
 - `type='character_attr'` uses `targetId = Character.id` and requires `attribute`.
 - For `character_attr`, `attribute` currently refers to `CharacterAttribute.key`.
@@ -364,8 +352,7 @@ interface Effect {
 }
 ```
 
-#### Notes
-
+Notes:
 - Effects modify runtime state only.
 - `type='resource'` uses `targetId = Resource.id`.
 - `type='character_attr'` uses `targetId = Character.id` and requires `attribute`.
@@ -397,8 +384,7 @@ interface AssetLibraryItem {
 }
 ```
 
-#### Notes
-
+Notes:
 - MVP supports background assets only.
 - Uploaded assets are stored as base64 data URLs in `url`.
 - URL assets store their external URL directly.
@@ -417,11 +403,12 @@ interface ProjectSettings {
 }
 ```
 
-#### Notes
-
-- Governs whether exported player exposes save/load UI.
+Notes:
+- Governs whether exported standalone player exposes save/load UI.
 - In MVP this should default to `true`.
-- Exported player save/load slots are not implemented yet.
+- Exported player save/load is implemented for standalone HTML exports.
+- If `allowSessionSaveLoad !== false`, the standalone player exposes Save, Load, and Clear Save controls.
+- Preview runtime state remains local and non-persistent.
 
 ---
 
@@ -441,9 +428,8 @@ interface RuntimeState {
 }
 ```
 
-#### Notes
-
-- Runtime state is built from `Project` defaults when preview or standalone player starts.
+Notes:
+- Runtime state is built from the `Project` defaults when preview or standalone player starts.
 - `currentSceneId` points to the currently displayed scene.
 - `currentPageIndex` points to the current dialogue page within the current scene.
 - `variables.resources` should be seeded from `Project.resources`.
@@ -452,7 +438,7 @@ interface RuntimeState {
 - Character attribute runtime keys should be derived from `CharacterAttribute.key`.
 - Character attributes are nested under `Character.id`.
 - Preview runtime state is local and not persisted.
-- Standalone HTML runtime state is local and not persisted until `E8-05`.
+- Standalone HTML runtime state can be manually saved and loaded through exported player save/load controls when `Project.settings.allowSessionSaveLoad !== false`.
 
 Example:
 
@@ -473,11 +459,11 @@ interface RuntimeSaveSlot {
 }
 ```
 
-#### Notes
-
-- `saveSlots` exist only when save/load is enabled.
-- Exported HTML player save/load slots are planned for `E8-05`.
-- Future exported player persistence should use localStorage with a key such as `narrium_player_save_{projectId}`.
+Notes:
+- `saveSlots` is reserved for future structured save-slot modeling.
+- Current exported standalone HTML save/load does not require changing the `RuntimeState` TypeScript shape.
+- Current exported standalone HTML persistence stores a runtime snapshot in localStorage with key `narrium_player_save_{projectId}`.
+- The saved snapshot contains runtime state only and does not store the embedded `Project`.
 
 ---
 
@@ -487,7 +473,7 @@ interface RuntimeSaveSlot {
 |---|---|
 | `narrium_workspace` | Serialized `WorkspaceState` |
 | `narrium_project_{id}` | Serialized `Project` |
-| `narrium_player_save_{projectId}` | Future exported player runtime save data |
+| `narrium_player_save_{projectId}` | Exported standalone player runtime save data |
 
 ---
 
@@ -523,7 +509,7 @@ interface RuntimeSaveSlot {
 - Preserves Data URLs.
 - Opens directly from disk.
 - Does not require the Narrium app, npm, Vite, React dev server, or a local server.
-- Does not use localStorage yet.
+- Uses localStorage only for exported player runtime save/load when `Project.settings.allowSessionSaveLoad !== false`.
 - Supports Preview-equivalent runtime behavior for:
   - dialogue pages
   - speaker names
@@ -538,6 +524,8 @@ interface RuntimeSaveSlot {
   - restart
   - end state
   - supported backgrounds
+  - manual runtime save/load
+  - clear save
 
 ---
 
@@ -618,30 +606,4 @@ Scene.dialoguePages = [
   }
 ]
 Scene.choices = []
-Scene.groupId = null
-```
-
-Recommended defaults when creating a new choice:
-
-```typescript
-Choice.targetSceneId = null
-Choice.conditionGroups = []
-Choice.effects = []
-```
-
-Recommended defaults when creating a new condition group:
-
-```typescript
-ConditionGroup.conditions = [
-  defaultCondition
-]
-```
-
-Recommended defaults when creating a new effect:
-
-```typescript
-Effect.type = 'resource'
-Effect.targetId = ''
-Effect.operation = '+='
-Effect.value = 0
 ```

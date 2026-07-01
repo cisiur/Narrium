@@ -1,6 +1,6 @@
 # Roadmap — Narrium
 
-> **Version:** v11 documentation refresh after Project Variables foundation and Variables Story Logic/runtime integration  
+> **Version:** v12 documentation refresh after Variables, player-facing Resources, validation, and Choice copy/paste  
 > **Workflow:** active development happens directly on `main`. Do not use a `dev` branch unless the project owner explicitly changes this workflow.
 
 ---
@@ -36,7 +36,7 @@ Polish & Production UX     ██████░░░░  60%
 ```
 
 Current state:
-Narrium has a usable local multi-project workspace, project settings sidebar, project thumbnails, React Flow scene graph editor, Canvas-only keyboard shortcuts, snapshot-based active-project undo/redo MVP, reusable application confirmation dialog, right-side scene editor with Project Validation, shared validation infrastructure, background system, asset library support, SceneNode thumbnails, ordered dialogue pages, character speaker selection, safe character deletion with dialogue speaker cleanup, choice target editing, edge-to-choice navigation, project-level Characters, Character attributes, project-level Resources, project-level Variables, complete Story Logic Conditions including Variables, complete Story Logic Effects including Variables, runtime helper functions for condition/effect execution, a functional in-browser Story Player preview, JSON project export/import, standalone HTML story export with runtime parity, polished standalone HTML playback, and exported standalone player save/load persistence including variable runtime values.
+Narrium has a usable local multi-project workspace, project settings sidebar, project thumbnails, React Flow scene graph editor, Canvas-only keyboard shortcuts, Choice copy/paste, snapshot-based active-project undo/redo MVP, reusable application confirmation dialog, right-side scene editor with Project Validation, shared validation infrastructure including Story Logic reference validation, background system, asset library support, SceneNode thumbnails, ordered dialogue pages, character speaker selection, safe character deletion with dialogue speaker cleanup, choice target editing, edge-to-choice navigation, project-level Characters, Character attributes, project-level Resources with player-facing presentation metadata, project-level Variables, complete Story Logic Conditions including Variables, complete Story Logic Effects including Variables, runtime helper functions for condition/effect execution, a functional in-browser Story Player preview with Resource HUD, JSON project export/import, standalone HTML story export with runtime parity and Resource HUD, polished standalone HTML playback, and exported standalone player save/load persistence including variable runtime values.
 
 Story Player Preview is complete:
 - preview mode can be entered from the canvas toolbar,
@@ -53,7 +53,8 @@ Story Player Preview is complete:
 - conditions disable unavailable choices,
 - unavailable-choice hints display,
 - scenes with no choices can end the story,
-- preview can be restarted.
+- preview can be restarted,
+- visible resources render in the Preview Resource HUD.
 
 Standalone HTML export is complete for EPIC 8 and updated for Variables:
 - exports a single self-contained `.html` file,
@@ -63,6 +64,7 @@ Standalone HTML export is complete for EPIC 8 and updated for Variables:
 - supports dialogue, choices, conditions, effects, action choices, restart, end state, and supported backgrounds,
 - includes polished standalone player layout and responsive behavior,
 - supports resource, variable, and character attribute Story Logic,
+- supports visible Resource HUD display,
 - supports standalone runtime save/load persistence through localStorage when enabled by project settings,
 - save/load snapshots include resources, variables, and character attributes.
 
@@ -195,11 +197,12 @@ Deliverable status:
 | E5-11 | Variables tab/screen foundation | [BOTH] | ✅ Done via E9-19 |
 | E5-12 | Variable list and numeric default editing | [AI] | ✅ Done via E9-19 |
 | E5-13 | Duplicate variable key handling | [AI] | ✅ Done via E9-19 |
+| E5-14 | Resource presentation metadata: display name, icon, visibility | [AI] | ✅ Done via E9-21 |
 
 Deliverable status:
 - Project has complete Characters, Resources, and Variables data needed by Story Logic, Story Player, and standalone export.
 - Character attributes are implemented as per-character numeric keyed values.
-- Resources are implemented as project-wide numeric keyed values intended for player-facing state.
+- Resources are implemented as project-wide numeric keyed values intended for player-facing state, with presentation metadata for display name, icon, and HUD visibility.
 - Variables are implemented as project-wide numeric keyed values intended for hidden/internal state.
 - Deletion warnings protect existing Story Logic references where implemented.
 
@@ -266,6 +269,7 @@ Completed features:
 - Action choices.
 - End-of-story state.
 - Preview restart.
+- Resource HUD for visible resources.
 
 ---
 
@@ -285,6 +289,7 @@ Status: **complete for MVP**.
 | E8-04E | Standalone HTML UX fix: hide Next during choices | [AI] | ✅ Done |
 | E8-05 | Exported player save/load slots | [BOTH] | ✅ Done |
 | E8-06 | Standalone HTML runtime parity for Variables | [AI] | ✅ Done via E9-20 |
+| E8-07 | Standalone HTML Resource HUD parity | [AI] | ✅ Done via E9-21 |
 
 Deliverable status:
 - Active project can be exported as formatted JSON.
@@ -301,6 +306,7 @@ Deliverable status:
   - resource, variable, and character attribute conditions
   - unavailable hints
   - resource, variable, and character attribute effects
+  - visible Resource HUD display
   - targetless action choices
   - valid target navigation
   - invalid target disabled behavior
@@ -315,7 +321,7 @@ Deliverable status:
 
 Recommended implementation order from here:
 1. Continue into EPIC 9 — Polish & Production UX.
-2. Prioritize player-facing Resource display, validation extensions, and production-readiness improvements.
+2. Prioritize authoring polish, Story Player component-level tests, export preflight, and production-readiness improvements.
 
 ---
 
@@ -344,8 +350,10 @@ Recommended implementation order from here:
 | E9-18B | Validation Panel Layout Polish | [AI] | ✅ Done |
 | E9-19 | Project Variables tab foundation | [BOTH] | ✅ Done |
 | E9-20 | Variables in Story Logic and runtime | [BOTH] | ✅ Done |
-| E9-21 | Player-facing Resource display in Preview and standalone HTML | [BOTH] | Recommended next |
-| E9-22 | Story Logic missing reference validation rules / export preflight | [BOTH] | Good candidate |
+| E9-21 | Player-facing Resource display in Preview and standalone HTML | [BOTH] | ✅ Done |
+| E9-22 | Story Logic missing reference validation rules | [BOTH] | ✅ Done |
+| E9-23 | Choice Copy / Paste | [AI] | ✅ Done |
+| E9-24 | Export preflight using validation results | [BOTH] | Backlog |
 
 Validation batch details:
 - See `docs/EPIC9_VALIDATION.md`.
@@ -359,8 +367,7 @@ Continue into **EPIC 9 — Polish & Production UX**.
 Recommended next task should be selected by the project owner.
 
 Good candidates:
-- `E9-21` — Player-facing Resource display in Preview and standalone HTML.
-- `E9-22` — Story Logic missing reference validation rules / export preflight.
 - `E9-08` — Empty/error states polish.
 - `E9-14` — Story Player component-level tests.
+- `E9-24` — Export preflight using Project Validation.
 - `E9-02` future enhancements — finer-grained undo/redo UX beyond the snapshot-based MVP.

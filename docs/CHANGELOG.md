@@ -58,6 +58,64 @@ Validation:
 - `npm.cmd test` → 51 tests passed
 - `npm.cmd run build` → passed
 
+### Completed - Player-facing Resources
+
+Commit:
+- `ee4cb95` — `feat: add player-facing resource presentation`
+
+Changes:
+- Extended `Resource` with player-facing presentation metadata:
+  - `displayName`,
+  - `icon`,
+  - `visible`.
+- Added migration defaults for old resources:
+  - `displayName = key`,
+  - `icon = "circle"`,
+  - `visible = true`.
+- Extended the Resources screen to edit key, display name, icon, visibility, and default value.
+- Added a Resource HUD to Preview.
+- Added matching Resource HUD support to standalone HTML export.
+- Kept Story Logic references on `Resource.id` and runtime lookup by `Resource.key`.
+- Added tests for migration defaults, Resource HUD rendering, runtime updates, hidden Variables, and standalone template support.
+
+Validation:
+- `npm.cmd test` → 57 tests passed
+- `npm.cmd run build` → passed
+
+### Completed - Story Logic reference validation
+
+Commit:
+- `feeee43` — `feat: validate broken story logic references`
+
+Changes:
+- Extended `validateProject(project)` to detect broken Story Logic references in Conditions and Effects.
+- Added validation codes for missing Resource, Variable, Character, and Character Attribute references.
+- Validation issues retain `sceneId` and `choiceId`, so existing Project Validation navigation continues to work.
+- Runtime behavior, Preview, and standalone runtime were not changed.
+- Added tests covering all requested missing reference cases.
+
+Validation:
+- `npm.cmd test` → 65 tests passed
+- `npm.cmd run build` → passed
+
+### Completed - Choice Copy / Paste
+
+Commit:
+- `b00ca57` — `feat: add choice copy and paste`
+
+Changes:
+- Added a session-local in-memory Choice clipboard.
+- Added Copy action for Choices and Paste Choice action for the current Scene.
+- Added `Ctrl+C` for selected Choice and `Ctrl+V` to paste into the current Scene when focus is not in a text-editing target.
+- Paste appends to the current Scene and regenerates Choice, Condition Group, Condition, and Effect ids.
+- Copy does not create undo history; paste creates a normal undo step.
+- Clipboard is project-scoped and is not stored in Project, localStorage, or exports.
+- Added tests for copy, paste, regenerated ids, Story Logic preservation, clipboard lifetime, and undo history behavior.
+
+Validation:
+- `npm.cmd test` → 70 tests passed
+- `npm.cmd run build` → passed
+
 ### Completed - EPIC 9 keyboard shortcuts and undo/redo MVP
 
 Commit:
@@ -117,18 +175,15 @@ Changes:
 ### Planned
 
 - EPIC 9 - Polish & Production UX
-  - Player-facing Resource display in Preview and standalone HTML player
   - Empty/error states polish
   - Story Player component-level tests
   - Future undo/redo refinements beyond the snapshot-based MVP
-  - Future validation extension: Story Logic missing reference rules / export preflight
+  - Export preflight using Project Validation
 
 ### Backlog / Product polish
 
 - Story Player component-level tests.
-- Story Logic missing reference validation rules.
 - Export preflight validation.
-- Player-facing Resource display.
 - Fine-grained undo/redo UX improvements.
 
 ---

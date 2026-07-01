@@ -67,6 +67,9 @@ Each resource has:
 interface Resource {
   id: string;
   key: string;
+  displayName: string;
+  icon: string;
+  visible: boolean;
   defaultValue: number;
 }
 ```
@@ -79,8 +82,12 @@ Conditions/effects store `Resource.id`.
 
 Runtime state stores resource values by `Resource.key`.
 
-Future direction:
-- Resources should later be available for player-facing UI display in Preview and exported standalone HTML player.
+Presentation metadata:
+- `displayName` is shown to players in Resource HUDs.
+- `icon` stores a built-in presentation icon key.
+- `visible` controls whether the Resource HUD shows the resource.
+
+Preview and standalone HTML both include a Resource HUD that displays visible resources only.
 
 ---
 
@@ -123,6 +130,7 @@ Conditions/effects store `Variable.id`.
 Runtime state stores variable values by `Variable.key`.
 
 Variables are not normally shown to the player.
+Variables are hidden internal story-state values and are not displayed in the Resource HUD.
 
 Boolean-like variables should use numeric values such as `0` / `1` in the MVP.
 
@@ -266,6 +274,9 @@ visited_forest == 1
 Meaning:
 
 The choice is available only if the hidden story variable `visited_forest` has value `1`.
+
+Variable conditions store `targetId = Variable.id`.
+At runtime, the matching `Variable.key` is used to read from `runtimeState.variables.variables`.
 
 #### Character attribute condition
 
@@ -453,6 +464,7 @@ Implemented editor behavior:
 
 ```text
 Show inline warning for invalid logic references.
+Show Project Validation issues for broken Story Logic references.
 ```
 
 This avoids accidentally making broken choices available.
@@ -545,6 +557,9 @@ Example:
 ```text
 visited_forest = 1
 ```
+
+Variable effects store `targetId = Variable.id`.
+At runtime, the matching `Variable.key` is used to write to `runtimeState.variables.variables`.
 
 #### Character attribute effect
 
@@ -679,6 +694,11 @@ variables.variables[variable.key]
 
 Missing variable references are skipped.
 
+Editor behavior:
+- inline Story Logic warnings mark missing Variable references,
+- Project Validation reports broken Variable condition/effect references,
+- runtime behavior remains safe and unchanged.
+
 ---
 
 ### 10.3 Character Attribute Effects
@@ -786,6 +806,8 @@ Preview and standalone HTML player are expected to support the same Story Logic 
 - invalid non-null target disabled behavior
 - restart
 - end state
+- variable runtime initialization from `Project.variables`
+- variable runtime save/load in standalone HTML
 
 Standalone HTML export contains an inline runtime implementation mirroring the shared Preview runtime helpers.
 
@@ -819,11 +841,6 @@ Save/load validation rejects invalid, corrupted, or unsafe values.
 
 Known future extensions:
 
-- Player-facing Resource display in Preview and standalone HTML.
-- Full Project Validation rules for missing Story Logic references:
-  - missing resource condition/effect target
-  - missing variable condition/effect target
-  - missing character attribute condition/effect target
 - Export preflight using `validateProject(project)`.
 - Optional richer variable types in the future, such as booleans or strings, if product requirements justify it.
 - Better author-facing hint strategy if condition-level hints become too granular.

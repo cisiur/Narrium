@@ -92,7 +92,7 @@ Polish & Production UX     ██████░░░░  60%
 ```
 
 Current state:
-Narrium has a usable local multi-project workspace, project settings sidebar, project thumbnails, React Flow scene graph editor, Canvas-only keyboard shortcuts, snapshot-based active-project undo/redo MVP, reusable application confirmation dialog, right-side scene editor with Project Validation, shared validation infrastructure, background system, asset library support, SceneNode thumbnails, ordered dialogue pages, character speaker selection, safe character deletion with dialogue speaker cleanup, choice target editing, edge-to-choice navigation, project-level Characters, Character attributes, project-level Resources, project-level Variables, complete Story Logic Conditions including Variables, complete Story Logic Effects including Variables, runtime helper functions for condition/effect execution, a functional in-browser Story Player Preview, JSON project export/import, standalone HTML story export with runtime parity, polished standalone HTML playback, and exported standalone player save/load persistence including variable runtime values.
+Narrium has a usable local multi-project workspace, project settings sidebar, project thumbnails, React Flow scene graph editor, Canvas-only keyboard shortcuts, Choice copy/paste, snapshot-based active-project undo/redo MVP, reusable application confirmation dialog, right-side scene editor with Project Validation, shared validation infrastructure including Story Logic reference validation, background system, asset library support, SceneNode thumbnails, ordered dialogue pages, character speaker selection, safe character deletion with dialogue speaker cleanup, choice target editing, edge-to-choice navigation, project-level Characters, Character attributes, project-level Resources with player-facing presentation metadata, project-level Variables, complete Story Logic Conditions including Variables, complete Story Logic Effects including Variables, runtime helper functions for condition/effect execution, a functional in-browser Story Player Preview with Resource HUD, JSON project export/import, standalone HTML story export with runtime parity and Resource HUD, polished standalone HTML playback, and exported standalone player save/load persistence including variable runtime values.
 
 Completed milestones:
 - EPIC 6 — Story Logic is complete for the MVP editor/runtime-helper layer.
@@ -108,16 +108,18 @@ Completed milestones:
 - EPIC 9 safe character deletion is complete, including dialogue speaker cleanup after confirmation.
 - Project Variables foundation is complete.
 - Variables are integrated into Story Logic Conditions, Story Logic Effects, Preview runtime, standalone HTML runtime, and standalone save/load snapshots.
+- Player-facing Resources are implemented with display name, icon, visibility, and Resource HUDs in Preview and standalone HTML.
+- Project Validation detects broken Story Logic references in Conditions and Effects.
+- Choice Copy / Paste is implemented for session-local authoring productivity.
 
 Current recommended next milestone:
 - **EPIC 9 — Polish & Production UX**
 - Recommended next task should be selected by the project owner.
 
 Good candidates:
-- Player-facing Resource display in Preview and standalone HTML player.
-- Future validation extension — missing Story Logic references, including Variables.
 - `E9-08` — Empty/error states polish.
 - `E9-14` — Story Player component-level tests.
+- Export preflight using Project Validation.
 - `E9-02` future enhancements — finer-grained undo/redo UX beyond the snapshot-based MVP.
 
 ---
@@ -226,6 +228,8 @@ Good candidates:
 - Canvas-only keyboard shortcuts:
   - `Delete` / `Backspace` delete the selected choice first, otherwise the selected scene
   - `Escape` clears selected choice first, otherwise clears selected scene and returns to canvas mode
+  - `Ctrl+C` copies the selected Choice when focus is not in a text-editing target
+  - `Ctrl+V` pastes the copied Choice into the current Scene when focus is not in a text-editing target
   - shortcuts ignore input, textarea, select, and contenteditable targets
 
 ### Scene Editor
@@ -244,6 +248,8 @@ Good candidates:
   - order persists in `scene.dialoguePages`
 - Choices:
   - add/edit/delete
+  - copy/paste a Choice within the current editor session
+  - paste appends to the current Scene and regenerates Choice, Condition Group, Condition, and Effect ids
   - show target scene
   - target scene dropdown
   - edge-click highlight + scroll into view
@@ -261,13 +267,16 @@ Good candidates:
   - missing dialogue speakers
   - broken scene background references
   - broken asset background references
+  - broken Resource references in Conditions and Effects
+  - broken Variable references in Conditions and Effects
+  - broken Character references in Conditions and Effects
+  - broken Character Attribute references in Conditions and Effects
 - Project Validation panel lives in `src/features/validation/ProjectValidationPanel.tsx`.
 - Canvas right sidebar keeps Project Validation visible at the top.
 - Scene Editor appears below Project Validation when a scene is selected.
 - When no scene is selected, the sidebar shows `Select a scene to edit its content.`
 - Clicking a validation issue opens the related scene and selects the related choice when `choiceId` exists.
 - Detailed validation batch documentation lives in `docs/EPIC9_VALIDATION.md`.
-- Missing Story Logic reference validation for Resources, Variables, and Character Attributes is still a good future extension.
 
 ### Background System
 
@@ -312,6 +321,9 @@ Good candidates:
 - Resource list.
 - Add/delete resource.
 - Rename resource key inline.
+- Edit player-facing display name.
+- Edit built-in presentation icon.
+- Toggle player HUD visibility.
 - Edit numeric resource default value.
 - Negative and decimal resource values are supported.
 - Invalid resource values are stored as `0`.
@@ -319,7 +331,9 @@ Good candidates:
 - Resource mutations use `workspaceStore.updateActiveProject()`.
 - Resource conditions target `Resource.id` and runtime values are keyed by `Resource.key`.
 - Resource effects target `Resource.id`.
-- Product direction: Resources are intended to become player-facing values such as gold, inventory-like counts, or other values that may later be displayed in the player UI.
+- Resource presentation metadata includes `displayName`, `icon`, and `visible`.
+- Old projects receive `displayName = key`, `icon = "circle"`, and `visible = true` during normalization.
+- Resources are player-facing values displayed in Preview and standalone HTML Resource HUDs when `visible` is true.
 
 ### Variables
 
@@ -412,6 +426,7 @@ Implemented in `src/features/player/`:
 Preview supports:
 - runtime initialization from Project defaults
 - resources
+- Resource HUD for visible resources
 - variables
 - character attributes
 - dialogue page navigation
@@ -443,6 +458,7 @@ Standalone HTML export:
 - does not require Narrium, npm, Vite, React, or a dev server
 - supports start scene, dialogue, choices, restart, end state, supported backgrounds
 - supports resource conditions/effects
+- supports visible Resource HUD display
 - supports variable conditions/effects
 - supports character attribute conditions/effects
 - supports targetless action choices
@@ -461,7 +477,7 @@ Standalone save/load snapshots include:
 Implemented:
 - Vitest added.
 - `npm.cmd test` runs `vitest run`.
-- Current test count after Variables runtime integration: **51 tests**.
+- Current test count after Choice Copy / Paste: **70 tests**.
 - `runtimeState.test.ts` covers initial RuntimeState creation, including Variables.
 - `runtimeLogic.test.ts` covers representative behavior for:
   - `applyEffects()`
@@ -480,6 +496,8 @@ Implemented:
 - `variableHelpers.test.ts` covers variable key resolution.
 - `projectMigrations.test.ts` covers missing `variables` migration and existing variables preservation.
 - Standalone HTML export tests include variable save/load/runtime template coverage.
+- `ResourceHud.test.tsx` covers Preview Resource HUD display and runtime updates.
+- `useCanvasStore.test.ts` covers Choice copy/paste, id regeneration, Story Logic preservation, clipboard lifetime, and undo history behavior.
 
 ---
 
@@ -491,28 +509,34 @@ Completed validation batch:
 - `E9-17` - Validation rules batch
 - `E9-18` - Project Validation Panel MVP
 - `E9-18B` - Validation Panel Layout Polish
+- Story Logic reference validation for Resources, Variables, Characters, and Character Attributes
 
 Completed polish / production UX tasks:
 - `E9-01` - Keyboard shortcuts: Delete selected node/choice, Esc close/cancel
 - `E9-02A` - Basic snapshot-based project undo/redo MVP
 - `E9-03` - Reusable confirmation dialog replacing native browser confirmations
 - `E9-10` - Safe character deletion when used as dialogue speaker
+- Choice Copy / Paste
 
 Completed Variables work:
 - `E9-19` - Project Variables tab foundation
 - `E9-20` - Variables in Story Logic and runtime
 
+Completed Resources work:
+- Player-facing Resource presentation metadata
+- Resource HUD in Preview
+- Resource HUD in standalone HTML
+
 Important:
 - Validation UI must not change runtime, Preview, JSON import/export, standalone HTML export, or the Project data model unless explicitly scoped.
 - Variables are intentionally hidden/internal.
-- Resources are intended to become player-facing in a future task.
+- Resources are player-facing numeric values when marked visible.
 
 Next recommended tasks:
-1. Player-facing Resource display in Preview and standalone HTML player.
-2. Future validation extension - Story Logic missing reference rules / export preflight.
-3. `E9-08` - Empty/error states polish.
-4. `E9-14` - Story Player component-level tests.
-5. `E9-02` future enhancements - finer-grained undo/redo UX beyond the snapshot-based MVP.
+1. `E9-08` - Empty/error states polish.
+2. `E9-14` - Story Player component-level tests.
+3. Export preflight using Project Validation.
+4. `E9-02` future enhancements - finer-grained undo/redo UX beyond the snapshot-based MVP.
 
 ---
 
@@ -563,6 +587,7 @@ src/
 
     resources/
       ResourcesScreen.tsx
+      resourcePresentation.ts
 
     variables/
       VariablesScreen.tsx
@@ -570,6 +595,8 @@ src/
       variableHelpers.test.ts
 
     player/
+      ResourceHud.tsx
+      ResourceHud.test.tsx
       StoryPlayer.tsx
       DialoguePanel.tsx
       ChoiceList.tsx
@@ -585,6 +612,7 @@ src/
     projectMigrations.test.ts
     workspaceStore.ts
     useCanvasStore.ts
+    useCanvasStore.test.ts
     useProjectViewStore.ts
 
   utils/

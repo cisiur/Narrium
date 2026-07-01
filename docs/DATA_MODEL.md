@@ -279,15 +279,21 @@ Notes:
 interface Resource {
   id: string;
   key: string;
+  displayName: string;
+  icon: string;
+  visible: boolean;
   defaultValue: number;
 }
 ```
 
 Notes:
-- Resources are project-global numeric values, e.g. `gold`, `health`, `energy`.
+- Resources are project-global numeric values, e.g. `gold`, `health`, `energy`, `food`, or `wood`.
 - Resources are stored in `Project.resources`.
-- Resources are intended to become player-facing values in a future player UI task.
-- `key` is the canonical logic-facing identifier.
+- Resources are intended as player-facing values and can be displayed in the player Resource HUD.
+- `key` is the canonical internal logic-facing identifier.
+- `displayName` is the player-facing label shown in Preview and standalone HTML Resource HUDs.
+- `icon` is presentation metadata selected from the built-in icon list.
+- `visible` controls whether the resource appears in the player Resource HUD.
 - Use `Resource.key`, not `Resource.name`.
 - `defaultValue` seeds runtime state at story start.
 - Negative and decimal default values are allowed.
@@ -297,6 +303,10 @@ Notes:
 - Conditions/effects reference resources by `Resource.id`.
 - Runtime state stores resources by `Resource.key`.
 - Deleting a resource used by Story Logic should show a warning before deletion.
+- Old projects without presentation metadata are normalized with:
+  - `displayName = key`
+  - `icon = 'circle'`
+  - `visible = true`
 
 ---
 
@@ -323,6 +333,7 @@ Notes:
 - Conditions/effects reference variables by `Variable.id`.
 - Runtime state stores variables by `Variable.key`.
 - Variables are not normally shown to the player.
+- Variables are never displayed in the Resource HUD.
 - Variables are useful for flags and progression state; boolean-like values should be represented as `0` / `1` in the MVP.
 
 ---
@@ -469,6 +480,7 @@ interface RuntimeState {
 Notes:
 - `currentSceneId` is the scene currently being played.
 - `currentPageIndex` is the active dialogue page index in the current scene.
+- RuntimeState stores resources, variables, and character attributes.
 - `variables.resources` stores runtime resource values by `Resource.key`.
 - `variables.variables` stores runtime variable values by `Variable.key`.
 - `variables.characterAttrs` stores runtime character attributes by `Character.id` and `CharacterAttribute.key`.
@@ -507,6 +519,10 @@ Current normalization responsibilities include:
 - normalizing dialogue pages with missing `speakerId`
 - migrating legacy `Choice.conditions` into `Choice.conditionGroups`
 - adding missing `effects`
+- adding missing Resource presentation metadata:
+  - `displayName`
+  - `icon`
+  - `visible`
 - adding missing project collections:
   - `scenes`
   - `characters`

@@ -22,6 +22,7 @@ function createProject(scenes: Scene[]): Project {
       },
     ],
     resources: [],
+    variables: [],
     groups: [],
     assetLibrary: [],
     settings: {

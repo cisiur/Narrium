@@ -32,6 +32,7 @@ export function AppShell({
     { view: 'canvas', label: 'C', title: 'Canvas' },
     { view: 'characters', label: 'Ch', title: 'Characters' },
     { view: 'resources', label: 'R', title: 'Resources' },
+    { view: 'variables', label: 'V', title: 'Variables' },
   ];
 
   return (

@@ -40,7 +40,7 @@ function createProjectMeta(): WorkspaceProjectMeta {
   };
 }
 
-function createEmptyProject(meta: WorkspaceProjectMeta): Project {
+export function createEmptyProject(meta: WorkspaceProjectMeta): Project {
   return {
     id: meta.id,
     name: meta.name,
@@ -49,6 +49,7 @@ function createEmptyProject(meta: WorkspaceProjectMeta): Project {
     scenes: [],
     characters: [],
     resources: [],
+    variables: [],
     groups: [],
     assetLibrary: [],
     settings: {
@@ -192,10 +193,11 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
     return projectMeta;
   },
   importProject: (project) => {
+    const normalizedProject = normalizeProject(project).project;
     const now = new Date().toISOString();
     const id = crypto.randomUUID();
     const importedProject = {
-      ...project,
+      ...normalizedProject,
       id,
       createdAt: now,
       updatedAt: now,

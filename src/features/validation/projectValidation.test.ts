@@ -11,6 +11,7 @@ function createProject(scenes: Scene[], overrides: Partial<Project> = {}): Proje
     scenes,
     characters: [],
     resources: [],
+    variables: [],
     groups: [],
     assetLibrary: [],
     settings: {

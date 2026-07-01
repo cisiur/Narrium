@@ -17,6 +17,7 @@ function createProject(name: string, id = 'project-1'): Project {
     scenes: [],
     characters: [],
     resources: [],
+    variables: [],
     groups: [],
     assetLibrary: [],
     settings: {

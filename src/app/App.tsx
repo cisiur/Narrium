@@ -5,6 +5,7 @@ import { CharactersScreen } from '../features/characters/CharactersScreen';
 import { SceneEditorPanel } from '../features/editor/SceneEditorPanel';
 import { StoryPlayer } from '../features/player/StoryPlayer';
 import { ResourcesScreen } from '../features/resources/ResourcesScreen';
+import { VariablesScreen } from '../features/variables/VariablesScreen';
 import { MyProjectsScreen } from '../features/workspace/MyProjectsScreen';
 import { useCanvasStore } from '../store/useCanvasStore';
 import { useProjectViewStore } from '../store/useProjectViewStore';
@@ -118,8 +119,10 @@ export function App() {
       <SceneCanvas />
     ) : activeProjectView === 'characters' ? (
       <CharactersScreen />
-    ) : (
+    ) : activeProjectView === 'resources' ? (
       <ResourcesScreen />
+    ) : (
+      <VariablesScreen />
     );
 
     return (

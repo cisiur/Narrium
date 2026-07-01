@@ -191,8 +191,8 @@ export function normalizeProject(project: Project): { project: Project; changed:
   }
 
   const collectionFields: Array<
-    keyof Pick<Project, 'scenes' | 'characters' | 'resources' | 'groups' | 'assetLibrary'>
-  > = ['scenes', 'characters', 'resources', 'groups', 'assetLibrary'];
+    keyof Pick<Project, 'scenes' | 'characters' | 'resources' | 'variables' | 'groups' | 'assetLibrary'>
+  > = ['scenes', 'characters', 'resources', 'variables', 'groups', 'assetLibrary'];
 
   collectionFields.forEach((field) => {
     if (isMissingField(legacyProject, field)) {
@@ -237,6 +237,7 @@ export function normalizeProject(project: Project): { project: Project; changed:
           scenes,
           characters: legacyProject.characters ?? [],
           resources: legacyProject.resources ?? [],
+          variables: legacyProject.variables ?? [],
           groups: legacyProject.groups ?? [],
           assetLibrary: legacyProject.assetLibrary ?? [],
           settings: {

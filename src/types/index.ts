@@ -19,6 +19,7 @@ export interface Project {
   scenes: Scene[];
   characters: Character[];
   resources: Resource[];
+  variables: Variable[];
   groups: SceneGroup[];
   assetLibrary: AssetLibraryItem[];
   settings: ProjectSettings;
@@ -93,6 +94,12 @@ export interface CharacterAttribute {
 }
 
 export interface Resource {
+  id: string;
+  key: string;
+  defaultValue: number;
+}
+
+export interface Variable {
   id: string;
   key: string;
   defaultValue: number;

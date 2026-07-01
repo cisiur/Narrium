@@ -29,6 +29,7 @@ function createProject(): Project {
       { id: 'resource-gold', key: 'gold', defaultValue: 5 },
       { id: 'resource-food', key: 'food', defaultValue: 3 },
     ],
+    variables: [],
     groups: [],
     assetLibrary: [],
     settings: {

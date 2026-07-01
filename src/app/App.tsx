@@ -76,6 +76,22 @@ export function App() {
         return;
       }
 
+      if (event.ctrlKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'c') {
+        if (canvasStore.selectedChoiceId && canvasStore.selectedSceneId) {
+          event.preventDefault();
+          canvasStore.copySelectedChoice();
+        }
+        return;
+      }
+
+      if (event.ctrlKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'v') {
+        if (canvasStore.selectedSceneId) {
+          event.preventDefault();
+          canvasStore.pasteChoice(canvasStore.selectedSceneId);
+        }
+        return;
+      }
+
       if (event.key === 'Escape') {
         if (canvasStore.selectedChoiceId) {
           event.preventDefault();

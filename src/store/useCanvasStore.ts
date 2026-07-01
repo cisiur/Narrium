@@ -56,6 +56,11 @@ interface CanvasStore {
   moveDialoguePageDown: (sceneId: string, pageId: string) => void;
   deleteDialoguePage: (sceneId: string, pageId: string) => void;
   addChoice: (sceneId: string) => void;
+  copiedChoice: Choice | null;
+  copiedChoiceProjectId: string | null;
+  copyChoice: (sceneId: string, choiceId: string) => void;
+  copySelectedChoice: () => void;
+  pasteChoice: (sceneId: string) => void;
   updateChoiceText: (sceneId: string, choiceId: string, text: string) => void;
   updateChoiceTarget: (sceneId: string, choiceId: string, targetSceneId: string | null) => void;
   deleteChoice: (sceneId: string, choiceId: string) => void;
@@ -97,6 +102,29 @@ function createChoice(text = 'New choice', targetSceneId: string | null = null):
     targetSceneId,
     conditionGroups: [],
     effects: [],
+  };
+}
+
+function cloneChoice(choice: Choice): Choice {
+  return JSON.parse(JSON.stringify(choice)) as Choice;
+}
+
+function cloneChoiceWithNewIds(choice: Choice): Choice {
+  return {
+    ...cloneChoice(choice),
+    id: createId('choice'),
+    conditionGroups: (choice.conditionGroups ?? []).map((conditionGroup) => ({
+      ...conditionGroup,
+      id: createId('condition_group'),
+      conditions: conditionGroup.conditions.map((condition) => ({
+        ...condition,
+        id: createId('condition'),
+      })),
+    })),
+    effects: (choice.effects ?? []).map((effect) => ({
+      ...effect,
+      id: createId('effect'),
+    })),
   };
 }
 
@@ -182,6 +210,8 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
   edges: [],
   selectedSceneId: null,
   selectedChoiceId: null,
+  copiedChoice: null,
+  copiedChoiceProjectId: null,
   activeView: 'canvas',
   onNodesChange: (changes: NodeChange[]) => {
     set((state) => ({
@@ -497,6 +527,57 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
         scene.id === sceneId ? { ...scene, choices: [...scene.choices, createChoice('New choice')] } : scene,
       ),
     );
+    get().syncFromProject();
+  },
+  copyChoice: (sceneId: string, choiceId: string) => {
+    const activeProject = useWorkspaceStore.getState().activeProject;
+    const choice = activeProject?.scenes
+      .find((scene) => scene.id === sceneId)
+      ?.choices.find((item) => item.id === choiceId);
+
+    if (!activeProject || !choice) {
+      return;
+    }
+
+    set({
+      copiedChoice: cloneChoice(choice),
+      copiedChoiceProjectId: activeProject.id,
+    });
+  },
+  copySelectedChoice: () => {
+    const { selectedSceneId, selectedChoiceId } = get();
+
+    if (!selectedSceneId || !selectedChoiceId) {
+      return;
+    }
+
+    get().copyChoice(selectedSceneId, selectedChoiceId);
+  },
+  pasteChoice: (sceneId: string) => {
+    const activeProject = useWorkspaceStore.getState().activeProject;
+    const { copiedChoice, copiedChoiceProjectId } = get();
+
+    if (!activeProject || !copiedChoice || copiedChoiceProjectId !== activeProject.id) {
+      return;
+    }
+
+    const pastedChoice = cloneChoiceWithNewIds(copiedChoice);
+
+    updateActiveProject((scenes) =>
+      scenes.map((scene) =>
+        scene.id === sceneId
+          ? {
+              ...scene,
+              choices: [...scene.choices, pastedChoice],
+            }
+          : scene,
+      ),
+    );
+    set({
+      selectedSceneId: sceneId,
+      selectedChoiceId: pastedChoice.id,
+      activeView: 'editor',
+    });
     get().syncFromProject();
   },
   updateChoiceText: (sceneId: string, choiceId: string, text: string) => {

@@ -604,6 +604,7 @@ interface ChoiceItemProps {
   isSelected: boolean;
   targetSceneName: string;
   hasChoiceDoesNothingWarning: boolean;
+  onCopyChoice: (sceneId: string, choiceId: string) => void;
 }
 
 function ChoiceItem({
@@ -613,6 +614,7 @@ function ChoiceItem({
   isSelected,
   targetSceneName,
   hasChoiceDoesNothingWarning,
+  onCopyChoice,
 }: ChoiceItemProps) {
   const updateChoiceText = useCanvasStore((state) => state.updateChoiceText);
   const updateChoiceTarget = useCanvasStore((state) => state.updateChoiceTarget);
@@ -651,14 +653,23 @@ function ChoiceItem({
           ) : null}
           <div className="mt-1 text-xs text-gray-400">{targetSceneName}</div>
         </button>
-        <button
-          type="button"
-          onClick={() => deleteChoice(scene.id, choice.id)}
-          className="rounded px-2 py-1 text-xs text-gray-400 hover:bg-gray-700 hover:text-gray-100"
-          aria-label="Delete choice"
-        >
-          ×
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => onCopyChoice(scene.id, choice.id)}
+            className="rounded px-2 py-1 text-xs text-gray-400 hover:bg-gray-700 hover:text-gray-100"
+          >
+            Copy
+          </button>
+          <button
+            type="button"
+            onClick={() => deleteChoice(scene.id, choice.id)}
+            className="rounded px-2 py-1 text-xs text-gray-400 hover:bg-gray-700 hover:text-gray-100"
+            aria-label="Delete choice"
+          >
+            ×
+          </button>
+        </div>
       </div>
       {isEditing ? (
         <input
@@ -710,7 +721,11 @@ export function SceneEditorPanel() {
   const openEditor = useCanvasStore((state) => state.openEditor);
   const addDialoguePage = useCanvasStore((state) => state.addDialoguePage);
   const addChoice = useCanvasStore((state) => state.addChoice);
+  const copyChoice = useCanvasStore((state) => state.copyChoice);
+  const pasteChoice = useCanvasStore((state) => state.pasteChoice);
+  const copiedChoiceProjectId = useCanvasStore((state) => state.copiedChoiceProjectId);
   const scene = activeProject?.scenes.find((item) => item.id === selectedSceneId) ?? null;
+  const canPasteChoice = Boolean(activeProject && copiedChoiceProjectId === activeProject.id);
   const validationIssues = useMemo(
     () => (activeProject ? validateProject(activeProject) : []),
     [activeProject],
@@ -800,17 +815,28 @@ export function SceneEditorPanel() {
                           isSelected={selectedChoiceId === choice.id}
                           targetSceneName={targetScene ? `→ ${targetScene.name}` : '→ not connected'}
                           hasChoiceDoesNothingWarning={hasChoiceDoesNothingWarning}
+                          onCopyChoice={copyChoice}
                         />
                       );
                     })}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => addChoice(scene.id)}
-                    className="rounded bg-gray-700 px-2 py-1 text-xs font-medium text-gray-100 hover:bg-gray-600"
-                  >
-                    + Add Choice
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => addChoice(scene.id)}
+                      className="rounded bg-gray-700 px-2 py-1 text-xs font-medium text-gray-100 hover:bg-gray-600"
+                    >
+                      + Add Choice
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => pasteChoice(scene.id)}
+                      disabled={!canPasteChoice}
+                      className="rounded bg-gray-700 px-2 py-1 text-xs font-medium text-gray-100 hover:bg-gray-600 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Paste Choice
+                    </button>
+                  </div>
                 </CollapsibleSection>
               </div>
             </div>

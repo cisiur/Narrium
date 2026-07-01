@@ -4,6 +4,10 @@ import { useWorkspaceStore } from '../../store/workspaceStore';
 import { ConditionGroupsEditor } from '../story-logic/ConditionGroupsEditor';
 import { EffectsEditor } from '../story-logic/EffectsEditor';
 import { VALIDATION_CODES, validateProject } from '../validation/projectValidation';
+import {
+  ProjectValidationPanel,
+  navigateToValidationIssue,
+} from '../validation/ProjectValidationPanel';
 import type {
   AssetLibraryItem,
   Character,
@@ -702,6 +706,8 @@ export function SceneEditorPanel() {
   const selectedSceneId = useCanvasStore((state) => state.selectedSceneId);
   const selectedChoiceId = useCanvasStore((state) => state.selectedChoiceId);
   const selectScene = useCanvasStore((state) => state.selectScene);
+  const selectChoice = useCanvasStore((state) => state.selectChoice);
+  const openEditor = useCanvasStore((state) => state.openEditor);
   const addDialoguePage = useCanvasStore((state) => state.addDialoguePage);
   const addChoice = useCanvasStore((state) => state.addChoice);
   const scene = activeProject?.scenes.find((item) => item.id === selectedSceneId) ?? null;
@@ -709,17 +715,24 @@ export function SceneEditorPanel() {
     () => (activeProject ? validateProject(activeProject) : []),
     [activeProject],
   );
-  const isOpen = Boolean(scene);
 
   return (
-    <aside
-      className={[
-        'h-[calc(100vh-3.5rem)] w-[360px] border-l border-gray-800 bg-gray-900 text-gray-100 shadow-2xl transition-transform duration-200',
-        isOpen ? 'translate-x-0' : 'translate-x-full',
-      ].join(' ')}
-    >
-      {scene ? (
-        <div className="flex h-full flex-col">
+    <aside className="h-[calc(100vh-3.5rem)] w-[360px] border-l border-gray-800 bg-gray-900 text-gray-100 shadow-2xl">
+      <div className="flex h-full flex-col">
+        {activeProject ? (
+          <ProjectValidationPanel
+            project={activeProject}
+            onIssueClick={(issue) =>
+              navigateToValidationIssue(issue, {
+                openEditor,
+                selectChoice,
+              })
+            }
+          />
+        ) : null}
+
+        {scene ? (
+          <div className="flex min-h-0 flex-1 flex-col">
           <header className="flex items-center gap-2 border-b border-gray-800 px-4 py-3">
             <SceneNameEditor scene={scene} />
             <button
@@ -799,8 +812,9 @@ export function SceneEditorPanel() {
               </button>
             </CollapsibleSection>
           </div>
-        </div>
-      ) : null}
+          </div>
+        ) : null}
+      </div>
     </aside>
   );
 }

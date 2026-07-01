@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import type { AssetLibraryItem, Character, Choice, Effect, Project, Scene } from '../../types';
+import type {
+  AssetLibraryItem,
+  Character,
+  Choice,
+  Condition,
+  Effect,
+  Project,
+  Resource,
+  Scene,
+} from '../../types';
 import { VALIDATION_CODES, validateProject } from './projectValidation';
 
 function createProject(scenes: Scene[], overrides: Partial<Project> = {}): Project {
@@ -61,11 +70,37 @@ function createEffect(): Effect {
   };
 }
 
-function createCharacter(id: string): Character {
+function createResource(id: string): Resource {
+  return {
+    id,
+    key: id,
+    displayName: id,
+    icon: 'circle',
+    visible: true,
+    defaultValue: 0,
+  };
+}
+
+function createCharacter(id: string, attributeKeys: string[] = []): Character {
   return {
     id,
     name: id,
-    attributes: [],
+    attributes: attributeKeys.map((key) => ({
+      key,
+      defaultValue: 0,
+    })),
+  };
+}
+
+function createCondition(overrides: Partial<Condition> = {}): Condition {
+  return {
+    id: 'condition-1',
+    type: 'resource',
+    targetId: 'resource-1',
+    operator: '>=',
+    value: 1,
+    hintText: '',
+    ...overrides,
   };
 }
 
@@ -91,9 +126,10 @@ describe('validateProject', () => {
   });
 
   it('does not warn for a valid action choice', () => {
-    const project = createProject([
-      createScene('scene-start', [createChoice({ effects: [createEffect()] })]),
-    ]);
+    const project = createProject(
+      [createScene('scene-start', [createChoice({ effects: [createEffect()] })])],
+      { resources: [createResource('resource-1')] },
+    );
 
     expect(validateProject(project)).toEqual([]);
   });
@@ -225,6 +261,251 @@ describe('validateProject', () => {
         message: 'Referenced background asset no longer exists.',
         sceneId: 'scene-start',
         choiceId: null,
+      },
+    ]);
+  });
+
+  it('errors for a missing Resource in a Condition', () => {
+    const project = createProject([
+      createScene('scene-start', [
+        createChoice({
+          id: 'choice-broken',
+          text: 'Check gold',
+          targetSceneId: 'scene-start',
+          conditionGroups: [
+            {
+              id: 'group-1',
+              conditions: [createCondition({ targetId: 'missing-resource' })],
+            },
+          ],
+        }),
+      ]),
+    ]);
+
+    expect(validateProject(project)).toEqual([
+      {
+        severity: 'error',
+        code: VALIDATION_CODES.brokenConditionResourceReference,
+        message: 'Scene "scene-start", choice "Check gold" has a Condition that references a missing Resource.',
+        sceneId: 'scene-start',
+        choiceId: 'choice-broken',
+      },
+    ]);
+  });
+
+  it('errors for a missing Resource in an Effect', () => {
+    const project = createProject([
+      createScene('scene-start', [
+        createChoice({
+          id: 'choice-broken',
+          text: 'Spend gold',
+          effects: [createEffect()],
+        }),
+      ]),
+    ]);
+
+    expect(validateProject(project)).toEqual([
+      {
+        severity: 'error',
+        code: VALIDATION_CODES.brokenEffectResourceReference,
+        message: 'Scene "scene-start", choice "Spend gold" has an Effect that references a missing Resource.',
+        sceneId: 'scene-start',
+        choiceId: 'choice-broken',
+      },
+    ]);
+  });
+
+  it('errors for a missing Variable in a Condition', () => {
+    const project = createProject([
+      createScene('scene-start', [
+        createChoice({
+          id: 'choice-broken',
+          text: 'Check flag',
+          targetSceneId: 'scene-start',
+          conditionGroups: [
+            {
+              id: 'group-1',
+              conditions: [
+                createCondition({
+                  type: 'variable',
+                  targetId: 'missing-variable',
+                }),
+              ],
+            },
+          ],
+        }),
+      ]),
+    ]);
+
+    expect(validateProject(project)).toEqual([
+      {
+        severity: 'error',
+        code: VALIDATION_CODES.brokenConditionVariableReference,
+        message: 'Scene "scene-start", choice "Check flag" has a Condition that references a missing Variable.',
+        sceneId: 'scene-start',
+        choiceId: 'choice-broken',
+      },
+    ]);
+  });
+
+  it('errors for a missing Variable in an Effect', () => {
+    const project = createProject([
+      createScene('scene-start', [
+        createChoice({
+          id: 'choice-broken',
+          text: 'Set flag',
+          effects: [
+            {
+              ...createEffect(),
+              type: 'variable',
+              targetId: 'missing-variable',
+            },
+          ],
+        }),
+      ]),
+    ]);
+
+    expect(validateProject(project)).toEqual([
+      {
+        severity: 'error',
+        code: VALIDATION_CODES.brokenEffectVariableReference,
+        message: 'Scene "scene-start", choice "Set flag" has an Effect that references a missing Variable.',
+        sceneId: 'scene-start',
+        choiceId: 'choice-broken',
+      },
+    ]);
+  });
+
+  it('errors for a missing Character in a Condition', () => {
+    const project = createProject([
+      createScene('scene-start', [
+        createChoice({
+          id: 'choice-broken',
+          text: 'Check courage',
+          targetSceneId: 'scene-start',
+          conditionGroups: [
+            {
+              id: 'group-1',
+              conditions: [
+                createCondition({
+                  type: 'character_attr',
+                  targetId: 'missing-character',
+                  attribute: 'courage',
+                }),
+              ],
+            },
+          ],
+        }),
+      ]),
+    ]);
+
+    expect(validateProject(project)).toEqual([
+      {
+        severity: 'error',
+        code: VALIDATION_CODES.brokenConditionCharacterReference,
+        message: 'Scene "scene-start", choice "Check courage" has a Condition that references a missing Character.',
+        sceneId: 'scene-start',
+        choiceId: 'choice-broken',
+      },
+    ]);
+  });
+
+  it('errors for a missing Character in an Effect', () => {
+    const project = createProject([
+      createScene('scene-start', [
+        createChoice({
+          id: 'choice-broken',
+          text: 'Raise courage',
+          effects: [
+            {
+              ...createEffect(),
+              type: 'character_attr',
+              targetId: 'missing-character',
+              attribute: 'courage',
+            },
+          ],
+        }),
+      ]),
+    ]);
+
+    expect(validateProject(project)).toEqual([
+      {
+        severity: 'error',
+        code: VALIDATION_CODES.brokenEffectCharacterReference,
+        message: 'Scene "scene-start", choice "Raise courage" has an Effect that references a missing Character.',
+        sceneId: 'scene-start',
+        choiceId: 'choice-broken',
+      },
+    ]);
+  });
+
+  it('errors for a missing Character Attribute in a Condition', () => {
+    const project = createProject(
+      [
+        createScene('scene-start', [
+          createChoice({
+            id: 'choice-broken',
+            text: 'Check courage',
+            targetSceneId: 'scene-start',
+            conditionGroups: [
+              {
+                id: 'group-1',
+                conditions: [
+                  createCondition({
+                    type: 'character_attr',
+                    targetId: 'character-hero',
+                    attribute: 'missing-courage',
+                  }),
+                ],
+              },
+            ],
+          }),
+        ]),
+      ],
+      { characters: [createCharacter('character-hero', ['trust'])] },
+    );
+
+    expect(validateProject(project)).toEqual([
+      {
+        severity: 'error',
+        code: VALIDATION_CODES.brokenConditionCharacterAttributeReference,
+        message:
+          'Scene "scene-start", choice "Check courage" has a Condition that references a missing Character Attribute.',
+        sceneId: 'scene-start',
+        choiceId: 'choice-broken',
+      },
+    ]);
+  });
+
+  it('errors for a missing Character Attribute in an Effect', () => {
+    const project = createProject(
+      [
+        createScene('scene-start', [
+          createChoice({
+            id: 'choice-broken',
+            text: 'Raise courage',
+            effects: [
+              {
+                ...createEffect(),
+                type: 'character_attr',
+                targetId: 'character-hero',
+                attribute: 'missing-courage',
+              },
+            ],
+          }),
+        ]),
+      ],
+      { characters: [createCharacter('character-hero', ['trust'])] },
+    );
+
+    expect(validateProject(project)).toEqual([
+      {
+        severity: 'error',
+        code: VALIDATION_CODES.brokenEffectCharacterAttributeReference,
+        message:
+          'Scene "scene-start", choice "Raise courage" has an Effect that references a missing Character Attribute.',
+        sceneId: 'scene-start',
+        choiceId: 'choice-broken',
       },
     ]);
   });

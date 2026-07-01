@@ -1,4 +1,4 @@
-import type { Project } from '../../types';
+import type { Choice, Condition, Effect, Project, Scene } from '../../types';
 
 export type ValidationSeverity = 'warning' | 'error';
 
@@ -16,6 +16,14 @@ export const VALIDATION_CODES = {
   missingDialogueSpeaker: 'missing_dialogue_speaker',
   brokenSceneBackgroundReference: 'broken_scene_background_reference',
   brokenAssetBackgroundReference: 'broken_asset_background_reference',
+  brokenConditionResourceReference: 'broken_condition_resource_reference',
+  brokenEffectResourceReference: 'broken_effect_resource_reference',
+  brokenConditionVariableReference: 'broken_condition_variable_reference',
+  brokenEffectVariableReference: 'broken_effect_variable_reference',
+  brokenConditionCharacterReference: 'broken_condition_character_reference',
+  brokenEffectCharacterReference: 'broken_effect_character_reference',
+  brokenConditionCharacterAttributeReference: 'broken_condition_character_attribute_reference',
+  brokenEffectCharacterAttributeReference: 'broken_effect_character_attribute_reference',
 } as const;
 
 type ProjectValidationRule = (project: Project) => ValidationIssue[];
@@ -138,12 +146,177 @@ function validateBrokenAssetBackgroundReferences(project: Project): ValidationIs
   return issues;
 }
 
+function formatChoiceContext(scene: Scene, choice: Choice) {
+  return `Scene "${scene.name}", choice "${choice.text || 'Untitled choice'}"`;
+}
+
+function validateConditionReference(
+  condition: Condition,
+  project: Project,
+  scene: Scene,
+  choice: Choice,
+): ValidationIssue | null {
+  const context = formatChoiceContext(scene, choice);
+
+  if (condition.type === 'resource') {
+    if (project.resources.some((resource) => resource.id === condition.targetId)) {
+      return null;
+    }
+
+    return {
+      severity: 'error',
+      code: VALIDATION_CODES.brokenConditionResourceReference,
+      message: `${context} has a Condition that references a missing Resource.`,
+      sceneId: scene.id,
+      choiceId: choice.id,
+    };
+  }
+
+  if (condition.type === 'variable') {
+    if (project.variables.some((variable) => variable.id === condition.targetId)) {
+      return null;
+    }
+
+    return {
+      severity: 'error',
+      code: VALIDATION_CODES.brokenConditionVariableReference,
+      message: `${context} has a Condition that references a missing Variable.`,
+      sceneId: scene.id,
+      choiceId: choice.id,
+    };
+  }
+
+  if (condition.type === 'character_attr') {
+    const character = project.characters.find((item) => item.id === condition.targetId);
+
+    if (!character) {
+      return {
+        severity: 'error',
+        code: VALIDATION_CODES.brokenConditionCharacterReference,
+        message: `${context} has a Condition that references a missing Character.`,
+        sceneId: scene.id,
+        choiceId: choice.id,
+      };
+    }
+
+    if (
+      !condition.attribute ||
+      !character.attributes.some((attribute) => attribute.key === condition.attribute)
+    ) {
+      return {
+        severity: 'error',
+        code: VALIDATION_CODES.brokenConditionCharacterAttributeReference,
+        message: `${context} has a Condition that references a missing Character Attribute.`,
+        sceneId: scene.id,
+        choiceId: choice.id,
+      };
+    }
+  }
+
+  return null;
+}
+
+function validateEffectReference(
+  effect: Effect,
+  project: Project,
+  scene: Scene,
+  choice: Choice,
+): ValidationIssue | null {
+  const context = formatChoiceContext(scene, choice);
+
+  if (effect.type === 'resource') {
+    if (project.resources.some((resource) => resource.id === effect.targetId)) {
+      return null;
+    }
+
+    return {
+      severity: 'error',
+      code: VALIDATION_CODES.brokenEffectResourceReference,
+      message: `${context} has an Effect that references a missing Resource.`,
+      sceneId: scene.id,
+      choiceId: choice.id,
+    };
+  }
+
+  if (effect.type === 'variable') {
+    if (project.variables.some((variable) => variable.id === effect.targetId)) {
+      return null;
+    }
+
+    return {
+      severity: 'error',
+      code: VALIDATION_CODES.brokenEffectVariableReference,
+      message: `${context} has an Effect that references a missing Variable.`,
+      sceneId: scene.id,
+      choiceId: choice.id,
+    };
+  }
+
+  if (effect.type === 'character_attr') {
+    const character = project.characters.find((item) => item.id === effect.targetId);
+
+    if (!character) {
+      return {
+        severity: 'error',
+        code: VALIDATION_CODES.brokenEffectCharacterReference,
+        message: `${context} has an Effect that references a missing Character.`,
+        sceneId: scene.id,
+        choiceId: choice.id,
+      };
+    }
+
+    if (
+      !effect.attribute ||
+      !character.attributes.some((attribute) => attribute.key === effect.attribute)
+    ) {
+      return {
+        severity: 'error',
+        code: VALIDATION_CODES.brokenEffectCharacterAttributeReference,
+        message: `${context} has an Effect that references a missing Character Attribute.`,
+        sceneId: scene.id,
+        choiceId: choice.id,
+      };
+    }
+  }
+
+  return null;
+}
+
+function validateBrokenStoryLogicReferences(project: Project): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+
+  project.scenes.forEach((scene) => {
+    scene.choices.forEach((choice) => {
+      (choice.conditionGroups ?? []).forEach((conditionGroup) => {
+        conditionGroup.conditions.forEach((condition) => {
+          const issue = validateConditionReference(condition, project, scene, choice);
+
+          if (issue) {
+            issues.push(issue);
+          }
+        });
+      });
+
+      (choice.effects ?? []).forEach((effect) => {
+        const issue = validateEffectReference(effect, project, scene, choice);
+
+        if (issue) {
+          issues.push(issue);
+        }
+      });
+    });
+  });
+
+  return issues;
+}
+
 const projectValidationRules: ProjectValidationRule[] = [
   validateTargetlessChoicesWithoutEffects,
   validateBrokenChoiceTargets,
   validateMissingDialogueSpeakers,
   validateBrokenSceneBackgroundReferences,
   validateBrokenAssetBackgroundReferences,
+  validateBrokenStoryLogicReferences,
 ];
 
 export function validateProject(project: Project): ValidationIssue[] {

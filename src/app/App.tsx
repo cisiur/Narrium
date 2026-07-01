@@ -26,6 +26,10 @@ export function App() {
   const activeProject = useWorkspaceStore((state) => state.activeProject);
   const closeProject = useWorkspaceStore((state) => state.closeProject);
   const addScene = useCanvasStore((state) => state.addScene);
+  const groupSelectedScenes = useCanvasStore((state) => state.groupSelectedScenes);
+  const ungroupSelectedGroup = useCanvasStore((state) => state.ungroupSelectedGroup);
+  const selectedSceneIds = useCanvasStore((state) => state.selectedSceneIds);
+  const selectedGroupId = useCanvasStore((state) => state.selectedGroupId);
   const activeProjectView = useProjectViewStore((state) => state.activeProjectView);
   const setActiveProjectView = useProjectViewStore((state) => state.setActiveProjectView);
 
@@ -99,7 +103,7 @@ export function App() {
           return;
         }
 
-        if (canvasStore.selectedSceneId) {
+        if (canvasStore.selectedSceneId || canvasStore.selectedSceneIds.length > 0 || canvasStore.selectedGroupId) {
           event.preventDefault();
           canvasStore.selectScene(null);
         }
@@ -147,6 +151,10 @@ export function App() {
         projectName={activeProject.name}
         activeProjectView={activeProjectView}
         onAddScene={isCanvasView ? () => addScene('New Scene') : undefined}
+        onGroupSelectedScenes={
+          isCanvasView && selectedSceneIds.length >= 2 ? groupSelectedScenes : undefined
+        }
+        onUngroupSelectedGroup={isCanvasView && selectedGroupId ? ungroupSelectedGroup : undefined}
         onBackToProjects={closeProject}
         onExportHtml={() => exportProjectAsStandaloneHtml(activeProject)}
         onExportProject={() => exportProjectAsJson(activeProject)}

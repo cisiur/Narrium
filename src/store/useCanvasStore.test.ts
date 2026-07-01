@@ -1,11 +1,15 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { Choice, Project, Scene } from '../types';
+import type { Choice, Project, Scene, SceneGroup } from '../types';
 import { validateProject } from '../features/validation/projectValidation';
 import { createEmptyProjectHistory } from './projectHistory';
 import { useCanvasStore } from './useCanvasStore';
 import { useWorkspaceStore } from './workspaceStore';
 
-function createScene(id: string, choices: Choice[] = []): Scene {
+function createScene(
+  id: string,
+  choices: Choice[] = [],
+  input: Partial<Pick<Scene, 'position' | 'groupId'>> = {},
+): Scene {
   return {
     id,
     name: id,
@@ -15,10 +19,21 @@ function createScene(id: string, choices: Choice[] = []): Scene {
       sourceSceneId: null,
       url: '',
     },
-    position: { x: 0, y: 0 },
+    position: input.position ?? { x: 0, y: 0 },
     dialoguePages: [],
     choices,
-    groupId: null,
+    groupId: input.groupId ?? null,
+  };
+}
+
+function createGroup(id: string): SceneGroup {
+  return {
+    id,
+    name: 'Existing Group',
+    color: '#38bdf8',
+    position: { x: 12, y: 34 },
+    size: { width: 500, height: 300 },
+    collapsed: false,
   };
 }
 
@@ -79,7 +94,10 @@ function createProject(id = 'project-1'): Project {
     name: 'Test Project',
     thumbnail: null,
     startSceneId: 'scene-start',
-    scenes: [createScene('scene-start', [choice]), createScene('scene-target')],
+    scenes: [
+      createScene('scene-start', [choice], { position: { x: 100, y: 200 } }),
+      createScene('scene-target', [], { position: { x: 500, y: 420 } }),
+    ],
     characters: [
       {
         id: 'character-hero',
@@ -123,6 +141,8 @@ function setActiveProject(project: Project) {
   });
   useCanvasStore.setState({
     selectedSceneId: 'scene-start',
+    selectedSceneIds: ['scene-start'],
+    selectedGroupId: null,
     selectedChoiceId: null,
     copiedChoice: null,
     copiedChoiceProjectId: null,
@@ -227,6 +247,117 @@ describe('choice copy and paste', () => {
     const choices = getStartScene(useWorkspaceStore.getState().activeProject as Project).choices;
 
     expect(choices).toHaveLength(1);
+    expect(useWorkspaceStore.getState().projectHistory.undoStack).toHaveLength(0);
+  });
+});
+
+describe('scene groups', () => {
+  beforeEach(() => {
+    setActiveProject(createProject());
+  });
+
+  it('creates a group for selected scenes and assigns scene group ids', () => {
+    useCanvasStore.getState().selectScenes(['scene-start', 'scene-target']);
+
+    useCanvasStore.getState().groupSelectedScenes();
+
+    const project = useWorkspaceStore.getState().activeProject as Project;
+    const group = project.groups[0];
+
+    expect(project.groups).toHaveLength(1);
+    expect(group.id).toMatch(/^group_/);
+    expect(project.scenes.map((scene) => scene.groupId)).toEqual([group.id, group.id]);
+    expect(useCanvasStore.getState().selectedSceneIds).toEqual([]);
+    expect(useCanvasStore.getState().selectedGroupId).toBe(group.id);
+  });
+
+  it('initializes group bounds and default values from selected scenes', () => {
+    useCanvasStore.getState().selectScenes(['scene-start', 'scene-target']);
+
+    useCanvasStore.getState().groupSelectedScenes();
+
+    const project = useWorkspaceStore.getState().activeProject as Project;
+    const group = project.groups[0];
+
+    expect(group).toMatchObject({
+      name: 'New Group',
+      color: '#38bdf8',
+      collapsed: false,
+      position: { x: 68, y: 168 },
+      size: { width: 704, height: 444 },
+    });
+  });
+
+  it('preserves Story Logic when grouping scenes', () => {
+    const originalChoice = createChoice();
+    useCanvasStore.getState().selectScenes(['scene-start', 'scene-target']);
+
+    useCanvasStore.getState().groupSelectedScenes();
+
+    const project = useWorkspaceStore.getState().activeProject as Project;
+    const choice = getStartScene(project).choices[0];
+
+    expect(choice).toEqual(originalChoice);
+    expect(validateProject(project)).toEqual([]);
+  });
+
+  it('creates one undo snapshot when creating a group', () => {
+    useCanvasStore.getState().selectScenes(['scene-start', 'scene-target']);
+
+    useCanvasStore.getState().groupSelectedScenes();
+
+    expect(useWorkspaceStore.getState().projectHistory.undoStack).toHaveLength(1);
+  });
+
+  it('ungroups the selected group and restores member scene group ids to null', () => {
+    useCanvasStore.getState().selectScenes(['scene-start', 'scene-target']);
+    useCanvasStore.getState().groupSelectedScenes();
+    const groupId = (useWorkspaceStore.getState().activeProject as Project).groups[0].id;
+
+    useCanvasStore.getState().ungroupSelectedGroup();
+
+    const project = useWorkspaceStore.getState().activeProject as Project;
+
+    expect(project.groups).toEqual([]);
+    expect(project.scenes.map((scene) => scene.groupId)).toEqual([null, null]);
+    expect(project.scenes.map((scene) => scene.position)).toEqual([
+      { x: 100, y: 200 },
+      { x: 500, y: 420 },
+    ]);
+    expect(useCanvasStore.getState().selectedGroupId).toBeNull();
+    expect(groupId).toMatch(/^group_/);
+  });
+
+  it('creates one undo snapshot when ungrouping', () => {
+    const group = createGroup('group-existing');
+    const project = {
+      ...createProject(),
+      groups: [group],
+      scenes: [
+        createScene('scene-start', [createChoice()], {
+          position: { x: 100, y: 200 },
+          groupId: group.id,
+        }),
+        createScene('scene-target', [], {
+          position: { x: 500, y: 420 },
+          groupId: group.id,
+        }),
+      ],
+    };
+    setActiveProject(project);
+    useCanvasStore.getState().selectGroup(group.id);
+
+    useCanvasStore.getState().ungroupSelectedGroup();
+
+    expect(useWorkspaceStore.getState().projectHistory.undoStack).toHaveLength(1);
+  });
+
+  it('does not create undo history for selection changes', () => {
+    useCanvasStore.getState().selectScenes(['scene-start', 'scene-target']);
+    useCanvasStore.getState().selectScene('scene-start');
+    useCanvasStore.getState().selectGroup('group-missing');
+    useCanvasStore.getState().selectScene(null);
+
     expect(useWorkspaceStore.getState().projectHistory.undoStack).toHaveLength(0);
   });
 });

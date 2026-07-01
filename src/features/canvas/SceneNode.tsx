@@ -74,7 +74,13 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneNodeData>) {
     <div
       role="button"
       tabIndex={0}
-      onClick={() => selectScene(id)}
+      onClick={(event) => {
+        if (event.shiftKey || event.ctrlKey || event.metaKey) {
+          return;
+        }
+
+        selectScene(id);
+      }}
       onDoubleClick={() => openEditor(id)}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {

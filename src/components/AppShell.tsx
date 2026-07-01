@@ -8,6 +8,8 @@ interface AppShellProps {
   activeProjectView?: ProjectView;
   rightPanel?: ReactNode;
   onAddScene?: () => void;
+  onGroupSelectedScenes?: () => void;
+  onUngroupSelectedGroup?: () => void;
   onBackToProjects?: () => void;
   onExportHtml?: () => void;
   onExportProject?: () => void;
@@ -22,6 +24,8 @@ export function AppShell({
   activeProjectView = 'canvas',
   rightPanel,
   onAddScene,
+  onGroupSelectedScenes,
+  onUngroupSelectedGroup,
   onBackToProjects,
   onExportHtml,
   onExportProject,
@@ -79,6 +83,24 @@ export function AppShell({
               >
                 + Add Scene
               </button>
+              {onGroupSelectedScenes ? (
+                <button
+                  type="button"
+                  onClick={onGroupSelectedScenes}
+                  className="rounded bg-gray-700 px-2 py-1 text-xs font-medium text-gray-100 hover:bg-gray-600"
+                >
+                  Group selected scenes
+                </button>
+              ) : null}
+              {onUngroupSelectedGroup ? (
+                <button
+                  type="button"
+                  onClick={onUngroupSelectedGroup}
+                  className="rounded bg-gray-700 px-2 py-1 text-xs font-medium text-gray-100 hover:bg-gray-600"
+                >
+                  Ungroup
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={onEnterPreview}

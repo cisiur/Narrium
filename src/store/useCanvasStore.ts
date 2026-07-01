@@ -11,6 +11,7 @@ import {
   type OnNodesChange,
 } from 'reactflow';
 import { create } from 'zustand';
+import { computeSceneGroupBounds } from '../features/canvas/sceneGroups';
 import type { AssetLibraryItem, Choice, DialoguePage, Scene, SceneBackground } from '../types';
 import { useWorkspaceStore } from './workspaceStore';
 
@@ -32,6 +33,8 @@ interface CanvasStore {
   nodes: Node<SceneNodeData>[];
   edges: Edge[];
   selectedSceneId: string | null;
+  selectedSceneIds: string[];
+  selectedGroupId: string | null;
   selectedChoiceId: string | null;
   activeView: CanvasView;
   onNodesChange: OnNodesChange;
@@ -40,9 +43,13 @@ interface CanvasStore {
   addScene: (name: string) => void;
   deleteScene: (id: string) => void;
   selectScene: (id: string | null) => void;
+  selectScenes: (ids: string[]) => void;
+  selectGroup: (id: string | null) => void;
   selectChoice: (sceneId: string, choiceId: string) => void;
   clearSelectedChoice: () => void;
   openEditor: (id: string) => void;
+  groupSelectedScenes: () => void;
+  ungroupSelectedGroup: () => void;
   syncFromProject: () => void;
   updateSceneName: (sceneId: string, name: string) => void;
   updateSceneBackground: (sceneId: string, background: SceneBackground) => void;
@@ -148,13 +155,15 @@ function createScene(name: string, position: { x: number; y: number }): Scene {
 function buildNodes(
   scenes: Scene[],
   assetLibrary: AssetLibraryItem[],
-  selectedSceneId: string | null,
+  selectedSceneIds: string[],
 ): Node<SceneNodeData>[] {
+  const selectedSceneIdSet = new Set(selectedSceneIds);
+
   return scenes.map((scene) => ({
     id: scene.id,
     type: 'scene',
     position: scene.position,
-    selected: scene.id === selectedSceneId,
+    selected: selectedSceneIdSet.has(scene.id),
     data: {
       scene,
       scenes,
@@ -176,6 +185,10 @@ function buildEdges(scenes: Scene[]): Edge[] {
         className: 'text-gray-200',
       })),
   );
+}
+
+function getSelectedSceneIdsFromNodes(nodes: Node<SceneNodeData>[]): string[] {
+  return nodes.filter((node) => node.selected).map((node) => node.id);
 }
 
 function updateActiveProject(mutator: (scenes: Scene[]) => Scene[]) {
@@ -209,13 +222,34 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
   nodes: [],
   edges: [],
   selectedSceneId: null,
+  selectedSceneIds: [],
+  selectedGroupId: null,
   selectedChoiceId: null,
   copiedChoice: null,
   copiedChoiceProjectId: null,
   activeView: 'canvas',
   onNodesChange: (changes: NodeChange[]) => {
     set((state) => ({
-      nodes: applyNodeChanges(changes, state.nodes),
+      ...(() => {
+        const nodes = applyNodeChanges(changes, state.nodes);
+        const hasSelectionChanges = changes.some((change) => change.type === 'select');
+
+        if (!hasSelectionChanges) {
+          return { nodes };
+        }
+
+        const selectedSceneIds = getSelectedSceneIdsFromNodes(nodes);
+        const selectedSceneId = selectedSceneIds.length === 1 ? selectedSceneIds[0] : null;
+
+        return {
+          nodes,
+          selectedSceneIds,
+          selectedSceneId,
+          selectedGroupId: null,
+          selectedChoiceId: null,
+          activeView: selectedSceneId ? 'editor' : 'canvas',
+        };
+      })(),
     }));
 
     const positionChanges = changes.filter(
@@ -300,6 +334,8 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
 
     set({
       selectedSceneId: scene.id,
+      selectedSceneIds: [scene.id],
+      selectedGroupId: null,
       selectedChoiceId: null,
       activeView: 'editor',
     });
@@ -329,14 +365,20 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
 
     set({
       selectedSceneId: null,
+      selectedSceneIds: [],
+      selectedGroupId: null,
       selectedChoiceId: null,
       activeView: 'canvas',
     });
     get().syncFromProject();
   },
   selectScene: (id: string | null) => {
+    const selectedSceneIds = id ? [id] : [];
+
     set((state) => ({
       selectedSceneId: id,
+      selectedSceneIds,
+      selectedGroupId: null,
       selectedChoiceId: null,
       activeView: id ? 'editor' : 'canvas',
       nodes: state.nodes.map((node) => ({
@@ -345,9 +387,39 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
       })),
     }));
   },
+  selectScenes: (ids: string[]) => {
+    const uniqueIds = Array.from(new Set(ids));
+
+    set((state) => ({
+      selectedSceneIds: uniqueIds,
+      selectedSceneId: uniqueIds.length === 1 ? uniqueIds[0] : null,
+      selectedGroupId: null,
+      selectedChoiceId: null,
+      activeView: uniqueIds.length === 1 ? 'editor' : 'canvas',
+      nodes: state.nodes.map((node) => ({
+        ...node,
+        selected: uniqueIds.includes(node.id),
+      })),
+    }));
+  },
+  selectGroup: (id: string | null) => {
+    set((state) => ({
+      selectedSceneId: null,
+      selectedSceneIds: [],
+      selectedGroupId: id,
+      selectedChoiceId: null,
+      activeView: 'canvas',
+      nodes: state.nodes.map((node) => ({
+        ...node,
+        selected: false,
+      })),
+    }));
+  },
   selectChoice: (sceneId: string, choiceId: string) => {
     set({
       selectedSceneId: sceneId,
+      selectedSceneIds: [sceneId],
+      selectedGroupId: null,
       selectedChoiceId: choiceId,
       activeView: 'editor',
     });
@@ -360,6 +432,8 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
   openEditor: (id: string) => {
     set((state) => ({
       selectedSceneId: id,
+      selectedSceneIds: [id],
+      selectedGroupId: null,
       selectedChoiceId: null,
       activeView: 'editor',
       nodes: state.nodes.map((node) => ({
@@ -368,15 +442,97 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
       })),
     }));
   },
+  groupSelectedScenes: () => {
+    const activeProject = useWorkspaceStore.getState().activeProject;
+
+    if (!activeProject) {
+      return;
+    }
+
+    const selectedSceneIdSet = new Set(get().selectedSceneIds);
+    const selectedScenes = activeProject.scenes.filter((scene) => selectedSceneIdSet.has(scene.id));
+
+    if (selectedScenes.length < 2) {
+      return;
+    }
+
+    const groupId = createId('group');
+    const bounds = computeSceneGroupBounds(selectedScenes);
+
+    useWorkspaceStore.getState().updateActiveProject((project) => ({
+      ...project,
+      groups: [
+        ...project.groups,
+        {
+          id: groupId,
+          name: 'New Group',
+          color: '#38bdf8',
+          collapsed: false,
+          position: bounds.position,
+          size: bounds.size,
+        },
+      ],
+      scenes: project.scenes.map((scene) =>
+        selectedSceneIdSet.has(scene.id) ? { ...scene, groupId } : scene,
+      ),
+    }));
+
+    set({
+      selectedSceneId: null,
+      selectedSceneIds: [],
+      selectedGroupId: groupId,
+      selectedChoiceId: null,
+      activeView: 'canvas',
+    });
+    get().syncFromProject();
+  },
+  ungroupSelectedGroup: () => {
+    const activeProject = useWorkspaceStore.getState().activeProject;
+    const selectedGroupId = get().selectedGroupId;
+
+    if (!activeProject || !selectedGroupId) {
+      return;
+    }
+
+    const group = activeProject.groups.find((item) => item.id === selectedGroupId);
+
+    if (!group) {
+      return;
+    }
+
+    useWorkspaceStore.getState().updateActiveProject((project) => ({
+      ...project,
+      groups: project.groups.filter((item) => item.id !== selectedGroupId),
+      scenes: project.scenes.map((scene) =>
+        scene.groupId === selectedGroupId ? { ...scene, groupId: null } : scene,
+      ),
+    }));
+
+    set({
+      selectedSceneId: null,
+      selectedSceneIds: [],
+      selectedGroupId: null,
+      selectedChoiceId: null,
+      activeView: 'canvas',
+    });
+    get().syncFromProject();
+  },
   syncFromProject: () => {
     const activeProject = useWorkspaceStore.getState().activeProject;
     const selectedSceneId = get().selectedSceneId;
+    const selectedSceneIds =
+      selectedSceneId && get().selectedSceneIds.length === 0
+        ? [selectedSceneId]
+        : get().selectedSceneIds;
+    const selectedGroupId = get().selectedGroupId;
 
     if (!activeProject) {
       set({
         nodes: [],
         edges: [],
         selectedSceneId: null,
+        selectedSceneIds: [],
+        selectedGroupId: null,
         selectedChoiceId: null,
         activeView: 'canvas',
       });
@@ -385,6 +541,12 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
 
     const selectedSceneExists = activeProject.scenes.some((scene) => scene.id === selectedSceneId);
     const nextSelectedSceneId = selectedSceneExists ? selectedSceneId : null;
+    const nextSelectedSceneIds = selectedSceneIds.filter((id) =>
+      activeProject.scenes.some((scene) => scene.id === id),
+    );
+    const nextSelectedGroupId = activeProject.groups.some((group) => group.id === selectedGroupId)
+      ? selectedGroupId
+      : null;
     const selectedChoiceId = get().selectedChoiceId;
     const selectedChoiceExists = activeProject.scenes.some(
       (scene) =>
@@ -393,11 +555,13 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
     );
 
     set({
-      nodes: buildNodes(activeProject.scenes, activeProject.assetLibrary, nextSelectedSceneId),
+      nodes: buildNodes(activeProject.scenes, activeProject.assetLibrary, nextSelectedSceneIds),
       edges: buildEdges(activeProject.scenes),
       selectedSceneId: nextSelectedSceneId,
+      selectedSceneIds: nextSelectedSceneIds,
+      selectedGroupId: nextSelectedGroupId,
       selectedChoiceId: selectedChoiceExists ? selectedChoiceId : null,
-      activeView: nextSelectedSceneId ? get().activeView : 'canvas',
+      activeView: nextSelectedSceneId && !nextSelectedGroupId ? get().activeView : 'canvas',
     });
   },
   updateSceneName: (sceneId: string, name: string) => {
@@ -575,6 +739,8 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
     );
     set({
       selectedSceneId: sceneId,
+      selectedSceneIds: [sceneId],
+      selectedGroupId: null,
       selectedChoiceId: pastedChoice.id,
       activeView: 'editor',
     });

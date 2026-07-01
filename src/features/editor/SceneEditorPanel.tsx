@@ -731,89 +731,97 @@ export function SceneEditorPanel() {
           />
         ) : null}
 
-        {scene ? (
-          <div className="flex min-h-0 flex-1 flex-col">
-          <header className="flex items-center gap-2 border-b border-gray-800 px-4 py-3">
-            <SceneNameEditor scene={scene} />
-            <button
-              type="button"
-              onClick={() => selectScene(null)}
-              className="rounded bg-gray-800 px-2 py-1 text-sm text-gray-300 hover:bg-gray-700 hover:text-gray-100"
-              aria-label="Close scene editor"
-            >
-              ×
-            </button>
-          </header>
+        <div className="min-h-0 flex-1">
+          {scene ? (
+            <div className="flex h-full min-h-0 flex-col">
+              <header className="flex items-center gap-2 border-b border-gray-800 px-4 py-3">
+                <SceneNameEditor scene={scene} />
+                <button
+                  type="button"
+                  onClick={() => selectScene(null)}
+                  className="rounded bg-gray-800 px-2 py-1 text-sm text-gray-300 hover:bg-gray-700 hover:text-gray-100"
+                  aria-label="Close scene editor"
+                >
+                  ×
+                </button>
+              </header>
 
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            <CollapsibleSection title="Background">
-              <BackgroundEditor
-                scene={scene}
-                scenes={activeProject?.scenes ?? []}
-                assets={activeProject?.assetLibrary ?? []}
-              />
-            </CollapsibleSection>
-
-            <CollapsibleSection title="Dialogue Pages">
-              <div className="space-y-2">
-                {scene.dialoguePages.map((page, pageIndex) => (
-                  <DialoguePageItem
-                    key={page.id}
-                    page={page}
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                <CollapsibleSection title="Background">
+                  <BackgroundEditor
                     scene={scene}
-                    pageIndex={pageIndex}
-                    pageCount={scene.dialoguePages.length}
-                    isOnlyPage={scene.dialoguePages.length === 1}
-                    characters={activeProject?.characters ?? []}
+                    scenes={activeProject?.scenes ?? []}
+                    assets={activeProject?.assetLibrary ?? []}
                   />
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={() => addDialoguePage(scene.id)}
-                className="rounded bg-gray-700 px-2 py-1 text-xs font-medium text-gray-100 hover:bg-gray-600"
-              >
-                + Add Page
-              </button>
-            </CollapsibleSection>
+                </CollapsibleSection>
 
-            <CollapsibleSection title="Choices">
-              <div className="space-y-2">
-                {scene.choices.map((choice) => {
-                  const targetScene = activeProject?.scenes.find(
-                    (candidate) => candidate.id === choice.targetSceneId,
-                  );
-                  const hasChoiceDoesNothingWarning = validationIssues.some(
-                    (issue) =>
-                      issue.code === VALIDATION_CODES.targetlessChoiceWithoutEffects &&
-                      issue.sceneId === scene.id &&
-                      issue.choiceId === choice.id,
-                  );
+                <CollapsibleSection title="Dialogue Pages">
+                  <div className="space-y-2">
+                    {scene.dialoguePages.map((page, pageIndex) => (
+                      <DialoguePageItem
+                        key={page.id}
+                        page={page}
+                        scene={scene}
+                        pageIndex={pageIndex}
+                        pageCount={scene.dialoguePages.length}
+                        isOnlyPage={scene.dialoguePages.length === 1}
+                        characters={activeProject?.characters ?? []}
+                      />
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => addDialoguePage(scene.id)}
+                    className="rounded bg-gray-700 px-2 py-1 text-xs font-medium text-gray-100 hover:bg-gray-600"
+                  >
+                    + Add Page
+                  </button>
+                </CollapsibleSection>
 
-                  return (
-                    <ChoiceItem
-                      key={choice.id}
-                      choice={choice}
-                      scene={scene}
-                      scenes={activeProject?.scenes ?? []}
-                      isSelected={selectedChoiceId === choice.id}
-                      targetSceneName={targetScene ? `→ ${targetScene.name}` : '→ not connected'}
-                      hasChoiceDoesNothingWarning={hasChoiceDoesNothingWarning}
-                    />
-                  );
-                })}
+                <CollapsibleSection title="Choices">
+                  <div className="space-y-2">
+                    {scene.choices.map((choice) => {
+                      const targetScene = activeProject?.scenes.find(
+                        (candidate) => candidate.id === choice.targetSceneId,
+                      );
+                      const hasChoiceDoesNothingWarning = validationIssues.some(
+                        (issue) =>
+                          issue.code === VALIDATION_CODES.targetlessChoiceWithoutEffects &&
+                          issue.sceneId === scene.id &&
+                          issue.choiceId === choice.id,
+                      );
+
+                      return (
+                        <ChoiceItem
+                          key={choice.id}
+                          choice={choice}
+                          scene={scene}
+                          scenes={activeProject?.scenes ?? []}
+                          isSelected={selectedChoiceId === choice.id}
+                          targetSceneName={targetScene ? `→ ${targetScene.name}` : '→ not connected'}
+                          hasChoiceDoesNothingWarning={hasChoiceDoesNothingWarning}
+                        />
+                      );
+                    })}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => addChoice(scene.id)}
+                    className="rounded bg-gray-700 px-2 py-1 text-xs font-medium text-gray-100 hover:bg-gray-600"
+                  >
+                    + Add Choice
+                  </button>
+                </CollapsibleSection>
               </div>
-              <button
-                type="button"
-                onClick={() => addChoice(scene.id)}
-                className="rounded bg-gray-700 px-2 py-1 text-xs font-medium text-gray-100 hover:bg-gray-600"
-              >
-                + Add Choice
-              </button>
-            </CollapsibleSection>
-          </div>
-          </div>
-        ) : null}
+            </div>
+          ) : (
+            <div className="flex h-full items-start px-4 py-4">
+              <p className="rounded-md border border-dashed border-gray-700 px-3 py-3 text-xs text-gray-500">
+                Select a scene to edit its content.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </aside>
   );

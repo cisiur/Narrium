@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useConfirmationDialog } from '../../components';
 import { RightSidebar } from '../../components/RightSidebar';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import type { Project, WorkspaceProjectMeta } from '../../types';
@@ -81,6 +82,7 @@ function ProjectSettingsSidebar({
   onRename,
   onUpdateThumbnail,
 }: ProjectSettingsSidebarProps) {
+  const { confirm, confirmationDialog } = useConfirmationDialog();
   const [draftName, setDraftName] = useState(project?.name ?? '');
   const inputRef = useRef<HTMLInputElement | null>(null);
   const thumbnailInputRef = useRef<HTMLInputElement | null>(null);
@@ -107,12 +109,16 @@ function ProjectSettingsSidebar({
     onRename(project.id, draftName);
   };
 
-  const deleteProject = () => {
+  const deleteProject = async () => {
     if (!project) {
       return;
     }
 
-    const shouldDelete = window.confirm(`Delete "${project.name}"? This cannot be undone.`);
+    const shouldDelete = await confirm({
+      title: 'Delete Project',
+      message: `Delete "${project.name}"? This cannot be undone.`,
+      confirmLabel: 'Delete',
+    });
 
     if (!shouldDelete) {
       return;
@@ -162,7 +168,7 @@ function ProjectSettingsSidebar({
             </div>
             <button
               type="button"
-              onClick={deleteProject}
+              onClick={() => void deleteProject()}
               className="mt-3 rounded bg-red-950 px-3 py-2 text-sm font-semibold text-red-100 hover:bg-red-900"
             >
               Delete Project
@@ -236,6 +242,7 @@ function ProjectSettingsSidebar({
           </section>
         </>
       ) : null}
+      {confirmationDialog}
     </RightSidebar>
   );
 }

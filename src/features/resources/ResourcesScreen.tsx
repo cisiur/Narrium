@@ -1,4 +1,5 @@
 import { useState, type KeyboardEvent } from 'react';
+import { useConfirmationDialog } from '../../components';
 import type { Resource } from '../../types';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { findStoryLogicUsages, formatStoryLogicUsageWarning } from '../story-logic/referenceUsage';
@@ -39,6 +40,7 @@ function resolveResourceKey(resources: Resource[], nextKey: string, currentResou
 export function ResourcesScreen() {
   const activeProject = useWorkspaceStore((state) => state.activeProject);
   const updateActiveProject = useWorkspaceStore((state) => state.updateActiveProject);
+  const { confirm, confirmationDialog } = useConfirmationDialog();
   const resources = activeProject?.resources ?? [];
   const [editingResourceId, setEditingResourceId] = useState<string | null>(null);
   const [draftKey, setDraftKey] = useState('');
@@ -128,7 +130,7 @@ export function ResourcesScreen() {
     }));
   };
 
-  const deleteResource = (resourceId: string) => {
+  const deleteResource = async (resourceId: string) => {
     if (!activeProject) {
       return;
     }
@@ -138,11 +140,16 @@ export function ResourcesScreen() {
       id: resourceId,
     });
 
-    if (
-      usages.length > 0 &&
-      !window.confirm(formatStoryLogicUsageWarning('Resource', usages))
-    ) {
-      return;
+    if (usages.length > 0) {
+      const shouldDelete = await confirm({
+        title: 'Delete Resource',
+        message: formatStoryLogicUsageWarning('Resource', usages),
+        confirmLabel: 'Delete',
+      });
+
+      if (!shouldDelete) {
+        return;
+      }
     }
 
     updateActiveProject((project) => ({
@@ -229,7 +236,7 @@ export function ResourcesScreen() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => deleteResource(resource.id)}
+                  onClick={() => void deleteResource(resource.id)}
                   className="rounded bg-red-950/70 px-2 py-1 text-xs font-medium text-red-200 hover:bg-red-900"
                 >
                   Delete
@@ -239,6 +246,7 @@ export function ResourcesScreen() {
           </ul>
         )}
       </div>
+      {confirmationDialog}
     </section>
   );
 }

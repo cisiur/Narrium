@@ -1,7 +1,9 @@
 import { useState, type KeyboardEvent } from 'react';
+import { useConfirmationDialog } from '../../components';
 import type { Character, CharacterAttribute } from '../../types';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { findStoryLogicUsages, formatStoryLogicUsageWarning } from '../story-logic/referenceUsage';
+import { deleteCharacterFromProject, findDialogueSpeakerUsages } from './characterDeletion';
 
 const DEFAULT_ATTRIBUTE_KEY = 'New Attribute';
 
@@ -46,6 +48,7 @@ function resolveAttributeKey(attributes: CharacterAttribute[], nextKey: string, 
 export function CharactersScreen() {
   const activeProject = useWorkspaceStore((state) => state.activeProject);
   const updateActiveProject = useWorkspaceStore((state) => state.updateActiveProject);
+  const { confirm, confirmationDialog } = useConfirmationDialog();
   const characters = activeProject?.characters ?? [];
   const [editingCharacterId, setEditingCharacterId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState('');
@@ -91,28 +94,7 @@ export function CharactersScreen() {
     cancelRenaming();
   };
 
-  const deleteCharacter = (characterId: string) => {
-    if (!activeProject) {
-      return;
-    }
-
-    const usages = findStoryLogicUsages(activeProject, {
-      kind: 'character',
-      id: characterId,
-    });
-
-    if (
-      usages.length > 0 &&
-      !window.confirm(formatStoryLogicUsageWarning('Character', usages))
-    ) {
-      return;
-    }
-
-    updateActiveProject((project) => ({
-      ...project,
-      characters: project.characters.filter((character) => character.id !== characterId),
-    }));
-
+  const finishCharacterDeletion = (characterId: string) => {
     if (editingCharacterId === characterId) {
       cancelRenaming();
     }
@@ -130,6 +112,51 @@ export function CharactersScreen() {
       nextIds.delete(characterId);
       return nextIds;
     });
+  };
+
+  const deleteCharacter = async (characterId: string) => {
+    if (!activeProject) {
+      return;
+    }
+
+    const usages = findStoryLogicUsages(activeProject, {
+      kind: 'character',
+      id: characterId,
+    });
+    const dialogueSpeakerUsages = findDialogueSpeakerUsages(activeProject, characterId);
+    const requiresConfirmation = usages.length > 0 || dialogueSpeakerUsages.length > 0;
+
+    if (requiresConfirmation) {
+      const messages = [];
+
+      if (dialogueSpeakerUsages.length > 0) {
+        messages.push(
+          'This character is used as a dialogue speaker. Deleting the character will remove the speaker reference from all affected dialogue pages, but the dialogue pages will remain.',
+        );
+      }
+
+      if (usages.length > 0) {
+        messages.push(formatStoryLogicUsageWarning('Character', usages));
+      }
+
+      const shouldDelete = await confirm({
+        title: 'Delete Character',
+        message: messages.join('\n\n'),
+        confirmLabel: 'Delete',
+      });
+
+      if (!shouldDelete) {
+        return;
+      }
+    }
+
+    updateActiveProject((project) => ({
+      ...deleteCharacterFromProject(project, characterId, {
+        clearDialogueSpeakers: dialogueSpeakerUsages.length > 0,
+      }),
+    }));
+
+    finishCharacterDeletion(characterId);
   };
 
   const handleRenameKeyDown = (event: KeyboardEvent<HTMLInputElement>, characterId: string) => {
@@ -315,7 +342,7 @@ export function CharactersScreen() {
     }));
   };
 
-  const deleteAttribute = (characterId: string, attributeIndex: number) => {
+  const deleteAttribute = async (characterId: string, attributeIndex: number) => {
     if (!activeProject) {
       return;
     }
@@ -333,11 +360,16 @@ export function CharactersScreen() {
       attribute: attribute.key,
     });
 
-    if (
-      usages.length > 0 &&
-      !window.confirm(formatStoryLogicUsageWarning('Character Attribute', usages))
-    ) {
-      return;
+    if (usages.length > 0) {
+      const shouldDelete = await confirm({
+        title: 'Delete Character Attribute',
+        message: formatStoryLogicUsageWarning('Character Attribute', usages),
+        confirmLabel: 'Delete',
+      });
+
+      if (!shouldDelete) {
+        return;
+      }
     }
 
     updateActiveProject((project) => ({
@@ -433,7 +465,7 @@ export function CharactersScreen() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => deleteCharacter(character.id)}
+                    onClick={() => void deleteCharacter(character.id)}
                     className="rounded bg-red-950/70 px-2 py-1 text-xs font-medium text-red-200 hover:bg-red-900"
                   >
                     Delete
@@ -510,7 +542,7 @@ export function CharactersScreen() {
                               />
                               <button
                                 type="button"
-                                onClick={() => deleteAttribute(character.id, attributeIndex)}
+                                onClick={() => void deleteAttribute(character.id, attributeIndex)}
                                 className="rounded bg-red-950/70 px-2 py-1 text-xs font-medium text-red-200 hover:bg-red-900"
                               >
                                 Delete
@@ -527,6 +559,7 @@ export function CharactersScreen() {
           </ul>
         )}
       </div>
+      {confirmationDialog}
     </section>
   );
 }

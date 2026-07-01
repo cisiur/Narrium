@@ -5,14 +5,19 @@ import type {
   DialoguePage,
   Project,
   ProjectSettings,
+  Resource,
   Scene,
   SceneBackground,
 } from '../types';
+import { DEFAULT_RESOURCE_ICON } from '../features/resources/resourcePresentation';
 
 type LegacyProject = Omit<Partial<Project>, 'scenes' | 'settings'> & {
   scenes?: LegacyScene[];
   settings?: Partial<ProjectSettings>;
+  resources?: LegacyResource[];
 };
+
+type LegacyResource = Partial<Resource> & Pick<Resource, 'id' | 'key' | 'defaultValue'>;
 
 type LegacyScene = Omit<Partial<Scene>, 'dialoguePages' | 'choices' | 'background'> & {
   background?: Partial<SceneBackground>;
@@ -181,6 +186,23 @@ function normalizeScene(scene: LegacyScene): { scene: Scene; changed: boolean } 
   };
 }
 
+function normalizeResource(resource: LegacyResource): { resource: Resource; changed: boolean } {
+  const changed =
+    isMissingField(resource, 'displayName') ||
+    isMissingField(resource, 'icon') ||
+    isMissingField(resource, 'visible');
+
+  return {
+    resource: {
+      ...resource,
+      displayName: resource.displayName ?? resource.key,
+      icon: resource.icon ?? DEFAULT_RESOURCE_ICON,
+      visible: resource.visible ?? true,
+    },
+    changed,
+  };
+}
+
 export function normalizeProject(project: Project): { project: Project; changed: boolean } {
   const legacyProject = project as LegacyProject;
   let changed = false;
@@ -216,6 +238,15 @@ export function normalizeProject(project: Project): { project: Project; changed:
 
     return normalizedScene.scene;
   });
+  const resources = (legacyProject.resources ?? []).map((resource) => {
+    const normalizedResource = normalizeResource(resource);
+
+    if (normalizedResource.changed) {
+      changed = true;
+    }
+
+    return normalizedResource.resource;
+  });
   const sceneIds = new Set(scenes.map((scene) => scene.id));
   const startSceneId =
     scenes.length === 0
@@ -236,7 +267,7 @@ export function normalizeProject(project: Project): { project: Project; changed:
           startSceneId,
           scenes,
           characters: legacyProject.characters ?? [],
-          resources: legacyProject.resources ?? [],
+          resources,
           variables: legacyProject.variables ?? [],
           groups: legacyProject.groups ?? [],
           assetLibrary: legacyProject.assetLibrary ?? [],

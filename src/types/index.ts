@@ -96,6 +96,9 @@ export interface CharacterAttribute {
 export interface Resource {
   id: string;
   key: string;
+  displayName: string;
+  icon: string;
+  visible: boolean;
   defaultValue: number;
 }
 

@@ -3,6 +3,7 @@ import { useConfirmationDialog } from '../../components';
 import type { Resource } from '../../types';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { findStoryLogicUsages, formatStoryLogicUsageWarning } from '../story-logic/referenceUsage';
+import { DEFAULT_RESOURCE_ICON, RESOURCE_ICONS, formatResourceIconLabel } from './resourcePresentation';
 
 const DEFAULT_RESOURCE_KEY = 'New Resource';
 
@@ -10,6 +11,9 @@ function createResource(key = DEFAULT_RESOURCE_KEY): Resource {
   return {
     id: crypto.randomUUID(),
     key,
+    displayName: key,
+    icon: DEFAULT_RESOURCE_ICON,
+    visible: true,
     defaultValue: 0,
   };
 }
@@ -84,6 +88,48 @@ export function ResourcesScreen() {
       ),
     }));
     cancelRenaming();
+  };
+
+  const updateDisplayName = (resourceId: string, displayName: string) => {
+    updateActiveProject((project) => ({
+      ...project,
+      resources: project.resources.map((resource) =>
+        resource.id === resourceId
+          ? {
+              ...resource,
+              displayName,
+            }
+          : resource,
+      ),
+    }));
+  };
+
+  const updateIcon = (resourceId: string, icon: string) => {
+    updateActiveProject((project) => ({
+      ...project,
+      resources: project.resources.map((resource) =>
+        resource.id === resourceId
+          ? {
+              ...resource,
+              icon,
+            }
+          : resource,
+      ),
+    }));
+  };
+
+  const updateVisibility = (resourceId: string, visible: boolean) => {
+    updateActiveProject((project) => ({
+      ...project,
+      resources: project.resources.map((resource) =>
+        resource.id === resourceId
+          ? {
+              ...resource,
+              visible,
+            }
+          : resource,
+      ),
+    }));
   };
 
   const handleRenameKeyDown = (event: KeyboardEvent<HTMLInputElement>, resourceId: string) => {
@@ -173,7 +219,7 @@ export function ResourcesScreen() {
           <div>
             <h1 className="text-2xl font-semibold text-white">Resources</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-400">
-              Resources are global numeric variables shared by the entire project.
+              Resources are global numeric values that can be shown to players.
             </p>
           </div>
           <button
@@ -192,55 +238,100 @@ export function ResourcesScreen() {
         ) : (
           <ul className="mt-8 divide-y divide-gray-800 rounded-md border border-gray-800 bg-gray-900/70">
             {resources.map((resource) => (
-              <li key={resource.id} className="grid grid-cols-[1fr_8rem_auto_auto] items-center gap-3 px-4 py-3">
-                <div className="min-w-0">
-                  {editingResourceId === resource.id ? (
+              <li key={resource.id} className="space-y-3 px-4 py-4">
+                <div className="grid gap-3 md:grid-cols-[1fr_1fr_8rem_7rem]">
+                  <label className="block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                    Key
+                    {editingResourceId === resource.id ? (
+                      <input
+                        type="text"
+                        value={draftKey}
+                        onChange={(event) => setDraftKey(event.target.value)}
+                        onBlur={() => saveRename(resource.id)}
+                        onKeyDown={(event) => handleRenameKeyDown(event, resource.id)}
+                        className="mt-1 w-full rounded border border-blue-500 bg-gray-950 px-2 py-1 text-sm font-medium text-gray-100 outline-none focus:ring-2 focus:ring-blue-500/40"
+                        autoFocus
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => startRenaming(resource)}
+                        className="mt-1 block max-w-full truncate text-left text-sm font-medium normal-case tracking-normal text-gray-100 hover:text-blue-300"
+                      >
+                        {resource.key || 'resource'}
+                      </button>
+                    )}
+                  </label>
+
+                  <label className="block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                    Display name
                     <input
                       type="text"
-                      value={draftKey}
-                      onChange={(event) => setDraftKey(event.target.value)}
-                      onBlur={() => saveRename(resource.id)}
-                      onKeyDown={(event) => handleRenameKeyDown(event, resource.id)}
-                      className="w-full rounded border border-blue-500 bg-gray-950 px-2 py-1 text-sm font-medium text-gray-100 outline-none focus:ring-2 focus:ring-blue-500/40"
-                      autoFocus
+                      value={resource.displayName}
+                      onChange={(event) => updateDisplayName(resource.id, event.target.value)}
+                      className="mt-1 w-full rounded border border-gray-700 bg-gray-950 px-2 py-1 text-sm font-normal normal-case tracking-normal text-gray-100 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
                     />
-                  ) : (
+                  </label>
+
+                  <label className="block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                    Icon
+                    <select
+                      value={formatResourceIconLabel(resource.icon)}
+                      onChange={(event) => updateIcon(resource.id, event.target.value)}
+                      className="mt-1 w-full rounded border border-gray-700 bg-gray-950 px-2 py-1 text-sm font-normal normal-case tracking-normal text-gray-100 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
+                    >
+                      {RESOURCE_ICONS.map((icon) => (
+                        <option key={icon} value={icon}>
+                          {icon}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                    Default
+                    <input
+                      type="number"
+                      value={
+                        editingResourceValue?.resourceId === resource.id
+                          ? editingResourceValue.value
+                          : resource.defaultValue
+                      }
+                      onFocus={() => startValueEdit(resource.id, resource.defaultValue)}
+                      onBlur={cancelValueEdit}
+                      onChange={(event) => updateDefaultValue(resource.id, event.target.value)}
+                      className="mt-1 w-full rounded border border-gray-700 bg-gray-950 px-2 py-1 text-sm font-normal normal-case tracking-normal text-gray-100 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
+                      aria-label={`${resource.key} default value`}
+                    />
+                  </label>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <label className="inline-flex items-center gap-2 text-sm text-gray-300">
+                    <input
+                      type="checkbox"
+                      checked={resource.visible}
+                      onChange={(event) => updateVisibility(resource.id, event.target.checked)}
+                      className="h-4 w-4 rounded border-gray-700 bg-gray-950 text-blue-500 focus:ring-blue-500/40"
+                    />
+                    Visible in player
+                  </label>
+                  <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => startRenaming(resource)}
-                      className="max-w-full truncate text-left text-sm font-medium text-gray-100 hover:text-blue-300"
+                      className="rounded bg-gray-800 px-2 py-1 text-xs font-medium text-gray-200 hover:bg-gray-700"
                     >
-                      {resource.key || 'resource'}
+                      Rename
                     </button>
-                  )}
+                    <button
+                      type="button"
+                      onClick={() => void deleteResource(resource.id)}
+                      className="rounded bg-red-950/70 px-2 py-1 text-xs font-medium text-red-200 hover:bg-red-900"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
-                <input
-                  type="number"
-                  value={
-                    editingResourceValue?.resourceId === resource.id
-                      ? editingResourceValue.value
-                      : resource.defaultValue
-                  }
-                  onFocus={() => startValueEdit(resource.id, resource.defaultValue)}
-                  onBlur={cancelValueEdit}
-                  onChange={(event) => updateDefaultValue(resource.id, event.target.value)}
-                  className="w-full rounded border border-gray-700 bg-gray-950 px-2 py-1 text-sm text-gray-100 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
-                  aria-label={`${resource.key} default value`}
-                />
-                <button
-                  type="button"
-                  onClick={() => startRenaming(resource)}
-                  className="rounded bg-gray-800 px-2 py-1 text-xs font-medium text-gray-200 hover:bg-gray-700"
-                >
-                  Rename
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void deleteResource(resource.id)}
-                  className="rounded bg-red-950/70 px-2 py-1 text-xs font-medium text-red-200 hover:bg-red-900"
-                >
-                  Delete
-                </button>
               </li>
             ))}
           </ul>

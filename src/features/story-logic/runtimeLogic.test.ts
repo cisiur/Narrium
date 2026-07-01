@@ -26,8 +26,22 @@ function createProject(): Project {
       },
     ],
     resources: [
-      { id: 'resource-gold', key: 'gold', defaultValue: 5 },
-      { id: 'resource-food', key: 'food', defaultValue: 3 },
+      {
+        id: 'resource-gold',
+        key: 'gold',
+        displayName: 'Gold',
+        icon: 'coins',
+        visible: true,
+        defaultValue: 5,
+      },
+      {
+        id: 'resource-food',
+        key: 'food',
+        displayName: 'Food',
+        icon: 'food',
+        visible: true,
+        defaultValue: 3,
+      },
     ],
     variables: [
       { id: 'variable-suspicion', key: 'suspicion', defaultValue: 1 },

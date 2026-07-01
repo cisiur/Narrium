@@ -47,4 +47,46 @@ describe('normalizeProject', () => {
     expect(normalizedProject.changed).toBe(false);
     expect(normalizedProject.project.variables).toEqual(project.variables);
   });
+
+  it('adds player-facing defaults to old resources', () => {
+    const project = createProject({
+      resources: [
+        {
+          id: 'resource-gold',
+          key: 'gold',
+          defaultValue: 10,
+        } as Project['resources'][number],
+      ],
+    });
+    const normalizedProject = normalizeProject(project);
+
+    expect(normalizedProject.changed).toBe(true);
+    expect(normalizedProject.project.resources[0]).toEqual({
+      id: 'resource-gold',
+      key: 'gold',
+      displayName: 'gold',
+      icon: 'circle',
+      visible: true,
+      defaultValue: 10,
+    });
+  });
+
+  it('preserves existing resource presentation metadata', () => {
+    const project = createProject({
+      resources: [
+        {
+          id: 'resource-reputation',
+          key: 'reputation',
+          displayName: 'Reputation',
+          icon: 'star',
+          visible: false,
+          defaultValue: 3,
+        },
+      ],
+    });
+    const normalizedProject = normalizeProject(project);
+
+    expect(normalizedProject.changed).toBe(false);
+    expect(normalizedProject.project.resources).toEqual(project.resources);
+  });
 });

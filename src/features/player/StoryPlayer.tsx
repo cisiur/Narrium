@@ -8,6 +8,7 @@ import {
   resolveSpeakerName,
 } from './playerHelpers';
 import { createInitialRuntimeState } from './runtimeState';
+import { ResourceHud } from './ResourceHud';
 import { StoryPlayerHeader } from './StoryPlayerHeader';
 
 interface StoryPlayerProps {
@@ -65,6 +66,7 @@ export function StoryPlayer({ project, onExitPreview }: StoryPlayerProps) {
           />
         ) : null}
         <div className="absolute inset-0 bg-gray-950/70" />
+        <ResourceHud project={project} runtimeState={runtimeState} />
 
         <section className="relative flex min-h-[calc(100vh-3.5rem)] items-end p-6">
           <DialoguePanel

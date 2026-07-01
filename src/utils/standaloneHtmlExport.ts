@@ -259,6 +259,58 @@ export function createStandaloneHtml(project: Project) {
       line-height: 1.45;
       padding: 0.55rem 0.75rem;
     }
+    .resource-hud {
+      position: fixed;
+      left: 1rem;
+      top: 5.25rem;
+      z-index: 2;
+      min-width: 10rem;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 0.5rem;
+      background: rgba(8, 11, 18, 0.86);
+      box-shadow: 0 1rem 2.5rem rgba(0, 0, 0, 0.34);
+      padding: 0.75rem;
+    }
+    .resource-hud ul {
+      display: grid;
+      gap: 0.5rem;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .resource-item {
+      display: grid;
+      grid-template-columns: 3.5rem minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--ink);
+      font-size: 0.86rem;
+    }
+    .resource-icon {
+      overflow: hidden;
+      border-radius: 0.35rem;
+      background: rgba(255, 255, 255, 0.1);
+      color: rgba(255, 247, 232, 0.78);
+      font-size: 0.62rem;
+      font-weight: 800;
+      line-height: 1.2;
+      padding: 0.18rem 0.38rem;
+      text-align: center;
+      text-overflow: ellipsis;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .resource-name {
+      overflow: hidden;
+      color: rgba(255, 247, 232, 0.86);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .resource-value {
+      color: var(--ink);
+      font-variant-numeric: tabular-nums;
+      font-weight: 800;
+    }
     .notice,
     .end {
       border: 1px solid rgba(255, 255, 255, 0.14);
@@ -308,9 +360,16 @@ export function createStandaloneHtml(project: Project) {
         min-width: 0;
         text-align: right;
       }
+      .resource-hud {
+        left: 1rem;
+        right: 1rem;
+        top: auto;
+        bottom: 1rem;
+      }
       main {
         align-items: stretch;
         padding-top: 0.5rem;
+        padding-bottom: 8rem;
       }
       .panel {
         align-self: flex-end;
@@ -359,6 +418,9 @@ ${saveLoadControls}
       </div>
     </header>
     <main>
+      <aside id="resource-hud" class="resource-hud" aria-label="Resources" hidden>
+        <ul id="resource-list"></ul>
+      </aside>
       <section class="panel" aria-live="polite">
         <p id="speaker" class="speaker"></p>
         <p id="text" class="text"></p>
@@ -377,6 +439,8 @@ ${saveLoadControls}
     const text = document.getElementById('text');
     const choices = document.getElementById('choices');
     const actions = document.getElementById('actions');
+    const resourceHud = document.getElementById('resource-hud');
+    const resourceList = document.getElementById('resource-list');
     const nextButton = document.getElementById('next');
     const restartButton = document.getElementById('restart');
     const saveButton = document.getElementById('save');
@@ -873,6 +937,56 @@ ${saveLoadControls}
       return null;
     }
 
+    function formatResourceIconLabel(icon) {
+      const resourceIcons = [
+        'circle',
+        'coins',
+        'gem',
+        'heart',
+        'star',
+        'shield',
+        'sword',
+        'food',
+        'wood',
+        'stone',
+        'potion',
+        'scroll',
+        'key'
+      ];
+
+      return resourceIcons.includes(icon) ? icon : 'circle';
+    }
+
+    function renderResourceHud() {
+      const visibleResources = project.resources.filter((resource) => resource.visible === true);
+
+      resourceList.replaceChildren();
+
+      if (visibleResources.length === 0) {
+        resourceHud.hidden = true;
+        return;
+      }
+
+      visibleResources.forEach((resource) => {
+        const item = document.createElement('li');
+        const icon = document.createElement('span');
+        const name = document.createElement('span');
+        const value = document.createElement('span');
+
+        item.className = 'resource-item';
+        icon.className = 'resource-icon';
+        name.className = 'resource-name';
+        value.className = 'resource-value';
+        icon.textContent = formatResourceIconLabel(resource.icon);
+        name.textContent = (resource.displayName || '').trim() || resource.key;
+        value.textContent = String(runtimeState.variables.resources[resource.key] ?? 0);
+        item.append(icon, name, value);
+        resourceList.append(item);
+      });
+
+      resourceHud.hidden = false;
+    }
+
     function setBackground(scene) {
       const backgroundUrl = resolveBackgroundUrl(scene);
 
@@ -963,6 +1077,7 @@ ${saveLoadControls}
     function render() {
       const scene = findScene(runtimeState.currentSceneId);
       title.textContent = project.name || 'Narrium Story';
+      renderResourceHud();
 
       if (!scene) {
         setBackground(null);

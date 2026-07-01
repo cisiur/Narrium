@@ -10,7 +10,16 @@ function createProject(): Project {
     startSceneId: '',
     scenes: [],
     characters: [],
-    resources: [],
+    resources: [
+      {
+        id: 'resource-gold',
+        key: 'gold',
+        displayName: 'Gold',
+        icon: 'coins',
+        visible: true,
+        defaultValue: 10,
+      },
+    ],
     variables: [
       {
         id: 'variable-suspicion',
@@ -35,5 +44,15 @@ describe('createStandaloneHtml', () => {
     expect(html).toContain('(project.variables || []).map((variable)');
     expect(html).toContain('variables: { ...state.variables.variables }');
     expect(html).toContain('hasFiniteNumericValues(value.variables.variables)');
+  });
+
+  it('includes Resource HUD support without exposing Variables in the HUD', () => {
+    const html = createStandaloneHtml(createProject());
+
+    expect(html).toContain('id="resource-hud"');
+    expect(html).toContain('function renderResourceHud()');
+    expect(html).toContain('project.resources.filter((resource) => resource.visible === true)');
+    expect(html).toContain('runtimeState.variables.resources[resource.key]');
+    expect(html).not.toContain('runtimeState.variables.variables[resource.key]');
   });
 });

@@ -12,6 +12,14 @@ import { useWorkspaceStore } from '../store/workspaceStore';
 import { exportProjectAsJson } from '../utils/projectExport';
 import { exportProjectAsStandaloneHtml } from '../utils/standaloneHtmlExport';
 
+function isTextEditingTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  return target.isContentEditable || Boolean(target.closest('input, textarea, select'));
+}
+
 export function App() {
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const activeProject = useWorkspaceStore((state) => state.activeProject);
@@ -27,6 +35,78 @@ export function App() {
 
     setIsPreviewMode(false);
   }, [activeProject?.id, setActiveProjectView]);
+
+  useEffect(() => {
+    if (!activeProject || isPreviewMode) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (isTextEditingTarget(event.target)) {
+        return;
+      }
+
+      const workspaceStore = useWorkspaceStore.getState();
+      const canvasStore = useCanvasStore.getState();
+      const isRedoShortcut =
+        event.ctrlKey &&
+        !event.altKey &&
+        (event.key.toLowerCase() === 'y' || (event.shiftKey && event.key.toLowerCase() === 'z'));
+      const isUndoShortcut =
+        event.ctrlKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'z';
+
+      if (isRedoShortcut) {
+        if (workspaceStore.redoActiveProject()) {
+          event.preventDefault();
+          canvasStore.syncFromProject();
+        }
+        return;
+      }
+
+      if (isUndoShortcut) {
+        if (workspaceStore.undoActiveProject()) {
+          event.preventDefault();
+          canvasStore.syncFromProject();
+        }
+        return;
+      }
+
+      if (activeProjectView !== 'canvas') {
+        return;
+      }
+
+      if (event.key === 'Escape') {
+        if (canvasStore.selectedChoiceId) {
+          event.preventDefault();
+          canvasStore.clearSelectedChoice();
+          return;
+        }
+
+        if (canvasStore.selectedSceneId) {
+          event.preventDefault();
+          canvasStore.selectScene(null);
+        }
+        return;
+      }
+
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        if (canvasStore.selectedChoiceId && canvasStore.selectedSceneId) {
+          event.preventDefault();
+          canvasStore.deleteChoice(canvasStore.selectedSceneId, canvasStore.selectedChoiceId);
+          return;
+        }
+
+        if (canvasStore.selectedSceneId) {
+          event.preventDefault();
+          canvasStore.deleteScene(canvasStore.selectedSceneId);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeProject, activeProjectView, isPreviewMode]);
 
   if (activeProject) {
     if (isPreviewMode) {

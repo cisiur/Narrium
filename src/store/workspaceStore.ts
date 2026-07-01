@@ -1,5 +1,12 @@
 import { create } from 'zustand';
 import type { Project, WorkspaceProjectMeta, WorkspaceState } from '../types';
+import {
+  createEmptyProjectHistory,
+  pushProjectSnapshot,
+  redoProjectHistory,
+  undoProjectHistory,
+  type ProjectHistoryState,
+} from './projectHistory';
 import { normalizeProject } from './projectMigrations';
 
 const WORKSPACE_STORAGE_KEY = 'narrium_workspace';
@@ -7,6 +14,7 @@ const PROJECT_STORAGE_PREFIX = 'narrium_project_';
 
 interface WorkspaceStore extends WorkspaceState {
   activeProject: Project | null;
+  projectHistory: ProjectHistoryState;
   createProject: () => WorkspaceProjectMeta;
   importProject: (project: Project) => WorkspaceProjectMeta;
   openProject: (projectId: string) => void;
@@ -15,6 +23,8 @@ interface WorkspaceStore extends WorkspaceState {
   updateProjectThumbnail: (projectId: string, thumbnail: string | null) => void;
   deleteProject: (projectId: string) => void;
   updateActiveProject: (updater: (project: Project) => Project) => void;
+  undoActiveProject: () => boolean;
+  redoActiveProject: () => boolean;
 }
 
 function createProjectMeta(): WorkspaceProjectMeta {
@@ -130,11 +140,35 @@ function deleteStoredProject(projectId: string) {
   window.localStorage.removeItem(getProjectStorageKey(projectId));
 }
 
+function stampProjectUpdatedAt(project: Project): Project {
+  return {
+    ...project,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function createWorkspaceForProject(state: WorkspaceStore, project: Project) {
+  return {
+    projects: state.projects.map((projectMeta) =>
+      projectMeta.id === project.id
+        ? {
+            ...projectMeta,
+            name: project.name,
+            thumbnailDataUrl: project.thumbnail,
+            updatedAt: project.updatedAt,
+          }
+        : projectMeta,
+    ),
+    activeProjectId: state.activeProjectId,
+  };
+}
+
 const initialWorkspace = loadWorkspace();
 
 export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
   ...initialWorkspace,
   activeProject: loadProject(initialWorkspace.activeProjectId),
+  projectHistory: createEmptyProjectHistory(initialWorkspace.activeProjectId),
   createProject: () => {
     const projectMeta = createProjectMeta();
     const project = createEmptyProject(projectMeta);
@@ -151,6 +185,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
       return {
         ...nextWorkspace,
         activeProject: project,
+        projectHistory: createEmptyProjectHistory(project.id),
       };
     });
 
@@ -186,6 +221,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
       return {
         ...nextWorkspace,
         activeProject: importedProject,
+        projectHistory: createEmptyProjectHistory(importedProject.id),
       };
     });
 
@@ -209,6 +245,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
       return {
         ...nextWorkspace,
         activeProject: project,
+        projectHistory: createEmptyProjectHistory(project.id),
       };
     });
   },
@@ -224,6 +261,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
       return {
         ...nextWorkspace,
         activeProject: null,
+        projectHistory: createEmptyProjectHistory(),
       };
     });
   },
@@ -314,6 +352,8 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
       return {
         ...nextWorkspace,
         activeProject: state.activeProject?.id === projectId ? null : state.activeProject,
+        projectHistory:
+          state.activeProject?.id === projectId ? createEmptyProjectHistory() : state.projectHistory,
       };
     });
   },
@@ -324,23 +364,8 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
       }
 
       const updatedProject = updater(state.activeProject);
-      const nextProject = {
-        ...updatedProject,
-        updatedAt: new Date().toISOString(),
-      };
-      const nextWorkspace = {
-        projects: state.projects.map((project) =>
-          project.id === nextProject.id
-            ? {
-                ...project,
-                name: nextProject.name,
-                thumbnailDataUrl: nextProject.thumbnail,
-                updatedAt: nextProject.updatedAt,
-              }
-            : project,
-        ),
-        activeProjectId: state.activeProjectId,
-      };
+      const nextProject = stampProjectUpdatedAt(updatedProject);
+      const nextWorkspace = createWorkspaceForProject(state, nextProject);
 
       saveProject(nextProject);
       saveWorkspace(nextWorkspace);
@@ -348,7 +373,62 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
       return {
         ...nextWorkspace,
         activeProject: nextProject,
+        projectHistory: pushProjectSnapshot(state.projectHistory, state.activeProject),
       };
     });
+  },
+  undoActiveProject: () => {
+    let didUndo = false;
+
+    set((state) => {
+      const result = undoProjectHistory(state.projectHistory, state.activeProject);
+
+      if (!result.project) {
+        return state;
+      }
+
+      didUndo = true;
+
+      const nextProject = stampProjectUpdatedAt(result.project);
+      const nextWorkspace = createWorkspaceForProject(state, nextProject);
+
+      saveProject(nextProject);
+      saveWorkspace(nextWorkspace);
+
+      return {
+        ...nextWorkspace,
+        activeProject: nextProject,
+        projectHistory: result.history,
+      };
+    });
+
+    return didUndo;
+  },
+  redoActiveProject: () => {
+    let didRedo = false;
+
+    set((state) => {
+      const result = redoProjectHistory(state.projectHistory, state.activeProject);
+
+      if (!result.project) {
+        return state;
+      }
+
+      didRedo = true;
+
+      const nextProject = stampProjectUpdatedAt(result.project);
+      const nextWorkspace = createWorkspaceForProject(state, nextProject);
+
+      saveProject(nextProject);
+      saveWorkspace(nextWorkspace);
+
+      return {
+        ...nextWorkspace,
+        activeProject: nextProject,
+        projectHistory: result.history,
+      };
+    });
+
+    return didRedo;
   },
 }));

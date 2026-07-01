@@ -81,17 +81,18 @@ Scene Editor Basics        ██████████ 100%
 Background System          ██████████ 100%
 Canvas / Choice UX         ██████████ 100%
 Characters & Resources     ██████████ 100%
+Variables                  ██████████ 100%
 Story Logic — Conditions   ██████████ 100%
 Story Logic — Effects      ██████████ 100%
 Story Logic — Runtime      ██████████ 100%
 Post-Audit Stabilization   ██████████ 100%
 Story Player Preview       ██████████ 100%
 Save / Export              ██████████ 100%
-Polish & Production UX     ████░░░░░░  40%
+Polish & Production UX     ██████░░░░  60%
 ```
 
 Current state:
-Narrium has a usable local multi-project workspace, project settings sidebar, project thumbnails, React Flow scene graph editor, Canvas-only keyboard shortcuts, snapshot-based active-project undo/redo MVP, reusable application confirmation dialog, right-side scene editor with Project Validation, shared validation infrastructure, background system, asset library support, SceneNode thumbnails, ordered dialogue pages, character speaker selection, safe character deletion with dialogue speaker cleanup, choice target editing, edge-to-choice navigation, project-level Characters, Character attributes, project-level Resources, complete Story Logic Conditions, complete Story Logic Effects, runtime helper functions for condition/effect execution, a functional in-browser Story Player Preview, JSON project export/import, standalone HTML story export with runtime parity, polished standalone HTML playback, and exported standalone player save/load persistence.
+Narrium has a usable local multi-project workspace, project settings sidebar, project thumbnails, React Flow scene graph editor, Canvas-only keyboard shortcuts, snapshot-based active-project undo/redo MVP, reusable application confirmation dialog, right-side scene editor with Project Validation, shared validation infrastructure, background system, asset library support, SceneNode thumbnails, ordered dialogue pages, character speaker selection, safe character deletion with dialogue speaker cleanup, choice target editing, edge-to-choice navigation, project-level Characters, Character attributes, project-level Resources, project-level Variables, complete Story Logic Conditions including Variables, complete Story Logic Effects including Variables, runtime helper functions for condition/effect execution, a functional in-browser Story Player Preview, JSON project export/import, standalone HTML story export with runtime parity, polished standalone HTML playback, and exported standalone player save/load persistence including variable runtime values.
 
 Completed milestones:
 - EPIC 6 — Story Logic is complete for the MVP editor/runtime-helper layer.
@@ -105,16 +106,19 @@ Completed milestones:
 - EPIC 9 basic snapshot-based project undo/redo MVP is complete (`E9-02A`).
 - EPIC 9 reusable confirmation dialog is complete and native browser confirmations have been removed.
 - EPIC 9 safe character deletion is complete, including dialogue speaker cleanup after confirmation.
+- Project Variables foundation is complete.
+- Variables are integrated into Story Logic Conditions, Story Logic Effects, Preview runtime, standalone HTML runtime, and standalone save/load snapshots.
 
 Current recommended next milestone:
 - **EPIC 9 — Polish & Production UX**
 - Recommended next task should be selected by the project owner.
 
 Good candidates:
-- `E9-08` — Empty/error states polish
-- `E9-14` — Story Player component-level tests
-- `E9-02` future enhancements — finer-grained undo/redo UX beyond the snapshot-based MVP
-- Future validation extension — Story Logic missing reference rules / export preflight
+- Player-facing Resource display in Preview and standalone HTML player.
+- Future validation extension — missing Story Logic references, including Variables.
+- `E9-08` — Empty/error states polish.
+- `E9-14` — Story Player component-level tests.
+- `E9-02` future enhancements — finer-grained undo/redo UX beyond the snapshot-based MVP.
 
 ---
 
@@ -141,6 +145,7 @@ Good candidates:
   - available from My Projects
   - imports a valid Narrium `Project` JSON
   - normalizes imported project data
+  - old projects receive missing modern fields such as `variables: []`
   - creates a new project id
   - refreshes created/updated timestamps
   - creates workspace metadata
@@ -154,10 +159,11 @@ Good candidates:
   - `canvas`
   - `characters`
   - `resources`
-- Left project sidebar switches between Canvas, Characters, and Resources.
+  - `variables`
+- Left project sidebar switches between Canvas, Characters, Resources, and Variables.
 - Opening a project defaults to Canvas.
 - Canvas keeps the right sidebar visible with Project Validation at the top and the Scene Editor below it when a scene is selected.
-- Characters and Resources use full-width main screens without the Scene Editor panel.
+- Characters, Resources, and Variables use full-width main screens without the Scene Editor panel.
 - Project header includes:
   - My Projects
   - Add Scene
@@ -261,6 +267,7 @@ Good candidates:
 - When no scene is selected, the sidebar shows `Select a scene to edit its content.`
 - Clicking a validation issue opens the related scene and selects the related choice when `choiceId` exists.
 - Detailed validation batch documentation lives in `docs/EPIC9_VALIDATION.md`.
+- Missing Story Logic reference validation for Resources, Variables, and Character Attributes is still a good future extension.
 
 ### Background System
 
@@ -310,6 +317,24 @@ Good candidates:
 - Invalid resource values are stored as `0`.
 - Duplicate resource keys are resolved project-wide with suffixes such as `gold_2`, `gold_3`.
 - Resource mutations use `workspaceStore.updateActiveProject()`.
+- Resource conditions target `Resource.id` and runtime values are keyed by `Resource.key`.
+- Resource effects target `Resource.id`.
+- Product direction: Resources are intended to become player-facing values such as gold, inventory-like counts, or other values that may later be displayed in the player UI.
+
+### Variables
+
+- Variables project view.
+- Variable list.
+- Add/delete variable.
+- Rename variable key inline.
+- Edit numeric variable default value.
+- Negative and decimal variable values are supported.
+- Invalid variable values are stored as `0`.
+- Duplicate variable keys are resolved project-wide with suffixes such as `visited_forest_2`, `visited_forest_3`.
+- Variable mutations use `workspaceStore.updateActiveProject()`.
+- Variable conditions target `Variable.id` and runtime values are keyed by `Variable.key`.
+- Variable effects target `Variable.id`.
+- Variables are hidden/internal story-state values intended for logic and progression, not normal player display.
 
 ### Story Logic — Conditions
 
@@ -324,6 +349,7 @@ Good candidates:
   - empty group passes
 - Choice editor includes a Conditions section.
 - Resource conditions target `Resource.id` and display `Resource.key`.
+- Variable conditions target `Variable.id` and display `Variable.key`.
 - Character Attribute conditions target `Character.id` + `CharacterAttribute.key`.
 - Condition value input supports integers, decimals, and negative numbers.
 - Missing references fail at runtime and show visual warnings in the editor.
@@ -332,6 +358,7 @@ Good candidates:
 
 - `Choice.effects` data model accepted and implemented.
 - Resource effects target `Resource.id`.
+- Variable effects target `Variable.id`.
 - Character Attribute effects target `Character.id` + `CharacterAttribute.key`.
 - Effect operations are stored as `+=`, `-=`, and `=`.
 - Editor displays operation labels as `+`, `-`, and `=`.
@@ -359,6 +386,7 @@ Runtime helper behavior:
 - Missing condition references fail.
 - Missing effect references are skipped.
 - Resource runtime values are keyed by `Resource.key`.
+- Variable runtime values are keyed by `Variable.key`.
 - Character attribute runtime values are keyed by `character.id` and `attribute.key`.
 - Missing runtime values used by effects start at `0`.
 - Effects apply in array order.
@@ -381,110 +409,81 @@ Implemented in `src/features/player/`:
 - `playerHelpers.ts`
 - `runtimeState.test.ts`
 
-Player behavior:
-- Preview can be opened from the canvas toolbar.
-- Preview can be exited back to the editor.
-- Preview can be restarted without reloading the app.
-- Runtime starts at `Project.startSceneId`.
-- Resources initialize from `Resource.key` + `Resource.defaultValue`.
-- Character attributes initialize from `Character.id` + `CharacterAttribute.key` + `defaultValue`.
-- Current scene background renders for supported modes.
-- Speaker display:
-  - `speakerId: null` → `Narrator`
-  - valid `Character.id` → character name
-  - missing/deleted speaker → `Unknown Speaker`
-- Dialogue pages play sequentially.
-- `Next` appears only when another dialogue page exists.
-- Choices appear only after the final dialogue page.
-- Available choices can navigate to a valid target scene and reset `currentPageIndex` to `0`.
-- Targetless choices can be used as action choices: effects apply and the story stays on the current scene/page.
-- Choice effects apply before optional navigation.
-- Choice conditions disable unavailable choices.
-- Unavailable choices remain visible and display the first available `hintText`.
-- Final scene with no choices displays an end-of-story panel.
+Preview supports:
+- runtime initialization from Project defaults
+- resources
+- variables
+- character attributes
+- dialogue page navigation
+- choice rendering
+- conditions and unavailable hints
+- resource effects
+- variable effects
+- character attribute effects
+- action choices
+- restart
+- ending states
+- supported backgrounds
 
-### Save / Export
+### JSON Import / Export
 
-Implemented:
-- Active project auto-save to `narrium_project_{id}`.
-- Export active project as formatted JSON.
-- Import Narrium project JSON as a new workspace project.
-- Export active story as standalone HTML player.
-- Exported standalone HTML player save/load persistence.
+- JSON export exports the full active `Project` object.
+- JSON import validates a Narrium Project-like object and normalizes it.
+- Uploaded Data URLs are preserved.
+- `Project.variables` is included naturally because it is part of the Project model.
+- Old imports that do not contain `variables` are normalized to `variables: []`.
 
-JSON export:
-- Exports the current full `Project` object.
-- Uses formatted JSON.
-- Preserves embedded Data URLs.
-- Does not mutate Project or localStorage.
-
-JSON import:
-- Parses a Narrium Project JSON.
-- Performs conservative structure validation.
-- Passes data through `normalizeProject()`.
-- Creates a new `Project.id`.
-- Replaces `createdAt` and `updatedAt`.
-- Preserves story content, scenes, choices, Story Logic, asset library, backgrounds, thumbnails, and Data URLs.
-- Creates workspace metadata.
-- Opens the imported project.
-- Invalid files show `Invalid Narrium project file.`
+### Standalone HTML Export
 
 Standalone HTML export:
-- Exports a single `.html` file.
-- Embeds the full active `Project`.
-- Preserves embedded Data URLs.
-- Opens directly from disk.
-- Does not require Narrium, npm, Vite, React dev server, or a local server.
-- Supports:
-  - start scene
-  - dialogue pages
-  - Next button only while more dialogue pages exist
-  - speaker names
-  - choices after final dialogue page
-  - conditions
-  - unavailable hints
-  - resource effects
-  - character attribute effects
-  - targetless action choices
-  - valid target navigation
-  - invalid target disabled behavior
-  - restart
-  - end state
-  - URL/upload/asset/one-level scene-reference backgrounds
-  - polished standalone player UI and responsive layout
-  - manual Save, Load, and Clear Save controls when `project.settings.allowSessionSaveLoad !== false`
-  - localStorage runtime persistence using `narrium_player_save_{projectId}`
-- `E8-04C` standalone HTML polish is complete.
-- `E8-05` exported player save/load is complete for MVP.
+- creates a single self-contained `.html` file
+- embeds the full Project
+- preserves Data URLs
+- opens directly from disk
+- does not require Narrium, npm, Vite, React, or a dev server
+- supports start scene, dialogue, choices, restart, end state, supported backgrounds
+- supports resource conditions/effects
+- supports variable conditions/effects
+- supports character attribute conditions/effects
+- supports targetless action choices
+- supports invalid-target disabled behavior
+- supports standalone runtime save/load when enabled by project settings
+
+Standalone save/load snapshots include:
+- `currentSceneId`
+- `currentPageIndex`
+- `variables.resources`
+- `variables.variables`
+- `variables.characterAttrs`
 
 ### Tests
 
 Implemented:
 - Vitest added.
 - `npm.cmd test` runs `vitest run`.
-- Current test count: 38 tests across 6 test files.
-- `runtimeState.test.ts` covers initial RuntimeState creation.
+- Current test count after Variables runtime integration: **51 tests**.
+- `runtimeState.test.ts` covers initial RuntimeState creation, including Variables.
 - `runtimeLogic.test.ts` covers representative behavior for:
   - `applyEffects()`
   - `isChoiceAvailable()`
   - `resolveUnavailableChoiceHint()`
-  - `advanceRuntimeForChoice()`
-  - navigation with valid target
-  - targetless action choices
-  - invalid non-null targets
+  - condition groups
+  - missing references
+  - resource effects
+  - variable effects
+  - character attribute effects
   - action choices enabling gated choices after runtime update
 - `projectValidation.test.ts` covers shared validation rules.
 - `ProjectValidationPanel.test.tsx` covers panel rendering, issue ordering, and validation issue navigation helpers.
 - `projectHistory.test.ts` covers snapshot push, undo/redo replay, project isolation, and the 50-snapshot cap.
 - `characterDeletion.test.ts` covers unused character deletion, referenced character deletion, speaker reference cleanup, and cancellation.
+- `variableHelpers.test.ts` covers variable key resolution.
+- `projectMigrations.test.ts` covers missing `variables` migration and existing variables preservation.
+- Standalone HTML export tests include variable save/load/runtime template coverage.
 
 ---
 
-## Current Milestone
-
-### EPIC 9 - Polish & Production UX
-
-Status: **validation batch complete; broader polish continues**.
+## Current EPIC 9 Status
 
 Completed validation batch:
 - `E9-15` - Warn on targetless choices with no effects
@@ -499,48 +498,30 @@ Completed polish / production UX tasks:
 - `E9-03` - Reusable confirmation dialog replacing native browser confirmations
 - `E9-10` - Safe character deletion when used as dialogue speaker
 
-Detailed documentation:
-- `docs/EPIC9_VALIDATION.md`
+Completed Variables work:
+- `E9-19` - Project Variables tab foundation
+- `E9-20` - Variables in Story Logic and runtime
 
 Important:
-- Validation must continue to use `validateProject(project)` as the single source of truth.
-- Do not duplicate validation logic in UI components.
-- Validation UI must not change runtime, Preview, JSON import/export, standalone HTML export, or the Project data model.
+- Validation UI must not change runtime, Preview, JSON import/export, standalone HTML export, or the Project data model unless explicitly scoped.
+- Variables are intentionally hidden/internal.
+- Resources are intended to become player-facing in a future task.
 
 Next recommended tasks:
-1. `E9-08` - Empty/error states polish
-2. `E9-14` - Story Player component-level tests
-3. `E9-02` future enhancements - finer-grained undo/redo UX beyond the snapshot-based MVP
-4. Future validation extension - Story Logic missing reference rules / export preflight
----
-
-## Core Architecture Principles
-
-1. **Project is the single source of truth** — all meaningful story data belongs to the `Project` object.
-2. **React Flow is a projection** — React Flow nodes and edges are generated from `Project.scenes`.
-3. **Choice is the source of truth for connections and choice logic** — edges are projections of `Choice.targetSceneId`.
-4. **Choice execution separates effects from navigation** — effects apply first, navigation is optional.
-5. **DialoguePage order is runtime order** — pages should be played sequentially by array index.
-6. **Editors modify Project data** — editor screens should update active Project through store actions.
-7. **Persistence lives in workspaceStore** — `workspaceStore.updateActiveProject()` persists full project changes.
-8. **Canvas store synchronizes from Project** — after graph mutations, call `syncFromProject()`.
-9. **Characters and Resources do not need their own domain stores** — they belong directly to Project.
-10. **Story Logic remains declarative** — no scripting in MVP.
-11. **Runtime helpers stay pure** — do not mutate Project or RuntimeState.
-12. **Story Player keeps runtime local for Preview** — do not persist Preview runtime state.
-13. **Exported HTML is standalone** — one file, embedded Project, direct-from-disk, no server.
-14. **Exported save/load is standalone-only** — localStorage runtime snapshots are used only in exported HTML.
-15. **Keep implementation prompts scoped** — list relevant files, acceptance criteria, validation commands, commit and push instructions.
+1. Player-facing Resource display in Preview and standalone HTML player.
+2. Future validation extension - Story Logic missing reference rules / export preflight.
+3. `E9-08` - Empty/error states polish.
+4. `E9-14` - Story Player component-level tests.
+5. `E9-02` future enhancements - finer-grained undo/redo UX beyond the snapshot-based MVP.
 
 ---
 
-## Source Structure
+## Important Source Map
 
 ```text
 src/
   app/
     App.tsx
-    index.ts
 
   components/
     AppShell.tsx
@@ -548,21 +529,16 @@ src/
     RightSidebar.tsx
 
   features/
-    workspace/
-      MyProjectsScreen.tsx
-
     canvas/
       SceneCanvas.tsx
       SceneNode.tsx
 
     editor/
       SceneEditorPanel.tsx
-
-    validation/
-      projectValidation.ts
-      projectValidation.test.ts
-      ProjectValidationPanel.tsx
-      ProjectValidationPanel.test.tsx
+      DialoguePagesEditor.tsx
+      ChoicesEditor.tsx
+      BackgroundPicker.tsx
+      AssetLibrarySection.tsx
 
     story-logic/
       ConditionGroupsEditor.tsx
@@ -574,6 +550,12 @@ src/
       runtimeLogic.ts
       runtimeLogic.test.ts
 
+    validation/
+      projectValidation.ts
+      projectValidation.test.ts
+      ProjectValidationPanel.tsx
+      ProjectValidationPanel.test.tsx
+
     characters/
       CharactersScreen.tsx
       characterDeletion.ts
@@ -582,97 +564,34 @@ src/
     resources/
       ResourcesScreen.tsx
 
+    variables/
+      VariablesScreen.tsx
+      variableHelpers.ts
+      variableHelpers.test.ts
+
     player/
-      ChoiceList.tsx
+      StoryPlayer.tsx
       DialoguePanel.tsx
-      playerHelpers.ts
+      ChoiceList.tsx
       runtimeState.ts
       runtimeState.test.ts
-      StoryPlayer.tsx
+      playerHelpers.ts
       StoryPlayerHeader.tsx
 
   store/
     projectHistory.ts
     projectHistory.test.ts
     projectMigrations.ts
+    projectMigrations.test.ts
     workspaceStore.ts
     useCanvasStore.ts
     useProjectViewStore.ts
 
-  types/
-    index.ts
-
   utils/
     projectExport.ts
-    projectImport.ts
     standaloneHtmlExport.ts
+    standaloneHtmlExport.test.ts
 
-  styles/
-    index.css
-
-  main.tsx
+  types/
+    index.ts
 ```
-
-Notes:
-- Story Player code lives under `src/features/player/`.
-- Story Logic editing and runtime helper code lives under `src/features/story-logic/`.
-- Project JSON export/import and standalone HTML export helpers live under `src/utils/`.
-- Standalone HTML runtime logic is duplicated inside the exported inline script because the output is a single HTML file without a bundler; keep semantics synchronized with `src/features/story-logic/runtimeLogic.ts`.
-
----
-
-## Data Model — Canonical Summary
-
-The authoritative TypeScript definitions live in:
-
-```text
-src/types/index.ts
-```
-
-Important structures:
-
-```typescript
-interface Project {
-  id: string;
-  name: string;
-  thumbnail: string | null;
-  startSceneId: string;
-  scenes: Scene[];
-  characters: Character[];
-  resources: Resource[];
-  groups: SceneGroup[];
-  assetLibrary: AssetLibraryItem[];
-  settings: ProjectSettings;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface Choice {
-  id: string;
-  text: string;
-  targetSceneId: string | null;
-  conditionGroups: ConditionGroup[];
-  effects: Effect[];
-}
-
-interface RuntimeState {
-  currentSceneId: string;
-  currentPageIndex: number;
-  variables: {
-    resources: Record<string, number>;
-    characterAttrs: Record<string, Record<string, number>>;
-  };
-  saveSlots?: RuntimeSaveSlot[];
-}
-```
-
-Important notes:
-- `Project.thumbnail` stores project thumbnail as a Data URL or `null`.
-- `WorkspaceProjectMeta.thumbnailDataUrl` mirrors project thumbnail for fast My Projects rendering.
-- `Project.startSceneId` is the runtime entry point.
-- If a project has scenes, `startSceneId` should point to an existing scene.
-- If a project has no scenes, `startSceneId` should be `''`.
-- `DialoguePage.speakerId = null` means Narrator.
-- `Choice.targetSceneId = null` is valid for action choices.
-- Exported standalone player save/load stores runtime snapshots only, not Project data.
-

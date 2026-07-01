@@ -12,9 +12,11 @@ This document defines the canonical data structures for Narrium. It is the prima
 - Background assets are portable inside exported/imported project JSON.
 - Project thumbnails are stored in the full `Project` and mirrored into workspace metadata for fast project listing.
 - Workspace metadata is stored separately from full project payload.
-- Characters and Resources are project data, not separate stores.
+- Characters, Resources, and Variables are project data, not separate stores.
 - React Flow is a projection of `Project.scenes`.
 - Choice execution separates **effects** from **navigation**.
+- Resources are intended as player-facing numeric story values.
+- Variables are intended as hidden/internal numeric story-state values.
 - Exported standalone player save/load stores runtime snapshots only, not the embedded Project.
 
 ---
@@ -72,6 +74,7 @@ interface Project {
   scenes: Scene[];
   characters: Character[];
   resources: Resource[];
+  variables: Variable[];
   groups: SceneGroup[];
   assetLibrary: AssetLibraryItem[];
   settings: ProjectSettings;
@@ -88,10 +91,12 @@ Notes:
 - `groups` are canvas-only organizational containers in MVP.
 - `assetLibrary` stores reusable project-level backgrounds.
 - `characters` stores project-level speaker/logic entities.
-- `resources` stores project-wide numeric variables.
+- `resources` stores project-wide numeric values intended for player-facing state such as gold, health, or inventory-like counts.
+- `variables` stores project-wide numeric values intended for hidden/internal story state such as flags, suspicion, visited states, or quest stages.
 - `updatedAt` must be refreshed on every meaningful editor change.
 - JSON export uses the full `Project` object.
 - Standalone HTML export embeds the full `Project` object.
+- Old projects without `variables` are normalized to `variables: []`.
 
 ---
 
@@ -186,6 +191,7 @@ Notes:
 - `speakerId = null` means narrator text.
 - When `speakerId` is set, it should point to `Character.id`.
 - If the referenced character is deleted, the editor should show a missing character warning.
+- Confirmed deletion of a character used as a speaker clears affected `speakerId` values while keeping dialogue pages intact.
 - Pages are displayed sequentially before choices appear.
 - Order in the array is significant.
 - Current editor supports moving pages up/down.
@@ -216,12 +222,12 @@ Notes:
   - `null`: apply effects and stay on the current scene/page
   - invalid non-null scene id: choice should be disabled and effects should not run
 - `targetSceneId = null` is valid for **action choices** such as `Take Key`, `Search Bookshelf`, or `Ask About Castle`.
-- A targetless choice with no effects is currently runtime-valid but should receive a future validation warning because it does nothing.
+- A targetless choice with no effects is authoring-valid but receives a validation warning because it does nothing.
 - Legacy project data may contain `conditions: Condition[]`; `projectMigrations` normalizes those into `conditionGroups`.
 
 ---
 
-## Character and resource models
+## Character, Resource, and Variable models
 
 ### Character
 
@@ -239,6 +245,7 @@ Notes:
 - `name` is user-facing display text.
 - Characters are stored in `Project.characters`.
 - Deleting a character used by Story Logic should show a warning before deletion.
+- Deleting a character used as a dialogue speaker should show a confirmation dialog and clear affected speaker references on confirmation.
 
 ---
 
@@ -279,6 +286,7 @@ interface Resource {
 Notes:
 - Resources are project-global numeric values, e.g. `gold`, `health`, `energy`.
 - Resources are stored in `Project.resources`.
+- Resources are intended to become player-facing values in a future player UI task.
 - `key` is the canonical logic-facing identifier.
 - Use `Resource.key`, not `Resource.name`.
 - `defaultValue` seeds runtime state at story start.
@@ -289,6 +297,33 @@ Notes:
 - Conditions/effects reference resources by `Resource.id`.
 - Runtime state stores resources by `Resource.key`.
 - Deleting a resource used by Story Logic should show a warning before deletion.
+
+---
+
+### Variable
+
+```typescript
+interface Variable {
+  id: string;
+  key: string;
+  defaultValue: number;
+}
+```
+
+Notes:
+- Variables are project-global numeric values intended for hidden/internal story state.
+- Examples: `visited_forest`, `knows_secret`, `guard_suspicion`, `quest_stage`, `has_seen_intro`.
+- Variables are stored in `Project.variables`.
+- `key` is the canonical logic-facing identifier.
+- `defaultValue` seeds runtime state at story start.
+- Negative and decimal default values are allowed.
+- Invalid numeric editor input should be stored as `0`.
+- Variable keys must be unique project-wide within `Project.variables`.
+- Duplicate variable keys should be resolved with suffixes such as `visited_forest_2`, `visited_forest_3`.
+- Conditions/effects reference variables by `Variable.id`.
+- Runtime state stores variables by `Variable.key`.
+- Variables are not normally shown to the player.
+- Variables are useful for flags and progression state; boolean-like values should be represented as `0` / `1` in the MVP.
 
 ---
 
@@ -319,7 +354,7 @@ Notes:
 ```typescript
 interface Condition {
   id: string;
-  type: 'resource' | 'character_attr';
+  type: 'resource' | 'character_attr' | 'variable';
   targetId: string;
   attribute?: string;
   operator: '>=' | '<=' | '==' | '>' | '<' | '!=';
@@ -330,10 +365,11 @@ interface Condition {
 
 Notes:
 - `type='resource'` uses `targetId = Resource.id`.
+- `type='variable'` uses `targetId = Variable.id`.
 - `type='character_attr'` uses `targetId = Character.id` and requires `attribute`.
 - For `character_attr`, `attribute` currently refers to `CharacterAttribute.key`.
 - `hintText` is shown when the condition is not met; the choice stays visible but disabled.
-- The editor shows lightweight validation warnings for missing or deleted resource, character, and attribute references.
+- The editor shows lightweight validation warnings for missing or deleted resource, variable, character, and attribute references.
 - Missing references fail in runtime condition evaluation.
 - Condition validation is visual only and should not auto-fix data.
 
@@ -344,7 +380,7 @@ Notes:
 ```typescript
 interface Effect {
   id: string;
-  type: 'resource' | 'character_attr';
+  type: 'resource' | 'character_attr' | 'variable';
   targetId: string;
   attribute?: string;
   operation: '+=' | '-=' | '=';
@@ -355,6 +391,7 @@ interface Effect {
 Notes:
 - Effects modify runtime state only.
 - `type='resource'` uses `targetId = Resource.id`.
+- `type='variable'` uses `targetId = Variable.id`.
 - `type='character_attr'` uses `targetId = Character.id` and requires `attribute`.
 - For `character_attr`, `attribute` currently refers to `CharacterAttribute.key`.
 - `operation='+='` adds a value.
@@ -364,7 +401,7 @@ Notes:
 - Multiple effects can be attached to one choice.
 - Effects are applied in array order.
 - Effects are independent from navigation.
-- The editor shows lightweight validation warnings for missing or deleted resource, character, and attribute references.
+- The editor shows lightweight validation warnings for missing or deleted resource, variable, character, and attribute references.
 - Broken effects are skipped by runtime helper semantics.
 
 ---
@@ -422,6 +459,7 @@ interface RuntimeState {
   currentPageIndex: number;
   variables: {
     resources: Record<string, number>;
+    variables: Record<string, number>;
     characterAttrs: Record<string, Record<string, number>>;
   };
   saveSlots?: RuntimeSaveSlot[];
@@ -429,23 +467,14 @@ interface RuntimeState {
 ```
 
 Notes:
-- Runtime state is built from the `Project` defaults when preview or standalone player starts.
-- `currentSceneId` points to the currently displayed scene.
-- `currentPageIndex` points to the current dialogue page within the current scene.
-- `variables.resources` should be seeded from `Project.resources`.
-- `variables.characterAttrs` should be seeded from `Project.characters[].attributes`.
-- Resource runtime keys should be derived from `Resource.key`.
-- Character attribute runtime keys should be derived from `CharacterAttribute.key`.
-- Character attributes are nested under `Character.id`.
-- Preview runtime state is local and not persisted.
-- Standalone HTML runtime state can be manually saved and loaded through exported player save/load controls when `Project.settings.allowSessionSaveLoad !== false`.
-
-Example:
-
-```typescript
-runtimeState.variables.resources.gold = 10;
-runtimeState.variables.characterAttrs[aliceId].trust = 5;
-```
+- `currentSceneId` is the scene currently being played.
+- `currentPageIndex` is the active dialogue page index in the current scene.
+- `variables.resources` stores runtime resource values by `Resource.key`.
+- `variables.variables` stores runtime variable values by `Variable.key`.
+- `variables.characterAttrs` stores runtime character attributes by `Character.id` and `CharacterAttribute.key`.
+- RuntimeState is derived from `Project` defaults when Preview or exported standalone player starts.
+- RuntimeState is mutated by effects during playback.
+- RuntimeState should not mutate the editor `Project`.
 
 ---
 
@@ -460,150 +489,32 @@ interface RuntimeSaveSlot {
 ```
 
 Notes:
-- `saveSlots` is reserved for future structured save-slot modeling.
-- Current exported standalone HTML save/load does not require changing the `RuntimeState` TypeScript shape.
-- Current exported standalone HTML persistence stores a runtime snapshot in localStorage with key `narrium_player_save_{projectId}`.
-- The saved snapshot contains runtime state only and does not store the embedded `Project`.
+- Reserved for runtime save slot representation.
+- Standalone HTML export currently persists runtime snapshots in localStorage.
+- Standalone runtime snapshots include resources, variables, and character attributes.
 
 ---
 
-## Storage layout
+## Migration and compatibility rules
 
-| Key | Purpose |
-|---|---|
-| `narrium_workspace` | Serialized `WorkspaceState` |
-| `narrium_project_{id}` | Serialized `Project` |
-| `narrium_player_save_{projectId}` | Exported standalone player runtime save data |
+`normalizeProject(project)` is responsible for keeping older localStorage and imported project JSON compatible with the current model.
 
----
+Current normalization responsibilities include:
+- adding missing `thumbnail`
+- repairing missing/invalid `startSceneId`
+- normalizing scenes
+- normalizing backgrounds
+- normalizing dialogue pages with missing `speakerId`
+- migrating legacy `Choice.conditions` into `Choice.conditionGroups`
+- adding missing `effects`
+- adding missing project collections:
+  - `scenes`
+  - `characters`
+  - `resources`
+  - `variables`
+  - `groups`
+  - `assetLibrary`
+- adding missing `settings.allowSessionSaveLoad`
 
-## Import / Export behavior
-
-### JSON project export
-
-- Exports the active full `Project` object as formatted JSON.
-- Uses the same canonical model as editor state.
-- Preserves Data URLs.
-- Does not mutate Project data.
-- Does not update localStorage.
-
-### JSON project import
-
-- Accepts a Narrium Project JSON file.
-- Parses and validates the file conservatively.
-- Passes parsed data through project normalization.
-- Creates a **new** project:
-  - new `Project.id`
-  - new `createdAt`
-  - new `updatedAt`
-- Preserves all story content and portable assets.
-- Creates matching `WorkspaceProjectMeta`.
-- Saves the imported project to localStorage.
-- Opens the imported project.
-- Invalid files do not crash the app and show `Invalid Narrium project file.`
-
-### Standalone HTML export
-
-- Exports a single `.html` file.
-- Embeds the active full `Project` object.
-- Preserves Data URLs.
-- Opens directly from disk.
-- Does not require the Narrium app, npm, Vite, React dev server, or a local server.
-- Uses localStorage only for exported player runtime save/load when `Project.settings.allowSessionSaveLoad !== false`.
-- Supports Preview-equivalent runtime behavior for:
-  - dialogue pages
-  - speaker names
-  - choices
-  - conditions
-  - unavailable hints
-  - resource effects
-  - character attribute effects
-  - targetless action choices
-  - valid target navigation
-  - invalid target disabled behavior
-  - restart
-  - end state
-  - supported backgrounds
-  - manual runtime save/load
-  - clear save
-
----
-
-## Migration rules
-
-Current implemented migrations:
-
-- Legacy `Choice.conditions` is normalized into `Choice.conditionGroups`.
-- Missing `Project.thumbnail` is normalized to `null`.
-- Missing `WorkspaceProjectMeta.thumbnailDataUrl` is normalized to `null` when loading workspace metadata.
-- Full current `Project` shape is normalized on load/import:
-  - collections
-  - settings
-  - scene backgrounds
-  - dialogue pages
-  - choices
-  - condition groups
-  - effects
-
-Migration principles:
-
-- Migrations should be centralized in `projectMigrations.ts` when they affect full Project payloads.
-- Workspace metadata normalization can live in `workspaceStore` if it only affects the workspace list.
-- Migrations should preserve author data whenever possible.
-- Migrations should mark changed projects for persistence after loading.
-
----
-
-## Validation checklist
-
-A valid project should satisfy all of the following:
-
-- `Project.startSceneId` points to an existing scene, unless the project has no scenes yet.
-- Every `Scene.id`, `Choice.id`, `DialoguePage.id`, `Character.id`, `Resource.id`, `SceneGroup.id`, and `AssetLibraryItem.id` is unique within its collection.
-- Every `DialoguePage.speakerId`, when present, points to an existing `Character.id`.
-- Every non-null `Choice.targetSceneId` points to an existing scene.
-- `Choice.targetSceneId = null` is allowed for targetless action choices.
-- A targetless choice without effects should eventually receive a validation warning because it does nothing.
-- Every `Condition.targetId` and `Effect.targetId` points to an existing resource or character depending on type.
-- Every `Condition.attribute` / `Effect.attribute` for `character_attr` exists on the target character.
-- Every `Scene.groupId`, when present, points to an existing group.
-- Every `SceneBackground.assetId` or `sourceSceneId`, when used, points to an existing entity.
-- Every `CharacterAttribute.key` is unique within its character.
-- Every `Resource.key` is unique project-wide.
-- `Project.thumbnail`, when present, should be a Data URL.
-
----
-
-## MVP defaults
-
-Recommended defaults when creating a new project:
-
-```typescript
-Project.thumbnail = null
-Project.startSceneId = ''
-Project.scenes = []
-Project.characters = []
-Project.resources = []
-Project.groups = []
-Project.assetLibrary = []
-Project.settings.allowSessionSaveLoad = true
-```
-
-Recommended defaults when creating a new scene:
-
-```typescript
-Scene.background = {
-  mode: 'none',
-  assetId: null,
-  sourceSceneId: null,
-  url: ''
-}
-Scene.dialoguePages = [
-  {
-    id: crypto.randomUUID(),
-    speakerId: null,
-    text: ''
-  }
-]
-Scene.choices = []
-```
+Compatibility requirement:
+- Old projects without `variables` must load as valid projects with `variables: []`.

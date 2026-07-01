@@ -1,8 +1,8 @@
 # Story Logic — Narrium
 
-> **Version:** v3 implemented specification after EPIC 8 runtime parity + action choices  
+> **Version:** v4 implemented specification after Variables integration  
 > **Status:** Implemented for MVP editor, Preview player, and standalone HTML player  
-> **Scope:** Conditions, condition groups, effects, reference warnings, runtime logic behavior, and action-choice behavior for Narrium choices.
+> **Scope:** Conditions, condition groups, effects, reference warnings, runtime logic behavior, action-choice behavior, Resources, Variables, Character Attributes, and exported runtime parity.
 
 ---
 
@@ -23,6 +23,7 @@ The goal is to support meaningful branching narratives while keeping the editor 
 - `Project` remains the single source of truth.
 - Logic references existing project data:
   - `Project.resources`
+  - `Project.variables`
   - `Project.characters`
   - `Character.attributes`
 - Runtime state is derived from project defaults when preview/player starts.
@@ -32,6 +33,8 @@ The goal is to support meaningful branching narratives while keeping the editor 
 - Effects are independent from navigation.
 - Targetless choices can be valid action choices.
 - Broken references should be visible in the editor and safe in runtime.
+- Resources are intended to be player-facing state.
+- Variables are intended to be hidden/internal story state.
 
 ---
 
@@ -39,7 +42,7 @@ The goal is to support meaningful branching narratives while keeping the editor 
 
 ### 3.1 Resources
 
-Resources are global numeric variables shared by the whole story.
+Resources are global numeric variables shared by the whole story and intended to be player-facing.
 
 Examples:
 
@@ -47,6 +50,8 @@ Examples:
 gold
 health
 energy
+wood
+food
 reputation
 ```
 
@@ -74,9 +79,56 @@ Conditions/effects store `Resource.id`.
 
 Runtime state stores resource values by `Resource.key`.
 
+Future direction:
+- Resources should later be available for player-facing UI display in Preview and exported standalone HTML player.
+
 ---
 
-### 3.2 Characters
+### 3.2 Variables
+
+Variables are global numeric values shared by the whole story and intended to be hidden/internal.
+
+Examples:
+
+```text
+visited_forest
+knows_secret
+guard_suspicion
+quest_stage
+has_seen_intro
+```
+
+Variables are defined in:
+
+```typescript
+Project.variables
+```
+
+Each variable has:
+
+```typescript
+interface Variable {
+  id: string;
+  key: string;
+  defaultValue: number;
+}
+```
+
+Runtime variable values are seeded from `Variable.defaultValue`.
+
+Editor-facing references display `Variable.key`.
+
+Conditions/effects store `Variable.id`.
+
+Runtime state stores variable values by `Variable.key`.
+
+Variables are not normally shown to the player.
+
+Boolean-like variables should use numeric values such as `0` / `1` in the MVP.
+
+---
+
+### 3.3 Characters
 
 Characters are story entities used as dialogue speakers and logic targets.
 
@@ -100,7 +152,7 @@ Characters can be selected as dialogue speakers through `DialoguePage.speakerId`
 
 ---
 
-### 3.3 Character Attributes
+### 3.4 Character Attributes
 
 Character attributes are numeric values scoped to a character.
 
@@ -185,10 +237,10 @@ A condition compares a runtime value against a number.
 
 ### 5.1 Condition Types
 
-MVP supports two condition types:
+MVP supports three condition types:
 
 ```typescript
-type ConditionType = 'resource' | 'character_attr';
+type ConditionType = 'resource' | 'variable' | 'character_attr';
 ```
 
 #### Resource condition
@@ -202,6 +254,18 @@ gold >= 10
 Meaning:
 
 The choice is available only if the current runtime value of `gold` is at least `10`.
+
+#### Variable condition
+
+Example:
+
+```text
+visited_forest == 1
+```
+
+Meaning:
+
+The choice is available only if the hidden story variable `visited_forest` has value `1`.
 
 #### Character attribute condition
 
@@ -233,7 +297,7 @@ Semantics:
 | `<=` | less than or equal |
 | `==` | equal |
 | `>` | greater |
-| `<` | less than |
+| `<` | less |
 | `!=` | not equal |
 
 ---
@@ -243,7 +307,7 @@ Semantics:
 ```typescript
 interface Condition {
   id: string;
-  type: 'resource' | 'character_attr';
+  type: 'resource' | 'variable' | 'character_attr';
   targetId: string;
   attribute?: string;
   operator: '>=' | '<=' | '==' | '>' | '<' | '!=';
@@ -257,8 +321,8 @@ Field behavior:
 | Field | Meaning |
 |---|---|
 | `id` | stable condition id |
-| `type` | whether the condition targets a resource or character attribute |
-| `targetId` | `Resource.id` or `Character.id` depending on type |
+| `type` | whether the condition targets a resource, variable, or character attribute |
+| `targetId` | `Resource.id`, `Variable.id`, or `Character.id` depending on type |
 | `attribute` | required for `character_attr`; stores `CharacterAttribute.key` |
 | `operator` | comparison operator |
 | `value` | numeric comparison value |
@@ -282,7 +346,7 @@ Choice is available if at least one condition group passes.
 A condition group passes if all conditions inside it pass.
 ```
 
-### 6.1 Example
+Example:
 
 ```text
 Group 1:
@@ -292,6 +356,11 @@ reputation >= 2
 OR
 
 Group 2:
+visited_forest == 1
+
+OR
+
+Group 3:
 Alice.trust >= 5
 ```
 
@@ -300,12 +369,12 @@ This means the choice is available if:
 ```text
 (gold >= 10 AND reputation >= 2)
 OR
+(visited_forest == 1)
+OR
 (Alice.trust >= 5)
 ```
 
----
-
-### 6.2 ConditionGroup Shape
+### ConditionGroup Shape
 
 ```typescript
 interface ConditionGroup {
@@ -370,6 +439,7 @@ function isChoiceAvailable(choice, project, runtimeState): boolean {
 If a condition references deleted or missing data:
 
 - missing resource
+- missing variable
 - missing character
 - missing character attribute
 
@@ -396,6 +466,13 @@ Resource condition lookup:
 ```typescript
 const resource = project.resources.find((resource) => resource.id === condition.targetId);
 const runtimeValue = runtimeState.variables.resources[resource.key];
+```
+
+Variable condition lookup:
+
+```typescript
+const variable = project.variables.find((variable) => variable.id === condition.targetId);
+const runtimeValue = runtimeState.variables.variables[variable.key];
 ```
 
 Character attribute condition lookup:
@@ -445,14 +522,12 @@ Effects are applied to `RuntimeState`.
 
 Effects are independent from navigation.
 
----
-
 ### 9.1 Effect Types
 
 MVP supports:
 
 ```typescript
-type EffectType = 'resource' | 'character_attr';
+type EffectType = 'resource' | 'variable' | 'character_attr';
 ```
 
 #### Resource effect
@@ -461,6 +536,14 @@ Example:
 
 ```text
 gold -= 10
+```
+
+#### Variable effect
+
+Example:
+
+```text
+visited_forest = 1
 ```
 
 #### Character attribute effect
@@ -509,7 +592,7 @@ Important:
 ```typescript
 interface Effect {
   id: string;
-  type: 'resource' | 'character_attr';
+  type: 'resource' | 'variable' | 'character_attr';
   targetId: string;
   attribute?: string;
   operation: '+=' | '-=' | '=';
@@ -522,8 +605,8 @@ Field behavior:
 | Field | Meaning |
 |---|---|
 | `id` | stable effect id |
-| `type` | whether the effect targets a resource or character attribute |
-| `targetId` | `Resource.id` or `Character.id` depending on type |
+| `type` | whether the effect targets a resource, variable, or character attribute |
+| `targetId` | `Resource.id`, `Variable.id`, or `Character.id` depending on type |
 | `attribute` | required for `character_attr`; stores `CharacterAttribute.key` |
 | `operation` | mutation operation |
 | `value` | numeric value used by the operation |
@@ -555,130 +638,71 @@ Effects are applied when the player selects an available choice.
 Current player order:
 
 1. Validate selected choice is currently available.
-2. If `targetSceneId` is non-null, validate that it points to an existing scene.
-3. Apply effects in array order.
-4. If `targetSceneId` is a valid scene id:
-   - navigate to `choice.targetSceneId`
-   - reset `currentPageIndex` to `0`
-5. If `targetSceneId` is `null`:
-   - remain in the current scene
-   - keep the current page
-   - re-render with updated runtime variables
-
-If `targetSceneId` is non-null but invalid:
-- runtime returns the original state
-- effects are not applied
-- player UI should disable the choice
+2. If `targetSceneId` is non-null, validate that target scene exists.
+3. Apply effects.
+4. If target exists, navigate and reset page index.
+5. If target is null, remain on current scene/page and re-render with updated runtime values.
 
 ---
 
-### 10.1 Resource Effect Runtime Behavior
+### 10.1 Resource Effects
 
-For:
+Resource effect lookup:
 
 ```typescript
-effect.type === 'resource'
+const resource = project.resources.find((resource) => resource.id === effect.targetId);
 ```
 
-Runtime behavior:
-- Find resource by `effect.targetId`.
-- If resource is missing, skip effect.
-- Use runtime key `resource.key`.
-- Current missing runtime value is treated as `0`.
-- Apply `+=`, `-=`, or `=`.
-- Store updated value in returned `RuntimeState`.
-
----
-
-### 10.2 Character Attribute Effect Runtime Behavior
-
-For:
+Runtime mutation:
 
 ```typescript
-effect.type === 'character_attr'
+variables.resources[resource.key]
 ```
 
-Runtime behavior:
-- Find character by `effect.targetId`.
-- If character is missing, skip effect.
-- Require `effect.attribute`.
-- Verify the character still has that attribute key.
-- If attribute is missing, skip effect.
-- Current missing runtime value is treated as `0`.
-- Apply `+=`, `-=`, or `=`.
-- Create nested runtime objects when needed.
-- Store updated value in returned `RuntimeState`.
+Missing resource references are skipped.
 
 ---
 
-### 10.3 Purity
+### 10.2 Variable Effects
 
-Runtime helpers must not mutate:
-
-- `choice`
-- `project`
-- `runtimeState`
-
-They return a new `RuntimeState` when changes are applied.
-
----
-
-## 11. Action Choices
-
-Action choices are choices that execute effects without changing scenes.
-
-They use the existing `Choice` model:
+Variable effect lookup:
 
 ```typescript
-targetSceneId: null
-effects: [...]
+const variable = project.variables.find((variable) => variable.id === effect.targetId);
 ```
 
-No new data model is required.
+Runtime mutation:
 
-### 11.1 Example — Take Key
-
-```text
-Choice: Take Key
-targetSceneId: null
-effect: has_key = 1
+```typescript
+variables.variables[variable.key]
 ```
 
-Runtime behavior:
-- conditions are checked
-- effects are applied
-- current scene remains unchanged
-- current page remains unchanged
-- choices are re-rendered using updated runtime variables
-
-### 11.2 Example — Unlock Door
-
-```text
-Choice: Open Door
-condition: has_key == 1
-targetSceneId: hall_scene
-```
-
-Runtime behavior:
-- unavailable until `has_key == 1`
-- after the player clicks `Take Key`, the choice becomes available
-- clicking `Open Door` navigates to the hall scene
-
-### 11.3 Targetless choice with no effects
-
-Runtime currently allows this if conditions pass.
-
-Product note:
-- this choice does nothing
-- future validation should warn authors about targetless choices with no effects
+Missing variable references are skipped.
 
 ---
 
-## 12. Runtime State
+### 10.3 Character Attribute Effects
 
-Runtime state should be initialized from the `Project`.
+Character attribute effect lookup:
 
-Current model:
+```typescript
+const character = project.characters.find((character) => character.id === effect.targetId);
+const attribute = character.attributes.find((attribute) => attribute.key === effect.attribute);
+```
+
+Runtime mutation:
+
+```typescript
+variables.characterAttrs[character.id][effect.attribute]
+```
+
+Missing character or attribute references are skipped.
+
+---
+
+## 11. Runtime State
+
+Runtime values are stored in:
 
 ```typescript
 interface RuntimeState {
@@ -686,302 +710,120 @@ interface RuntimeState {
   currentPageIndex: number;
   variables: {
     resources: Record<string, number>;
+    variables: Record<string, number>;
     characterAttrs: Record<string, Record<string, number>>;
   };
-  saveSlots?: RuntimeSaveSlot[];
 }
 ```
 
-### 12.1 Resource Runtime Keys
+Initialization from Project:
 
-Runtime resources are keyed by `Resource.key`.
+```typescript
+variables.resources = Object.fromEntries(
+  project.resources.map((resource) => [resource.key, resource.defaultValue])
+);
+
+variables.variables = Object.fromEntries(
+  project.variables.map((variable) => [variable.key, variable.defaultValue])
+);
+
+variables.characterAttrs = Object.fromEntries(
+  project.characters.map((character) => [
+    character.id,
+    Object.fromEntries(
+      character.attributes.map((attribute) => [attribute.key, attribute.defaultValue])
+    )
+  ])
+);
+```
+
+Notes:
+- Runtime values are keyed by user-editable keys for resources and variables.
+- Character attributes are keyed by character id and attribute key.
+- Runtime state is local to Preview/exported player.
+- Runtime state should never mutate editor Project data.
+
+---
+
+## 12. Action Choices
+
+A targetless choice with effects is a valid **action choice**.
 
 Example:
 
-```typescript
-variables.resources.gold = 10;
+```text
+Choice: Search the drawer
+Target: None
+Effects:
+- variable.has_key = 1
 ```
 
-### 12.2 Character Attribute Runtime Keys
+Behavior:
 
-Structure:
+- choice applies effects
+- current scene remains the same
+- current page remains the same
+- player re-renders
+- newly available choices can become enabled after variables/resources/attributes change
 
-```typescript
-variables.characterAttrs[character.id][attribute.key] = attribute.defaultValue;
-```
-
-Example:
-
-```typescript
-variables.characterAttrs["alice-id"].trust = 5;
-```
-
-Reason:
-- Character `id` is stable.
-- Attribute `key` is author-readable.
-- Attribute model currently has no `id`.
-
-Future note:
-
-If attributes get ids later, runtime can migrate to:
-
-```typescript
-variables.characterAttrs[character.id][attribute.id]
-```
-
-but that is not recommended until needed.
+A targetless choice with no effects is probably authoring noise and receives a validation warning.
 
 ---
 
-## 13. Editor UI Specification
+## 13. Preview and Standalone Runtime Parity
 
-### 13.1 Choice Editor Placement
+Preview and standalone HTML player are expected to support the same Story Logic behavior:
 
-Story Logic UI lives inside the existing Scene Editor choice section.
+- resource conditions
+- variable conditions
+- character attribute conditions
+- unavailable choice hints
+- resource effects
+- variable effects
+- character attribute effects
+- targetless action choices
+- valid target navigation
+- invalid non-null target disabled behavior
+- restart
+- end state
 
-Each choice exposes:
-
-- Target scene
-- Conditions
-- Effects
-
-MVP order inside a Choice editor:
-
-1. Choice text
-2. Target scene
-3. Conditions
-4. Effects
-
-Target scene can be `None`.
-- `None` may represent an unfinished choice.
-- `None` is also valid for targetless action choices when effects are present.
-- Future validation should warn if a targetless choice has no effects.
+Standalone HTML export contains an inline runtime implementation mirroring the shared Preview runtime helpers.
 
 ---
 
-### 13.2 Conditions Editor
+## 14. Save / Load
 
-Implemented features:
-- Add OR group.
-- Delete OR group.
-- Add condition inside a group.
-- Delete condition.
-- Select condition type:
-  - Resource
-  - Character Attribute
-- Select resource.
-- Select character.
-- Select character attribute.
-- Select operator.
-- Edit numeric value.
-- Edit unavailable hint.
-- Show inline warnings for missing references.
+Standalone save/load persists runtime snapshots only.
 
----
-
-### 13.3 Effects Editor
-
-Implemented features:
-- Add effect.
-- Delete effect.
-- Select effect type:
-  - Resource
-  - Character Attribute
-- Select resource.
-- Select character.
-- Select character attribute.
-- Select operation.
-- Edit numeric value.
-- Show inline warnings for missing references.
-
-Default new effect:
+Snapshots include:
 
 ```typescript
 {
-  id: crypto.randomUUID(),
-  type: "resource",
-  targetId: "",
-  operation: "+=",
-  value: 0
+  currentSceneId,
+  currentPageIndex,
+  variables: {
+    resources,
+    variables,
+    characterAttrs
+  }
 }
 ```
 
----
+Saved snapshots do not store the embedded Project.
 
-### 13.4 Reference Warnings
-
-Implemented helper:
-
-```typescript
-findStoryLogicUsages(project, target)
-```
-
-Implemented warning formatting:
-
-```typescript
-formatStoryLogicUsageWarning(referenceLabel, usages)
-```
-
-Warnings are shown before deleting:
-- Resource
-- Character
-- Character Attribute
-
-The warning scans:
-- `choice.conditionGroups`
-- `choice.effects`
-
-Deletion is still allowed after confirmation.
-
-References are not auto-fixed.
-
-Existing inline missing-reference warnings remain responsible for showing broken logic after deletion.
+Save/load validation rejects invalid, corrupted, or unsafe values.
 
 ---
 
-## 14. Player Integration
+## 15. Current Limitations and Future Work
 
-Preview Player and standalone HTML player should follow the same runtime semantics.
+Known future extensions:
 
-Flow:
-
-1. Initialize `RuntimeState` from Project defaults.
-2. Set:
-   - `currentSceneId = Project.startSceneId`
-   - `currentPageIndex = 0`
-3. Resolve current scene.
-4. Show current dialogue page:
-   - `scene.dialoguePages[currentPageIndex]`
-5. Resolve speaker:
-   - `speakerId === null` → Narrator
-   - `speakerId === Character.id` → Character
-   - missing speaker → Unknown Speaker
-6. On Next:
-   - if more pages exist, increment `currentPageIndex`
-   - otherwise show choices
-7. For each choice:
-   - evaluate `isChoiceAvailable(choice, project, runtimeState)`
-   - disable if unavailable
-   - disable if `targetSceneId` is non-null and invalid
-   - do not disable solely because `targetSceneId` is `null`
-   - show hint from `resolveUnavailableChoiceHint(...)` if unavailable
-8. On enabled choice selection:
-   - call `advanceRuntimeForChoice(choice, project, runtimeState)`
-   - store returned runtime state
-   - re-render
-
----
-
-## 15. Exported Standalone HTML Runtime
-
-The standalone HTML export mirrors Preview runtime behavior in a self-contained file.
-
-Implemented behavior:
-- embeds the active full `Project`
-- initializes local runtime state from Project defaults
-- renders dialogue pages
-- shows Next only when another dialogue page exists
-- renders choices after the final dialogue page
-- evaluates conditions
-- disables unavailable choices
-- shows hints
-- applies effects
-- supports targetless action choices
-- supports valid target navigation
-- disables invalid non-null targets
-- supports restart
-- supports end state
-- supports URL/upload/asset/one-level scene-reference backgrounds
-- does not persist runtime state yet
-
-Known limitation:
-- Runtime logic is duplicated inside the standalone inline script for now because the output is a single HTML file without a bundler.
-- Keep semantics synchronized with `src/features/story-logic/runtimeLogic.ts`.
-
----
-
-## 16. Implementation Files
-
-Story Logic editor/runtime files:
-
-```text
-src/features/story-logic/
-  ConditionGroupsEditor.tsx
-  ConditionGroupCard.tsx
-  ConditionRow.tsx
-  EffectsEditor.tsx
-  EffectCard.tsx
-  referenceUsage.ts
-  runtimeLogic.ts
-  runtimeLogic.test.ts
-```
-
-Player files:
-
-```text
-src/features/player/
-  ChoiceList.tsx
-  DialoguePanel.tsx
-  playerHelpers.ts
-  runtimeState.ts
-  runtimeState.test.ts
-  StoryPlayer.tsx
-  StoryPlayerHeader.tsx
-```
-
-Export files:
-
-```text
-src/utils/
-  projectExport.ts
-  projectImport.ts
-  standaloneHtmlExport.ts
-```
-
-Related files:
-
-```text
-src/features/editor/SceneEditorPanel.tsx
-src/features/characters/CharactersScreen.tsx
-src/features/resources/ResourcesScreen.tsx
-src/store/projectMigrations.ts
-src/store/useCanvasStore.ts
-src/store/workspaceStore.ts
-src/types/index.ts
-```
-
----
-
-## 17. Completion Summary
-
-EPIC 6 is complete for MVP Story Logic.
-
-EPIC 7 is complete for Preview Player.
-
-EPIC 8 has extended Story Logic runtime behavior into project export/import and standalone HTML export.
-
-Completed:
-- Conditions data model and editor
-- Condition groups with OR/AND semantics
-- Legacy migration from `Choice.conditions`
-- Resource conditions
-- Character Attribute conditions
-- Inline validation warnings
-- Effects data model and editor
-- Resource effects
-- Character Attribute effects
-- Effects validation warnings
-- Runtime condition evaluation helper
-- Unavailable hint helper
-- Runtime effect application helper
-- Shared choice advancement helper
-- Action choices without navigation
-- Reference usage warnings before deleting resources/characters/attributes
-- Preview player runtime integration
-- Standalone HTML player runtime parity
-
-Not yet complete:
-- Standalone HTML visual polish
-- Exported player save/load slots
-- Full project validation panel
-- Story Player component-level tests
+- Player-facing Resource display in Preview and standalone HTML.
+- Full Project Validation rules for missing Story Logic references:
+  - missing resource condition/effect target
+  - missing variable condition/effect target
+  - missing character attribute condition/effect target
+- Export preflight using `validateProject(project)`.
+- Optional richer variable types in the future, such as booleans or strings, if product requirements justify it.
+- Better author-facing hint strategy if condition-level hints become too granular.

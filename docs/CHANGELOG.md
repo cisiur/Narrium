@@ -6,19 +6,39 @@ This changelog records milestone-level project changes. It is intentionally conc
 
 ## Unreleased / Next
 
+### Completed - EPIC 9 validation batch
+
+Reference:
+- `docs/EPIC9_VALIDATION.md`
+
+Commits:
+- `56a8304`
+- `87d08ba`
+- `a90c866`
+- `c25e3ea`
+- `8098139`
+- `922eb5f`
+
+Changes:
+- Added an inline Scene Editor warning for targetless choices with no effects.
+- Introduced shared project validation infrastructure through `validateProject(project)`.
+- Added validation rules for broken choice targets, missing dialogue speakers, broken scene background references, and broken asset background references.
+- Added the Project Validation panel in the canvas right sidebar.
+- Polished the right sidebar layout so Project Validation stays visible above the Scene Editor, with a neutral empty state when no scene is selected.
+
 ### Planned
 
-- EPIC 9 — Polish & Production UX
+- EPIC 9 - Polish & Production UX
   - Keyboard shortcuts
-  - Full project validation panel
   - Empty/error states polish
-  - Authoring warnings for targetless choices with no effects
+  - Story Player component-level tests
+  - Future validation extension: Story Logic missing reference rules / export preflight
 
 ### Backlog / Product polish
 
-- Warn when a targetless choice has no effects, because it is currently runtime-valid but does nothing.
-- Full project validation panel.
 - Story Player component-level tests.
+- Story Logic missing reference validation rules.
+- Export preflight validation.
 
 ---
 
@@ -504,3 +524,4 @@ Implemented in `src/features/story-logic/runtimeLogic.ts`:
 - `applyNumericOperation()`
 - `applyEffects()`
 - `advanceRuntimeForChoice()`
+

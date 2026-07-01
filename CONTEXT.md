@@ -91,7 +91,7 @@ Polish & Production UX     ████░░░░░░  40%
 ```
 
 Current state:
-Narrium has a usable local multi-project workspace, project settings sidebar, project thumbnails, React Flow scene graph editor, right-side scene editor, background system, asset library support, SceneNode thumbnails, ordered dialogue pages, character speaker selection, choice target editing, edge-to-choice navigation, project-level Characters, Character attributes, project-level Resources, complete Story Logic Conditions, complete Story Logic Effects, runtime helper functions for condition/effect execution, a functional in-browser Story Player Preview, JSON project export/import, standalone HTML story export with runtime parity, polished standalone HTML playback, and exported standalone player save/load persistence.
+Narrium has a usable local multi-project workspace, project settings sidebar, project thumbnails, React Flow scene graph editor, right-side scene editor with Project Validation, shared validation infrastructure, background system, asset library support, SceneNode thumbnails, ordered dialogue pages, character speaker selection, choice target editing, edge-to-choice navigation, project-level Characters, Character attributes, project-level Resources, complete Story Logic Conditions, complete Story Logic Effects, runtime helper functions for condition/effect execution, a functional in-browser Story Player Preview, JSON project export/import, standalone HTML story export with runtime parity, polished standalone HTML playback, and exported standalone player save/load persistence.
 
 Completed milestones:
 - EPIC 6 — Story Logic is complete for the MVP editor/runtime-helper layer.
@@ -100,6 +100,7 @@ Completed milestones:
 - EPIC 7 — Story Player MVP is complete.
 - EPIC 8 JSON export/import is complete.
 - EPIC 8 standalone HTML export foundation, runtime parity, action choices, standalone player polish, and exported player save/load are complete.
+- EPIC 9 validation batch is complete: inline targetless-choice warning, shared validation infrastructure, validation rules, Project Validation panel, and sidebar layout polish.
 
 Current recommended next milestone:
 - **EPIC 9 — Polish & Production UX**
@@ -107,9 +108,9 @@ Current recommended next milestone:
 
 Good candidates:
 - `E9-01` — Keyboard shortcuts: Delete selected node/choice, Esc close/cancel
-- `E9-06` — Full project validation panel
 - `E9-08` — Empty/error states polish
-- `E9-15` — Warn on targetless choices with no effects
+- `E9-14` — Story Player component-level tests
+- Future validation extension — Story Logic missing reference rules / export preflight
 
 ---
 
@@ -151,7 +152,7 @@ Good candidates:
   - `resources`
 - Left project sidebar switches between Canvas, Characters, and Resources.
 - Opening a project defaults to Canvas.
-- Canvas keeps the right Scene Editor panel.
+- Canvas keeps the right sidebar visible with Project Validation at the top and the Scene Editor below it when a scene is selected.
 - Characters and Resources use full-width main screens without the Scene Editor panel.
 - Project header includes:
   - My Projects
@@ -170,7 +171,7 @@ Good candidates:
   - Escape close
   - title/subtitle/footer slots
 - Project Settings uses `RightSidebar`.
-- Scene Editor still uses its existing dedicated panel.
+- Scene Editor still uses its existing dedicated panel within the canvas right sidebar.
 
 ### Canvas Graph Editor
 
@@ -216,6 +217,24 @@ Good candidates:
   - edge-click highlight + scroll into view
   - condition editor embedded under each Choice
   - effects editor embedded under each Choice
+  - inline warning for choices with no target and no effects
+
+### Project Validation
+
+- Shared validation infrastructure lives in `src/features/validation/projectValidation.ts`.
+- `validateProject(project)` is the single source of truth for editor validation issues.
+- Validation currently covers:
+  - targetless choices with no effects
+  - broken choice targets
+  - missing dialogue speakers
+  - broken scene background references
+  - broken asset background references
+- Project Validation panel lives in `src/features/validation/ProjectValidationPanel.tsx`.
+- Canvas right sidebar keeps Project Validation visible at the top.
+- Scene Editor appears below Project Validation when a scene is selected.
+- When no scene is selected, the sidebar shows `Select a scene to edit its content.`
+- Clicking a validation issue opens the related scene and selects the related choice when `choiceId` exists.
+- Detailed validation batch documentation lives in `docs/EPIC9_VALIDATION.md`.
 
 ### Background System
 
@@ -425,45 +444,37 @@ Implemented:
   - targetless action choices
   - invalid non-null targets
   - action choices enabling gated choices after runtime update
+- `projectValidation.test.ts` covers shared validation rules.
+- `ProjectValidationPanel.test.tsx` covers panel rendering, issue ordering, and validation issue navigation helpers.
 
 ---
 
 ## Current Milestone
 
-### EPIC 8 — Save, Load, Export
+### EPIC 9 - Polish & Production UX
 
-Status: **complete for MVP project portability, standalone playback, and exported player save/load**.
+Status: **validation batch complete; broader polish continues**.
 
-Completed:
-- `E8-01` — Auto-save active project to `narrium_project_{id}`
-- `E8-02` — Export project as JSON
-- `E8-03` — Import project from JSON
-- `E8-04A` — Standalone HTML export foundation
-- `E8-04B` — Standalone runtime parity
-- `E8-04D` — Action choices without navigation
-- `E8-04E` — Standalone HTML UX fix for hiding Next during choices
-- `E8-04C` — Standalone HTML player polish
-- `E8-05` — Exported player save/load
+Completed validation batch:
+- `E9-15` - Warn on targetless choices with no effects
+- `E9-16` - Validation infrastructure
+- `E9-17` - Validation rules batch
+- `E9-18` - Project Validation Panel MVP
+- `E9-18B` - Validation Panel Layout Polish
 
-Completed commits:
-- `7d3f228` — `feat: export active project as json`
-- `75f1bc3` — `feat: import project from json`
-- `169d62c` — `feat: add standalone html export foundation`
-- `6312286` — `feat: add standalone runtime parity`
-- `3819863` — `feat: support action choices without navigation`
-- `989d1f0` — `fix: hide standalone next button during choices`
-- `9846109` — `feat: polish standalone html player`
-- `15bfbf4` — `feat: add standalone html save load`
+Detailed documentation:
+- `docs/EPIC9_VALIDATION.md`
 
 Important:
-- The exported HTML player should keep using the current full `Project` model.
-- Do not introduce a second export data model.
-- Preserve embedded Data URLs already stored in Project fields.
-- Exported standalone save/load is implemented for MVP through localStorage runtime snapshots.
+- Validation must continue to use `validateProject(project)` as the single source of truth.
+- Do not duplicate validation logic in UI components.
+- Validation UI must not change runtime, Preview, JSON import/export, standalone HTML export, or the Project data model.
 
-Next recommended task:
-1. Continue into `EPIC 9 — Polish & Production UX`
-
+Next recommended tasks:
+1. `E9-01` - Keyboard shortcuts: Delete selected node/choice, Esc close/cancel
+2. `E9-08` - Empty/error states polish
+3. `E9-14` - Story Player component-level tests
+4. Future validation extension - Story Logic missing reference rules / export preflight
 ---
 
 ## Core Architecture Principles
@@ -508,6 +519,12 @@ src/
 
     editor/
       SceneEditorPanel.tsx
+
+    validation/
+      projectValidation.ts
+      projectValidation.test.ts
+      ProjectValidationPanel.tsx
+      ProjectValidationPanel.test.tsx
 
     story-logic/
       ConditionGroupsEditor.tsx
@@ -616,3 +633,4 @@ Important notes:
 - `DialoguePage.speakerId = null` means Narrator.
 - `Choice.targetSceneId = null` is valid for action choices.
 - Exported standalone player save/load stores runtime snapshots only, not Project data.
+

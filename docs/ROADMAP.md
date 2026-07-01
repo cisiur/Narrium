@@ -35,7 +35,7 @@ Polish & Production UX     ████░░░░░░  40%
 ```
 
 Current state:
-Narrium has a usable local multi-project workspace, project settings sidebar, project thumbnails, React Flow scene graph editor, right-side scene editor, background system, asset library support, SceneNode thumbnails, ordered dialogue pages, character speaker selection, choice target editing, edge-to-choice navigation, project-level Characters, Character attributes, project-level Resources, complete Story Logic Conditions, complete Story Logic Effects, runtime helper functions for condition/effect execution, a functional in-browser Story Player preview, JSON project export/import, standalone HTML story export with runtime parity, polished standalone HTML playback, and exported standalone player save/load persistence.
+Narrium has a usable local multi-project workspace, project settings sidebar, project thumbnails, React Flow scene graph editor, right-side scene editor with Project Validation, shared validation infrastructure, background system, asset library support, SceneNode thumbnails, ordered dialogue pages, character speaker selection, choice target editing, edge-to-choice navigation, project-level Characters, Character attributes, project-level Resources, complete Story Logic Conditions, complete Story Logic Effects, runtime helper functions for condition/effect execution, a functional in-browser Story Player preview, JSON project export/import, standalone HTML story export with runtime parity, polished standalone HTML playback, and exported standalone player save/load persistence.
 
 Story Player Preview is complete:
 - preview mode can be entered from the canvas toolbar,
@@ -62,6 +62,8 @@ Standalone HTML export is complete for EPIC 8:
 - supports standalone runtime save/load persistence through localStorage when enabled by project settings.
 
 Runtime helper tests are present through Vitest.
+
+Detailed documentation for the completed EPIC 9 validation batch lives in `docs/EPIC9_VALIDATION.md`.
 
 Next major roadmap area:
 **EPIC 9 — Polish & Production UX**, starting with targeted authoring and production-readiness improvements.
@@ -375,7 +377,7 @@ Recommended implementation order from here:
 | E9-03 | Better custom confirmation dialogs instead of `window.confirm` | [BOTH] | Backlog |
 | E9-04 | Drag-and-drop Dialogue Page reorder | [AI] | Backlog |
 | E9-05 | Thumbnail image resizing/compression before localStorage save | [BOTH] | Backlog |
-| E9-06 | Full project validation panel | [BOTH] | Backlog |
+| E9-06 | Full project validation panel | [BOTH] | ✅ Done via E9-16/E9-17/E9-18 |
 | E9-07 | Asset library extraction and filtering | [AI] | Backlog |
 | E9-08 | Empty/error states polish | [AI] | Backlog |
 | E9-09 | Accessibility review | [BOTH] | Backlog |
@@ -384,7 +386,14 @@ Recommended implementation order from here:
 | E9-12 | Clear missing/corrupt active workspace project id on load | [AI] | Backlog |
 | E9-13 | Runtime helper unit tests | [BOTH] | ✅ Done |
 | E9-14 | Story Player component-level tests | [BOTH] | Backlog |
-| E9-15 | Warn on targetless choices with no effects | [BOTH] | Backlog |
+| E9-15 | Warn on targetless choices with no effects | [BOTH] | ✅ Done |
+| E9-16 | Validation infrastructure | [AI] | ✅ Done |
+| E9-17 | Validation rules batch | [AI] | ✅ Done |
+| E9-18 | Project Validation Panel MVP | [AI] | ✅ Done |
+| E9-18B | Validation Panel Layout Polish | [AI] | ✅ Done |
+
+Validation batch details:
+- See `docs/EPIC9_VALIDATION.md`.
 
 ---
 
@@ -396,6 +405,7 @@ Recommended next task should be selected by the project owner.
 
 Good candidates:
 - `E9-01` — Keyboard shortcuts: Delete selected node/choice, Esc close/cancel
-- `E9-06` — Full project validation panel
 - `E9-08` — Empty/error states polish
-- `E9-15` — Warn on targetless choices with no effects
+- `E9-14` — Story Player component-level tests
+- Future validation extension — Story Logic missing reference rules / export preflight
+

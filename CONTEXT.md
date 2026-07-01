@@ -91,7 +91,7 @@ Polish & Production UX     ████░░░░░░  40%
 ```
 
 Current state:
-Narrium has a usable local multi-project workspace, project settings sidebar, project thumbnails, React Flow scene graph editor, right-side scene editor with Project Validation, shared validation infrastructure, background system, asset library support, SceneNode thumbnails, ordered dialogue pages, character speaker selection, choice target editing, edge-to-choice navigation, project-level Characters, Character attributes, project-level Resources, complete Story Logic Conditions, complete Story Logic Effects, runtime helper functions for condition/effect execution, a functional in-browser Story Player Preview, JSON project export/import, standalone HTML story export with runtime parity, polished standalone HTML playback, and exported standalone player save/load persistence.
+Narrium has a usable local multi-project workspace, project settings sidebar, project thumbnails, React Flow scene graph editor, Canvas-only keyboard shortcuts, snapshot-based active-project undo/redo MVP, reusable application confirmation dialog, right-side scene editor with Project Validation, shared validation infrastructure, background system, asset library support, SceneNode thumbnails, ordered dialogue pages, character speaker selection, safe character deletion with dialogue speaker cleanup, choice target editing, edge-to-choice navigation, project-level Characters, Character attributes, project-level Resources, complete Story Logic Conditions, complete Story Logic Effects, runtime helper functions for condition/effect execution, a functional in-browser Story Player Preview, JSON project export/import, standalone HTML story export with runtime parity, polished standalone HTML playback, and exported standalone player save/load persistence.
 
 Completed milestones:
 - EPIC 6 — Story Logic is complete for the MVP editor/runtime-helper layer.
@@ -101,15 +101,19 @@ Completed milestones:
 - EPIC 8 JSON export/import is complete.
 - EPIC 8 standalone HTML export foundation, runtime parity, action choices, standalone player polish, and exported player save/load are complete.
 - EPIC 9 validation batch is complete: inline targetless-choice warning, shared validation infrastructure, validation rules, Project Validation panel, and sidebar layout polish.
+- EPIC 9 keyboard shortcuts are complete: Delete/Backspace for selected canvas items and Escape selection clearing.
+- EPIC 9 basic snapshot-based project undo/redo MVP is complete (`E9-02A`).
+- EPIC 9 reusable confirmation dialog is complete and native browser confirmations have been removed.
+- EPIC 9 safe character deletion is complete, including dialogue speaker cleanup after confirmation.
 
 Current recommended next milestone:
 - **EPIC 9 — Polish & Production UX**
 - Recommended next task should be selected by the project owner.
 
 Good candidates:
-- `E9-01` — Keyboard shortcuts: Delete selected node/choice, Esc close/cancel
 - `E9-08` — Empty/error states polish
 - `E9-14` — Story Player component-level tests
+- `E9-02` future enhancements — finer-grained undo/redo UX beyond the snapshot-based MVP
 - Future validation extension — Story Logic missing reference rules / export preflight
 
 ---
@@ -172,6 +176,24 @@ Good candidates:
   - title/subtitle/footer slots
 - Project Settings uses `RightSidebar`.
 - Scene Editor still uses its existing dedicated panel within the canvas right sidebar.
+- Reusable `ConfirmationDialog` component:
+  - title and message/body
+  - Confirm / Cancel actions
+  - Escape cancels
+  - focus trap while open
+  - focus restore after close
+  - used instead of native `window.confirm`
+
+### Project History
+
+- Basic active-project undo/redo implemented as `E9-02A`.
+- Snapshot-based history stored in memory.
+- Maximum history size is 50 snapshots.
+- History resets when a different project becomes active.
+- `Ctrl+Z` undoes active-project edits.
+- `Ctrl+Y` and `Ctrl+Shift+Z` redo active-project edits.
+- Undo/redo shortcuts ignore text-editing targets.
+- Undo/redo persists restored project snapshots to localStorage and synchronizes the canvas.
 
 ### Canvas Graph Editor
 
@@ -195,6 +217,10 @@ Good candidates:
 - Deleting a scene clears incoming `choice.targetSceneId` references.
 - Deleting the start scene repairs `Project.startSceneId`.
 - Deleting a scene resets dangling `scene_reference` backgrounds that pointed to the deleted scene.
+- Canvas-only keyboard shortcuts:
+  - `Delete` / `Backspace` delete the selected choice first, otherwise the selected scene
+  - `Escape` clears selected choice first, otherwise clears selected scene and returns to canvas mode
+  - shortcuts ignore input, textarea, select, and contenteditable targets
 
 ### Scene Editor
 
@@ -269,6 +295,8 @@ Good candidates:
 - Duplicate attribute keys are resolved per character with suffixes such as `strength_2`, `strength_3`.
 - Character mutations use `workspaceStore.updateActiveProject()`.
 - Deleting a Character or Character Attribute used by Story Logic shows a warning before deletion.
+- Deleting a Character used as a dialogue speaker shows a confirmation dialog.
+- Confirmed Character deletion clears affected `DialoguePage.speakerId` values while keeping dialogue pages intact.
 - Renaming a Character Attribute cascades matching Story Logic references from old key to new key.
 
 ### Resources
@@ -434,6 +462,7 @@ Standalone HTML export:
 Implemented:
 - Vitest added.
 - `npm.cmd test` runs `vitest run`.
+- Current test count: 38 tests across 6 test files.
 - `runtimeState.test.ts` covers initial RuntimeState creation.
 - `runtimeLogic.test.ts` covers representative behavior for:
   - `applyEffects()`
@@ -446,6 +475,8 @@ Implemented:
   - action choices enabling gated choices after runtime update
 - `projectValidation.test.ts` covers shared validation rules.
 - `ProjectValidationPanel.test.tsx` covers panel rendering, issue ordering, and validation issue navigation helpers.
+- `projectHistory.test.ts` covers snapshot push, undo/redo replay, project isolation, and the 50-snapshot cap.
+- `characterDeletion.test.ts` covers unused character deletion, referenced character deletion, speaker reference cleanup, and cancellation.
 
 ---
 
@@ -462,6 +493,12 @@ Completed validation batch:
 - `E9-18` - Project Validation Panel MVP
 - `E9-18B` - Validation Panel Layout Polish
 
+Completed polish / production UX tasks:
+- `E9-01` - Keyboard shortcuts: Delete selected node/choice, Esc close/cancel
+- `E9-02A` - Basic snapshot-based project undo/redo MVP
+- `E9-03` - Reusable confirmation dialog replacing native browser confirmations
+- `E9-10` - Safe character deletion when used as dialogue speaker
+
 Detailed documentation:
 - `docs/EPIC9_VALIDATION.md`
 
@@ -471,9 +508,9 @@ Important:
 - Validation UI must not change runtime, Preview, JSON import/export, standalone HTML export, or the Project data model.
 
 Next recommended tasks:
-1. `E9-01` - Keyboard shortcuts: Delete selected node/choice, Esc close/cancel
-2. `E9-08` - Empty/error states polish
-3. `E9-14` - Story Player component-level tests
+1. `E9-08` - Empty/error states polish
+2. `E9-14` - Story Player component-level tests
+3. `E9-02` future enhancements - finer-grained undo/redo UX beyond the snapshot-based MVP
 4. Future validation extension - Story Logic missing reference rules / export preflight
 ---
 
@@ -507,6 +544,7 @@ src/
 
   components/
     AppShell.tsx
+    ConfirmationDialog.tsx
     RightSidebar.tsx
 
   features/
@@ -538,6 +576,8 @@ src/
 
     characters/
       CharactersScreen.tsx
+      characterDeletion.ts
+      characterDeletion.test.ts
 
     resources/
       ResourcesScreen.tsx
@@ -552,6 +592,8 @@ src/
       StoryPlayerHeader.tsx
 
   store/
+    projectHistory.ts
+    projectHistory.test.ts
     projectMigrations.ts
     workspaceStore.ts
     useCanvasStore.ts

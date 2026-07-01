@@ -35,7 +35,7 @@ Polish & Production UX     ████░░░░░░  40%
 ```
 
 Current state:
-Narrium has a usable local multi-project workspace, project settings sidebar, project thumbnails, React Flow scene graph editor, right-side scene editor with Project Validation, shared validation infrastructure, background system, asset library support, SceneNode thumbnails, ordered dialogue pages, character speaker selection, choice target editing, edge-to-choice navigation, project-level Characters, Character attributes, project-level Resources, complete Story Logic Conditions, complete Story Logic Effects, runtime helper functions for condition/effect execution, a functional in-browser Story Player preview, JSON project export/import, standalone HTML story export with runtime parity, polished standalone HTML playback, and exported standalone player save/load persistence.
+Narrium has a usable local multi-project workspace, project settings sidebar, project thumbnails, React Flow scene graph editor, Canvas-only keyboard shortcuts, snapshot-based active-project undo/redo MVP, reusable application confirmation dialog, right-side scene editor with Project Validation, shared validation infrastructure, background system, asset library support, SceneNode thumbnails, ordered dialogue pages, character speaker selection, safe character deletion with dialogue speaker cleanup, choice target editing, edge-to-choice navigation, project-level Characters, Character attributes, project-level Resources, complete Story Logic Conditions, complete Story Logic Effects, runtime helper functions for condition/effect execution, a functional in-browser Story Player preview, JSON project export/import, standalone HTML story export with runtime parity, polished standalone HTML playback, and exported standalone player save/load persistence.
 
 Story Player Preview is complete:
 - preview mode can be entered from the canvas toolbar,
@@ -372,16 +372,16 @@ Recommended implementation order from here:
 
 | ID | Task | Who | Status |
 |---|---|---|---|
-| E9-01 | Keyboard shortcuts: Delete selected node/choice, Esc close/cancel | [AI] | ⏳ Pending |
-| E9-02 | Undo/redo for scene and project edits | [BOTH] | ⏳ Pending |
-| E9-03 | Better custom confirmation dialogs instead of `window.confirm` | [BOTH] | Backlog |
+| E9-01 | Keyboard shortcuts: Delete selected node/choice, Esc close/cancel | [AI] | ✅ Done |
+| E9-02 | Undo/redo for scene and project edits | [BOTH] | Partially Complete — snapshot-based MVP (`E9-02A`) is done; future refinements remain possible |
+| E9-03 | Better custom confirmation dialogs instead of `window.confirm` | [BOTH] | ✅ Done |
 | E9-04 | Drag-and-drop Dialogue Page reorder | [AI] | Backlog |
 | E9-05 | Thumbnail image resizing/compression before localStorage save | [BOTH] | Backlog |
 | E9-06 | Full project validation panel | [BOTH] | ✅ Done via E9-16/E9-17/E9-18 |
 | E9-07 | Asset library extraction and filtering | [AI] | Backlog |
 | E9-08 | Empty/error states polish | [AI] | Backlog |
 | E9-09 | Accessibility review | [BOTH] | Backlog |
-| E9-10 | Warn on character deletion when used as dialogue speaker | [AI] | Backlog |
+| E9-10 | Warn on character deletion when used as dialogue speaker | [AI] | ✅ Done |
 | E9-11 | Synchronize workspace metadata from normalized project data on load | [AI] | Backlog |
 | E9-12 | Clear missing/corrupt active workspace project id on load | [AI] | Backlog |
 | E9-13 | Runtime helper unit tests | [BOTH] | ✅ Done |
@@ -404,8 +404,8 @@ Continue into **EPIC 9 — Polish & Production UX**.
 Recommended next task should be selected by the project owner.
 
 Good candidates:
-- `E9-01` — Keyboard shortcuts: Delete selected node/choice, Esc close/cancel
 - `E9-08` — Empty/error states polish
 - `E9-14` — Story Player component-level tests
+- `E9-02` future enhancements — finer-grained undo/redo UX beyond the snapshot-based MVP
 - Future validation extension — Story Logic missing reference rules / export preflight
 

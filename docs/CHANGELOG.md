@@ -6,6 +6,42 @@ This changelog records milestone-level project changes. It is intentionally conc
 
 ## Unreleased / Next
 
+### Completed - EPIC 9 keyboard shortcuts and undo/redo MVP
+
+Commit:
+- `3f69732` — `feat: add keyboard shortcuts and basic undo redo`
+
+Changes:
+- Added Canvas-only keyboard shortcuts for deleting selected choices/scenes.
+- Added Escape handling to clear selected choices/scenes while editing the Canvas view.
+- Added basic snapshot-based active-project undo/redo with a 50-snapshot history cap.
+- Added keyboard shortcuts for undo/redo:
+  - `Ctrl+Z`
+  - `Ctrl+Y`
+  - `Ctrl+Shift+Z`
+- Added history tests for snapshot push, undo/redo replay, project isolation, and history size limits.
+
+Validation:
+- `npm.cmd test`
+- `npm.cmd run build`
+
+### Completed - EPIC 9 confirmation dialog and safe character deletion
+
+Commit:
+- `90fa035` — `feat: add confirmation dialog and safe character deletion`
+
+Changes:
+- Added a reusable application confirmation dialog.
+- Replaced native browser confirmations from existing delete flows.
+- Added Escape-to-cancel, focus trapping, and focus restoration for confirmation dialogs.
+- Added safe character deletion when a character is used as a dialogue speaker.
+- Confirmed deletion clears affected `DialoguePage.speakerId` values while keeping dialogue pages intact.
+- Added character deletion tests for unused deletion, referenced deletion, dialogue speaker cleanup, and cancellation.
+
+Validation:
+- `npm.cmd test`
+- `npm.cmd run build`
+
 ### Completed - EPIC 9 validation batch
 
 Reference:
@@ -29,9 +65,9 @@ Changes:
 ### Planned
 
 - EPIC 9 - Polish & Production UX
-  - Keyboard shortcuts
   - Empty/error states polish
   - Story Player component-level tests
+  - Future undo/redo refinements beyond the snapshot-based MVP
   - Future validation extension: Story Logic missing reference rules / export preflight
 
 ### Backlog / Product polish

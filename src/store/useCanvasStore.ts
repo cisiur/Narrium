@@ -11,8 +11,12 @@ import {
   type OnNodesChange,
 } from 'reactflow';
 import { create } from 'zustand';
-import { computeSceneGroupBounds } from '../features/canvas/sceneGroups';
-import type { AssetLibraryItem, Choice, DialoguePage, Scene, SceneBackground } from '../types';
+import {
+  computeSceneGroupBounds,
+  getGroupNodeId,
+  getScenesInGroup,
+} from '../features/canvas/sceneGroups';
+import type { AssetLibraryItem, Choice, DialoguePage, Scene, SceneBackground, SceneGroup } from '../types';
 import { useWorkspaceStore } from './workspaceStore';
 
 export type CanvasView = 'canvas' | 'editor';
@@ -23,6 +27,13 @@ export interface SceneNodeData {
   assetLibrary: AssetLibraryItem[];
 }
 
+export interface SceneGroupFrameData {
+  group: SceneGroup;
+  sceneCount: number;
+}
+
+export type CanvasNodeData = SceneNodeData | SceneGroupFrameData;
+
 interface AddBackgroundAssetInput {
   name: string;
   sourceType: 'upload' | 'url';
@@ -30,7 +41,7 @@ interface AddBackgroundAssetInput {
 }
 
 interface CanvasStore {
-  nodes: Node<SceneNodeData>[];
+  nodes: Node<CanvasNodeData>[];
   edges: Edge[];
   selectedSceneId: string | null;
   selectedSceneIds: string[];
@@ -50,6 +61,7 @@ interface CanvasStore {
   openEditor: (id: string) => void;
   groupSelectedScenes: () => void;
   ungroupSelectedGroup: () => void;
+  updateSceneGroupName: (groupId: string, name: string) => void;
   syncFromProject: () => void;
   updateSceneName: (sceneId: string, name: string) => void;
   updateSceneBackground: (sceneId: string, background: SceneBackground) => void;
@@ -154,12 +166,32 @@ function createScene(name: string, position: { x: number; y: number }): Scene {
 
 function buildNodes(
   scenes: Scene[],
+  groups: SceneGroup[],
   assetLibrary: AssetLibraryItem[],
   selectedSceneIds: string[],
-): Node<SceneNodeData>[] {
+): Node<CanvasNodeData>[] {
   const selectedSceneIdSet = new Set(selectedSceneIds);
+  const groupNodes: Node<SceneGroupFrameData>[] = groups
+    .filter((group) => !group.collapsed)
+    .map((group) => ({
+      id: getGroupNodeId(group.id),
+      type: 'sceneGroupFrame',
+      position: group.position,
+      draggable: false,
+      selectable: false,
+      connectable: false,
+      zIndex: -1,
+      style: {
+        width: group.size.width,
+        height: group.size.height,
+      },
+      data: {
+        group,
+        sceneCount: getScenesInGroup(scenes, group.id).length,
+      },
+    }));
 
-  return scenes.map((scene) => ({
+  const sceneNodes: Node<SceneNodeData>[] = scenes.map((scene) => ({
     id: scene.id,
     type: 'scene',
     position: scene.position,
@@ -170,6 +202,8 @@ function buildNodes(
       assetLibrary,
     },
   }));
+
+  return [...groupNodes, ...sceneNodes];
 }
 
 function buildEdges(scenes: Scene[]): Edge[] {
@@ -187,8 +221,8 @@ function buildEdges(scenes: Scene[]): Edge[] {
   );
 }
 
-function getSelectedSceneIdsFromNodes(nodes: Node<SceneNodeData>[]): string[] {
-  return nodes.filter((node) => node.selected).map((node) => node.id);
+function getSelectedSceneIdsFromNodes(nodes: Node<CanvasNodeData>[]): string[] {
+  return nodes.filter((node) => node.type === 'scene' && node.selected).map((node) => node.id);
 }
 
 function updateActiveProject(mutator: (scenes: Scene[]) => Scene[]) {
@@ -258,13 +292,46 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
     );
 
     if (positionChanges.length > 0) {
-      updateActiveProject((scenes) =>
-        scenes.map((scene) => {
-          const change = positionChanges.find((item) => item.id === scene.id);
+      const activeProject = useWorkspaceStore.getState().activeProject;
+      const scenePositionChanges = positionChanges.filter((change) =>
+        activeProject?.scenes.some((scene) => scene.id === change.id),
+      );
+
+      if (scenePositionChanges.length === 0) {
+        return;
+      }
+
+      useWorkspaceStore.getState().updateActiveProject((project) => {
+        const scenes = project.scenes.map((scene) => {
+          const change = scenePositionChanges.find((item) => item.id === scene.id);
 
           return change ? { ...scene, position: change.position } : scene;
-        }),
-      );
+        });
+        const movedSceneGroupIds = new Set(
+          scenes
+            .filter((scene) => scenePositionChanges.some((change) => change.id === scene.id))
+            .map((scene) => scene.groupId)
+            .filter((groupId): groupId is string => groupId !== null),
+        );
+
+        return {
+          ...project,
+          scenes,
+          groups: project.groups.map((group) => {
+            if (!movedSceneGroupIds.has(group.id)) {
+              return group;
+            }
+
+            const bounds = computeSceneGroupBounds(getScenesInGroup(scenes, group.id));
+
+            return {
+              ...group,
+              position: bounds.position,
+              size: bounds.size,
+            };
+          }),
+        };
+      });
     }
   },
   onEdgesChange: (changes: EdgeChange[]) => {
@@ -517,6 +584,17 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
     });
     get().syncFromProject();
   },
+  updateSceneGroupName: (groupId: string, name: string) => {
+    const nextName = name.trim() || 'Untitled Group';
+
+    useWorkspaceStore.getState().updateActiveProject((project) => ({
+      ...project,
+      groups: project.groups.map((group) =>
+        group.id === groupId ? { ...group, name: nextName } : group,
+      ),
+    }));
+    get().syncFromProject();
+  },
   syncFromProject: () => {
     const activeProject = useWorkspaceStore.getState().activeProject;
     const selectedSceneId = get().selectedSceneId;
@@ -555,7 +633,12 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
     );
 
     set({
-      nodes: buildNodes(activeProject.scenes, activeProject.assetLibrary, nextSelectedSceneIds),
+      nodes: buildNodes(
+        activeProject.scenes,
+        activeProject.groups,
+        activeProject.assetLibrary,
+        nextSelectedSceneIds,
+      ),
       edges: buildEdges(activeProject.scenes),
       selectedSceneId: nextSelectedSceneId,
       selectedSceneIds: nextSelectedSceneIds,

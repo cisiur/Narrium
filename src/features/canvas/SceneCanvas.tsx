@@ -10,6 +10,7 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import { useCanvasStore } from '../../store/useCanvasStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
+import { SceneGroupFrame } from './SceneGroupFrame';
 import { SceneNode } from './SceneNode';
 
 function SceneCanvasSurface() {
@@ -22,7 +23,10 @@ function SceneCanvasSurface() {
   const selectScene = useCanvasStore((state) => state.selectScene);
   const selectChoice = useCanvasStore((state) => state.selectChoice);
   const syncFromProject = useCanvasStore((state) => state.syncFromProject);
-  const nodeTypes = useMemo<NodeTypes>(() => ({ scene: SceneNode }), []);
+  const nodeTypes = useMemo<NodeTypes>(
+    () => ({ scene: SceneNode, sceneGroupFrame: SceneGroupFrame }),
+    [],
+  );
 
   useEffect(() => {
     syncFromProject();

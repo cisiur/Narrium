@@ -360,4 +360,127 @@ describe('scene groups', () => {
 
     expect(useWorkspaceStore.getState().projectHistory.undoStack).toHaveLength(0);
   });
+
+  it('renames a group without changing other group fields', () => {
+    const group = createGroup('group-existing');
+    const project = {
+      ...createProject(),
+      groups: [group],
+    };
+    setActiveProject(project);
+
+    useCanvasStore.getState().updateSceneGroupName(group.id, 'Chapter 1');
+
+    const renamedGroup = (useWorkspaceStore.getState().activeProject as Project).groups[0];
+
+    expect(renamedGroup).toEqual({
+      ...group,
+      name: 'Chapter 1',
+    });
+  });
+
+  it('creates one undo snapshot when renaming a group', () => {
+    const group = createGroup('group-existing');
+    setActiveProject({
+      ...createProject(),
+      groups: [group],
+    });
+
+    useCanvasStore.getState().updateSceneGroupName(group.id, 'Chapter 1');
+
+    expect(useWorkspaceStore.getState().projectHistory.undoStack).toHaveLength(1);
+  });
+
+  it('updates group bounds when a grouped scene moves', () => {
+    const group = createGroup('group-existing');
+    setActiveProject({
+      ...createProject(),
+      groups: [group],
+      scenes: [
+        createScene('scene-start', [createChoice()], {
+          position: { x: 100, y: 200 },
+          groupId: group.id,
+        }),
+        createScene('scene-target', [], {
+          position: { x: 500, y: 420 },
+          groupId: group.id,
+        }),
+      ],
+    });
+
+    useCanvasStore.getState().onNodesChange([
+      {
+        type: 'position',
+        id: 'scene-start',
+        position: { x: 900, y: 100 },
+      },
+    ]);
+
+    const project = useWorkspaceStore.getState().activeProject as Project;
+
+    expect(project.groups[0]).toMatchObject({
+      position: { x: 468, y: 68 },
+      size: { width: 704, height: 544 },
+    });
+  });
+
+  it('preserves Story Logic when updating group bounds after a scene move', () => {
+    const group = createGroup('group-existing');
+    const originalChoice = createChoice();
+    setActiveProject({
+      ...createProject(),
+      groups: [group],
+      scenes: [
+        createScene('scene-start', [originalChoice], {
+          position: { x: 100, y: 200 },
+          groupId: group.id,
+        }),
+        createScene('scene-target', [], {
+          position: { x: 500, y: 420 },
+          groupId: group.id,
+        }),
+      ],
+    });
+
+    useCanvasStore.getState().onNodesChange([
+      {
+        type: 'position',
+        id: 'scene-start',
+        position: { x: 900, y: 100 },
+      },
+    ]);
+
+    const project = useWorkspaceStore.getState().activeProject as Project;
+
+    expect(getStartScene(project).choices[0]).toEqual(originalChoice);
+    expect(validateProject(project)).toEqual([]);
+  });
+
+  it('creates one undo snapshot when updating group bounds after a scene move', () => {
+    const group = createGroup('group-existing');
+    setActiveProject({
+      ...createProject(),
+      groups: [group],
+      scenes: [
+        createScene('scene-start', [createChoice()], {
+          position: { x: 100, y: 200 },
+          groupId: group.id,
+        }),
+        createScene('scene-target', [], {
+          position: { x: 500, y: 420 },
+          groupId: group.id,
+        }),
+      ],
+    });
+
+    useCanvasStore.getState().onNodesChange([
+      {
+        type: 'position',
+        id: 'scene-start',
+        position: { x: 900, y: 100 },
+      },
+    ]);
+
+    expect(useWorkspaceStore.getState().projectHistory.undoStack).toHaveLength(1);
+  });
 });

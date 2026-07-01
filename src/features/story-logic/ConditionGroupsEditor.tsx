@@ -32,6 +32,7 @@ export function ConditionGroupsEditor({ choice, scene }: ConditionGroupsEditorPr
   const updateActiveProject = useWorkspaceStore((state) => state.updateActiveProject);
   const conditionGroups = choice.conditionGroups ?? [];
   const resources = activeProject?.resources ?? [];
+  const variables = activeProject?.variables ?? [];
   const characters = activeProject?.characters ?? [];
   const [editingConditionValue, setEditingConditionValue] = useState<{
     conditionId: string;
@@ -132,6 +133,7 @@ export function ConditionGroupsEditor({ choice, scene }: ConditionGroupsEditorPr
               group={group}
               index={index}
               resources={resources}
+              variables={variables}
               characters={characters}
               editingConditionValue={editingConditionValue}
               setEditingConditionValue={setEditingConditionValue}

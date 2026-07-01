@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
-import type { Character, Condition, Resource } from '../../types';
+import type { Character, Condition, Resource, Variable } from '../../types';
 
 const CONDITION_OPERATORS: Condition['operator'][] = ['>=', '<=', '==', '>', '<', '!='];
 
@@ -12,6 +12,7 @@ interface ConditionRowProps {
   condition: Condition;
   conditionGroupId: string;
   resources: Resource[];
+  variables: Variable[];
   characters: Character[];
   editingConditionValue: EditingConditionValue;
   setEditingConditionValue: Dispatch<SetStateAction<EditingConditionValue>>;
@@ -34,6 +35,22 @@ function getResourceConditionWarning(condition: Condition, resources: Resource[]
 
   if (!resources.some((resource) => resource.id === condition.targetId)) {
     return '⚠ Referenced resource no longer exists';
+  }
+
+  return null;
+}
+
+function getVariableConditionWarning(condition: Condition, variables: Variable[]) {
+  if (condition.type !== 'variable') {
+    return null;
+  }
+
+  if (condition.targetId === '') {
+    return 'Select a variable';
+  }
+
+  if (!variables.some((variable) => variable.id === condition.targetId)) {
+    return 'Referenced variable no longer exists';
   }
 
   return null;
@@ -70,6 +87,7 @@ export function ConditionRow({
   condition,
   conditionGroupId,
   resources,
+  variables,
   characters,
   editingConditionValue,
   setEditingConditionValue,
@@ -83,6 +101,7 @@ export function ConditionRow({
   const characterAttributes = selectedCharacter?.attributes ?? [];
   const conditionWarning =
     getResourceConditionWarning(condition, resources) ??
+    getVariableConditionWarning(condition, variables) ??
     getCharacterAttributeConditionWarning(condition, selectedCharacter);
 
   const updateConditionValue = (value: string) => {
@@ -142,6 +161,7 @@ export function ConditionRow({
           >
             <option value="resource">Resource</option>
             <option value="character_attr">Character Attribute</option>
+            <option value="variable">Variable</option>
           </select>
         </label>
         {condition.type === 'resource' ? (
@@ -161,6 +181,30 @@ export function ConditionRow({
                   {resources.map((resource) => (
                     <option key={resource.id} value={resource.id}>
                       {resource.key}
+                    </option>
+                  ))}
+                </>
+              )}
+            </select>
+          </label>
+        ) : null}
+        {condition.type === 'variable' ? (
+          <label className="block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+            Target
+            <select
+              value={condition.targetId}
+              onChange={(event) => updateConditionTarget(event.target.value)}
+              disabled={variables.length === 0}
+              className="mt-1 w-full rounded bg-gray-900 px-2 py-1.5 text-xs font-normal text-gray-100 outline-none ring-1 ring-gray-700 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {variables.length === 0 ? (
+                <option value="">No variables available</option>
+              ) : (
+                <>
+                  <option value="">Select variable...</option>
+                  {variables.map((variable) => (
+                    <option key={variable.id} value={variable.id}>
+                      {variable.key}
                     </option>
                   ))}
                 </>

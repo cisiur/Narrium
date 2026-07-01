@@ -1,4 +1,4 @@
-import type { Character, Effect, Resource } from '../../types';
+import type { Character, Effect, Resource, Variable } from '../../types';
 
 const EFFECT_OPERATIONS: Effect['operation'][] = ['+=', '-=', '='];
 const EFFECT_OPERATION_LABELS: Record<Effect['operation'], string> = {
@@ -18,6 +18,22 @@ function getResourceEffectWarning(effect: Effect, resources: Resource[]) {
 
   if (!resources.some((resource) => resource.id === effect.targetId)) {
     return '⚠ Referenced resource no longer exists';
+  }
+
+  return null;
+}
+
+function getVariableEffectWarning(effect: Effect, variables: Variable[]) {
+  if (effect.type !== 'variable') {
+    return null;
+  }
+
+  if (effect.targetId === '') {
+    return 'Select a variable';
+  }
+
+  if (!variables.some((variable) => variable.id === effect.targetId)) {
+    return 'Referenced variable no longer exists';
   }
 
   return null;
@@ -54,6 +70,7 @@ interface EffectCardProps {
   effect: Effect;
   index: number;
   resources: Resource[];
+  variables: Variable[];
   characters: Character[];
   onUpdateEffect: (effectId: string, updater: (effect: Effect) => Effect) => void;
   onDeleteEffect: (effectId: string) => void;
@@ -63,6 +80,7 @@ export function EffectCard({
   effect,
   index,
   resources,
+  variables,
   characters,
   onUpdateEffect,
   onDeleteEffect,
@@ -74,6 +92,7 @@ export function EffectCard({
   const characterAttributes = selectedCharacter?.attributes ?? [];
   const effectWarning =
     getResourceEffectWarning(effect, resources) ??
+    getVariableEffectWarning(effect, variables) ??
     getCharacterAttributeEffectWarning(effect, selectedCharacter);
 
   const updateEffectType = (type: Effect['type']) => {
@@ -132,6 +151,7 @@ export function EffectCard({
           >
             <option value="resource">Resource</option>
             <option value="character_attr">Character Attribute</option>
+            <option value="variable">Variable</option>
           </select>
         </label>
 
@@ -157,6 +177,36 @@ export function EffectCard({
                   {resources.map((resource) => (
                     <option key={resource.id} value={resource.id}>
                       {resource.key}
+                    </option>
+                  ))}
+                </>
+              )}
+            </select>
+          </label>
+        ) : null}
+
+        {effect.type === 'variable' ? (
+          <label className="block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+            Variable
+            <select
+              value={effect.targetId}
+              onChange={(event) =>
+                onUpdateEffect(effect.id, (currentEffect) => ({
+                  ...currentEffect,
+                  targetId: event.target.value,
+                }))
+              }
+              disabled={variables.length === 0}
+              className="mt-1 w-full rounded bg-gray-950 px-2 py-1.5 text-xs font-normal text-gray-100 outline-none ring-1 ring-gray-700 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {variables.length === 0 ? (
+                <option value="">No variables available</option>
+              ) : (
+                <>
+                  <option value="">Select variable...</option>
+                  {variables.map((variable) => (
+                    <option key={variable.id} value={variable.id}>
+                      {variable.key}
                     </option>
                   ))}
                 </>

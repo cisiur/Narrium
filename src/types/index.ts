@@ -65,7 +65,7 @@ export interface ConditionGroup {
 
 export interface Condition {
   id: string;
-  type: 'resource' | 'character_attr';
+  type: 'resource' | 'character_attr' | 'variable';
   targetId: string;
   attribute?: string;
   operator: '>=' | '<=' | '==' | '>' | '<' | '!=';
@@ -75,7 +75,7 @@ export interface Condition {
 
 export interface Effect {
   id: string;
-  type: 'resource' | 'character_attr';
+  type: 'resource' | 'character_attr' | 'variable';
   targetId: string;
   attribute?: string;
   operation: '+=' | '-=' | '=';
@@ -132,6 +132,7 @@ export interface RuntimeState {
   currentPageIndex: number;
   variables: {
     resources: Record<string, number>;
+    variables: Record<string, number>;
     characterAttrs: Record<string, Record<string, number>>;
   };
   saveSlots?: RuntimeSaveSlot[];

@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
-import type { Character, Condition, ConditionGroup, Resource } from '../../types';
+import type { Character, Condition, ConditionGroup, Resource, Variable } from '../../types';
 import { ConditionRow } from './ConditionRow';
 
 type EditingConditionValue = {
@@ -11,6 +11,7 @@ interface ConditionGroupCardProps {
   group: ConditionGroup;
   index: number;
   resources: Resource[];
+  variables: Variable[];
   characters: Character[];
   editingConditionValue: EditingConditionValue;
   setEditingConditionValue: Dispatch<SetStateAction<EditingConditionValue>>;
@@ -28,6 +29,7 @@ export function ConditionGroupCard({
   group,
   index,
   resources,
+  variables,
   characters,
   editingConditionValue,
   setEditingConditionValue,
@@ -60,6 +62,7 @@ export function ConditionGroupCard({
               condition={condition}
               conditionGroupId={group.id}
               resources={resources}
+              variables={variables}
               characters={characters}
               editingConditionValue={editingConditionValue}
               setEditingConditionValue={setEditingConditionValue}

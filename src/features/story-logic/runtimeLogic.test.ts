@@ -29,7 +29,10 @@ function createProject(): Project {
       { id: 'resource-gold', key: 'gold', defaultValue: 5 },
       { id: 'resource-food', key: 'food', defaultValue: 3 },
     ],
-    variables: [],
+    variables: [
+      { id: 'variable-suspicion', key: 'suspicion', defaultValue: 1 },
+      { id: 'variable-visited-forest', key: 'visited_forest', defaultValue: 0 },
+    ],
     groups: [],
     assetLibrary: [],
     settings: {
@@ -48,6 +51,10 @@ function createRuntimeState(): RuntimeState {
       resources: {
         gold: 5,
         food: 3,
+      },
+      variables: {
+        suspicion: 1,
+        visited_forest: 0,
       },
       characterAttrs: {
         'character-hero': {
@@ -110,6 +117,54 @@ describe('applyEffects', () => {
     expect(nextState.variables.characterAttrs['character-hero'].courage).toBe(5);
     expect(runtimeState.variables.resources.gold).toBe(5);
     expect(runtimeState.variables.characterAttrs['character-hero'].courage).toBe(1);
+  });
+
+  it('applies variable effects without mutating the input state', () => {
+    const project = createProject();
+    const runtimeState = createRuntimeState();
+    const choice: Choice = {
+      id: 'choice-1',
+      text: 'Raise suspicion',
+      targetSceneId: null,
+      conditionGroups: [],
+      effects: [
+        {
+          id: 'effect-suspicion',
+          type: 'variable',
+          targetId: 'variable-suspicion',
+          operation: '+=',
+          value: 2,
+        },
+      ],
+    };
+
+    const nextState = applyEffects(choice, project, runtimeState);
+
+    expect(nextState.variables.variables.suspicion).toBe(3);
+    expect(runtimeState.variables.variables.suspicion).toBe(1);
+  });
+
+  it('ignores missing variable effects', () => {
+    const runtimeState = createRuntimeState();
+    const choice: Choice = {
+      id: 'choice-1',
+      text: 'Missing variable',
+      targetSceneId: null,
+      conditionGroups: [],
+      effects: [
+        {
+          id: 'effect-missing',
+          type: 'variable',
+          targetId: 'missing-variable',
+          operation: '+=',
+          value: 2,
+        },
+      ],
+    };
+
+    expect(applyEffects(choice, createProject(), runtimeState).variables.variables).toEqual(
+      runtimeState.variables.variables,
+    );
   });
 });
 
@@ -358,6 +413,58 @@ describe('isChoiceAvailable', () => {
               operator: '>=',
               value: 8,
               hintText: 'Need more gold.',
+            },
+          ],
+        },
+      ],
+      effects: [],
+    };
+
+    expect(isChoiceAvailable(choice, createProject(), createRuntimeState())).toBe(false);
+  });
+
+  it('evaluates variable conditions', () => {
+    const choice: Choice = {
+      id: 'choice-1',
+      text: 'Press further',
+      targetSceneId: 'scene-next',
+      conditionGroups: [
+        {
+          id: 'group-variable',
+          conditions: [
+            {
+              id: 'condition-suspicion',
+              type: 'variable',
+              targetId: 'variable-suspicion',
+              operator: '>=',
+              value: 1,
+              hintText: 'Raise suspicion first.',
+            },
+          ],
+        },
+      ],
+      effects: [],
+    };
+
+    expect(isChoiceAvailable(choice, createProject(), createRuntimeState())).toBe(true);
+  });
+
+  it('returns false for missing variable conditions', () => {
+    const choice: Choice = {
+      id: 'choice-1',
+      text: 'Press further',
+      targetSceneId: 'scene-next',
+      conditionGroups: [
+        {
+          id: 'group-variable',
+          conditions: [
+            {
+              id: 'condition-missing-variable',
+              type: 'variable',
+              targetId: 'missing-variable',
+              operator: '>=',
+              value: 1,
+              hintText: 'Raise suspicion first.',
             },
           ],
         },

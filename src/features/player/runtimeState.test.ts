@@ -61,6 +61,21 @@ describe('createInitialRuntimeState', () => {
     });
   });
 
+  it('initializes variables from variable keys and default values', () => {
+    const runtimeState = createInitialRuntimeState({
+      ...createProject(),
+      variables: [
+        { id: 'variable-visited-forest', key: 'visited_forest', defaultValue: 1 },
+        { id: 'variable-clues', key: 'clues', defaultValue: 2 },
+      ],
+    });
+
+    expect(runtimeState.variables.variables).toEqual({
+      visited_forest: 1,
+      clues: 2,
+    });
+  });
+
   it('initializes character attributes by character id and attribute key', () => {
     const runtimeState = createInitialRuntimeState(createProject());
 

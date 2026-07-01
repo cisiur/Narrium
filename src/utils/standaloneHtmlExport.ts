@@ -28,7 +28,7 @@ function serializeProjectForScript(project: Project) {
     .replace(/\u2029/g, '\\u2029');
 }
 
-function createStandaloneHtml(project: Project) {
+export function createStandaloneHtml(project: Project) {
   const title = escapeHtml(project.name || 'Narrium Story');
   const description = escapeHtml(
     `Play ${project.name || 'a Narrium story'}, a standalone interactive story exported from Narrium.`
@@ -394,6 +394,9 @@ ${saveLoadControls}
       const resources = Object.fromEntries(
         project.resources.map((resource) => [resource.key, resource.defaultValue])
       );
+      const variables = Object.fromEntries(
+        (project.variables || []).map((variable) => [variable.key, variable.defaultValue])
+      );
       const characterAttrs = Object.fromEntries(
         project.characters.map((character) => [
           character.id,
@@ -408,6 +411,7 @@ ${saveLoadControls}
         currentPageIndex: 0,
         variables: {
           resources,
+          variables,
           characterAttrs
         }
       };
@@ -464,6 +468,7 @@ ${saveLoadControls}
         currentPageIndex: state.currentPageIndex,
         variables: {
           resources: { ...state.variables.resources },
+          variables: { ...state.variables.variables },
           characterAttrs: Object.fromEntries(
             Object.entries(state.variables.characterAttrs).map(([characterId, attributes]) => [
               characterId,
@@ -493,6 +498,7 @@ ${saveLoadControls}
 
       return (
         hasFiniteNumericValues(value.variables.resources) &&
+        hasFiniteNumericValues(value.variables.variables) &&
         hasFiniteNestedNumericValues(value.variables.characterAttrs)
       );
     }
@@ -630,6 +636,18 @@ ${saveLoadControls}
         return compareNumbers(runtimeValue, condition.operator, condition.value);
       }
 
+      if (condition.type === 'variable') {
+        const variable = (project.variables || []).find((item) => item.id === condition.targetId);
+
+        if (!variable) {
+          return false;
+        }
+
+        const runtimeValue = runtimeState.variables.variables[variable.key];
+
+        return compareNumbers(runtimeValue, condition.operator, condition.value);
+      }
+
       if (condition.type === 'character_attr') {
         const character = project.characters.find((item) => item.id === condition.targetId);
 
@@ -693,6 +711,7 @@ ${saveLoadControls}
       }
 
       let nextResources = runtimeState.variables.resources;
+      let nextVariables = runtimeState.variables.variables;
       let nextCharacterAttrs = runtimeState.variables.characterAttrs;
 
       for (const effect of effects) {
@@ -713,6 +732,27 @@ ${saveLoadControls}
           nextResources = {
             ...nextResources,
             [resource.key]: nextValue
+          };
+          continue;
+        }
+
+        if (effect.type === 'variable') {
+          const variable = (project.variables || []).find((item) => item.id === effect.targetId);
+
+          if (!variable) {
+            continue;
+          }
+
+          const currentValue = nextVariables[variable.key] ?? 0;
+          const nextValue = applyNumericOperation(currentValue, effect.operation, effect.value);
+
+          if (nextValue === null) {
+            continue;
+          }
+
+          nextVariables = {
+            ...nextVariables,
+            [variable.key]: nextValue
           };
           continue;
         }
@@ -751,6 +791,7 @@ ${saveLoadControls}
         variables: {
           ...runtimeState.variables,
           resources: nextResources,
+          variables: nextVariables,
           characterAttrs: nextCharacterAttrs
         }
       };

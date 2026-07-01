@@ -22,6 +22,7 @@ export function EffectsEditor({ choice, scene }: EffectsEditorProps) {
   const updateActiveProject = useWorkspaceStore((state) => state.updateActiveProject);
   const effects = choice.effects ?? [];
   const resources = activeProject?.resources ?? [];
+  const variables = activeProject?.variables ?? [];
   const characters = activeProject?.characters ?? [];
 
   const updateChoiceEffects = (updater: (effects: Effect[]) => Effect[]) => {
@@ -77,6 +78,7 @@ export function EffectsEditor({ choice, scene }: EffectsEditorProps) {
               effect={effect}
               index={index}
               resources={resources}
+              variables={variables}
               characters={characters}
               onUpdateEffect={updateEffect}
               onDeleteEffect={deleteEffect}

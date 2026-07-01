@@ -65,6 +65,18 @@ export function evaluateCondition(
     return compareNumbers(runtimeValue, condition.operator, condition.value);
   }
 
+  if (condition.type === 'variable') {
+    const variable = project.variables.find((item) => item.id === condition.targetId);
+
+    if (!variable) {
+      return false;
+    }
+
+    const runtimeValue = runtimeState.variables.variables[variable.key];
+
+    return compareNumbers(runtimeValue, condition.operator, condition.value);
+  }
+
   if (condition.type === 'character_attr') {
     const character = project.characters.find((item) => item.id === condition.targetId);
 
@@ -140,6 +152,7 @@ export function applyEffects(
   }
 
   let nextResources = runtimeState.variables.resources;
+  let nextVariables = runtimeState.variables.variables;
   let nextCharacterAttrs = runtimeState.variables.characterAttrs;
 
   for (const effect of effects) {
@@ -160,6 +173,27 @@ export function applyEffects(
       nextResources = {
         ...nextResources,
         [resource.key]: nextValue,
+      };
+      continue;
+    }
+
+    if (effect.type === 'variable') {
+      const variable = project.variables.find((item) => item.id === effect.targetId);
+
+      if (!variable) {
+        continue;
+      }
+
+      const currentValue = nextVariables[variable.key] ?? 0;
+      const nextValue = applyNumericOperation(currentValue, effect.operation, effect.value);
+
+      if (nextValue === null) {
+        continue;
+      }
+
+      nextVariables = {
+        ...nextVariables,
+        [variable.key]: nextValue,
       };
       continue;
     }
@@ -198,6 +232,7 @@ export function applyEffects(
     variables: {
       ...runtimeState.variables,
       resources: nextResources,
+      variables: nextVariables,
       characterAttrs: nextCharacterAttrs,
     },
   };

@@ -10,6 +10,7 @@ import { MyProjectsScreen } from '../features/workspace/MyProjectsScreen';
 import { useCanvasStore } from '../store/useCanvasStore';
 import { useProjectViewStore } from '../store/useProjectViewStore';
 import { useWorkspaceStore } from '../store/workspaceStore';
+import type { Project } from '../types';
 import { exportProjectAsJson } from '../utils/projectExport';
 import { exportProjectAsStandaloneHtml } from '../utils/standaloneHtmlExport';
 
@@ -21,6 +22,15 @@ function isTextEditingTarget(target: EventTarget | null) {
   return target.isContentEditable || Boolean(target.closest('input, textarea, select'));
 }
 
+export function getAssignableSceneGroupOptions(project: Project, selectedSceneIds: string[]) {
+  const selectedSceneIdSet = new Set(selectedSceneIds);
+  const selectedScenes = project.scenes.filter((scene) => selectedSceneIdSet.has(scene.id));
+
+  return project.groups
+    .filter((group) => selectedScenes.some((scene) => scene.groupId !== group.id))
+    .map((group) => ({ id: group.id, name: group.name }));
+}
+
 export function App() {
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const activeProject = useWorkspaceStore((state) => state.activeProject);
@@ -28,6 +38,7 @@ export function App() {
   const addScene = useCanvasStore((state) => state.addScene);
   const groupSelectedScenes = useCanvasStore((state) => state.groupSelectedScenes);
   const assignSelectedScenesToGroup = useCanvasStore((state) => state.assignSelectedScenesToGroup);
+  const ungroupSelectedScenes = useCanvasStore((state) => state.ungroupSelectedScenes);
   const ungroupSelectedGroup = useCanvasStore((state) => state.ungroupSelectedGroup);
   const selectedSceneIds = useCanvasStore((state) => state.selectedSceneIds);
   const selectedGroupId = useCanvasStore((state) => state.selectedGroupId);
@@ -136,6 +147,10 @@ export function App() {
     }
 
     const isCanvasView = activeProjectView === 'canvas';
+    const selectedSceneIdSet = new Set(selectedSceneIds);
+    const selectedScenes = activeProject.scenes.filter((scene) => selectedSceneIdSet.has(scene.id));
+    const assignableSceneGroups = getAssignableSceneGroupOptions(activeProject, selectedSceneIds);
+    const hasGroupedSelectedScenes = selectedScenes.some((scene) => scene.groupId !== null);
     const projectScreen = isCanvasView ? (
       <SceneCanvas />
     ) : activeProjectView === 'characters' ? (
@@ -155,11 +170,14 @@ export function App() {
         onGroupSelectedScenes={
           isCanvasView && selectedSceneIds.length >= 2 ? groupSelectedScenes : undefined
         }
-        sceneGroupOptions={activeProject.groups.map((group) => ({ id: group.id, name: group.name }))}
+        sceneGroupOptions={assignableSceneGroups}
         onAddSelectedScenesToGroup={
-          isCanvasView && selectedSceneIds.length >= 1 && activeProject.groups.length > 0
+          isCanvasView && selectedSceneIds.length >= 1 && assignableSceneGroups.length > 0
             ? assignSelectedScenesToGroup
             : undefined
+        }
+        onUngroupSelectedScenes={
+          isCanvasView && hasGroupedSelectedScenes ? ungroupSelectedScenes : undefined
         }
         onUngroupSelectedGroup={isCanvasView && selectedGroupId ? ungroupSelectedGroup : undefined}
         onBackToProjects={closeProject}

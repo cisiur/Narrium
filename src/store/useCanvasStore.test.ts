@@ -1113,6 +1113,153 @@ describe('scene groups', () => {
     expect(useWorkspaceStore.getState().projectHistory.undoStack).toHaveLength(1);
   });
 
+  it('ungroups selected scenes from their current group', () => {
+    const group = createGroup('group-existing');
+    setActiveProject({
+      ...createProject(),
+      groups: [group],
+      scenes: [
+        createScene('scene-a', [], { groupId: group.id }),
+        createScene('scene-b', [], { groupId: group.id }),
+        createScene('scene-c', []),
+      ],
+    });
+
+    useCanvasStore.getState().selectScenes(['scene-a']);
+    useCanvasStore.getState().ungroupSelectedScenes();
+
+    const project = useWorkspaceStore.getState().activeProject as Project;
+
+    expect(project.scenes.map((scene) => scene.groupId)).toEqual([null, group.id, null]);
+    expect(useCanvasStore.getState()).toMatchObject({
+      selectedSceneId: null,
+      selectedSceneIds: [],
+      selectedChoiceId: null,
+      selectedGroupId: null,
+      activeView: 'canvas',
+    });
+  });
+
+  it('ungroup selected scenes ignores ungrouped selected scenes', () => {
+    const group = createGroup('group-existing');
+    setActiveProject({
+      ...createProject(),
+      groups: [group],
+      scenes: [
+        createScene('scene-a', [], { position: { x: 100, y: 100 }, groupId: group.id }),
+        createScene('scene-b', [], { position: { x: 500, y: 100 } }),
+        createScene('scene-c', [], { position: { x: 900, y: 100 }, groupId: group.id }),
+      ],
+    });
+
+    useCanvasStore.getState().selectScenes(['scene-a', 'scene-b']);
+    useCanvasStore.getState().ungroupSelectedScenes();
+
+    const project = useWorkspaceStore.getState().activeProject as Project;
+
+    expect(project.scenes.map((scene) => scene.groupId)).toEqual([null, null, group.id]);
+    expect(project.groups[0]).toMatchObject({
+      position: { x: 868, y: 68 },
+      size: { width: 304, height: 224 },
+    });
+  });
+
+  it('updates affected group bounds after ungrouping selected scenes', () => {
+    const group = createGroup('group-existing');
+    setActiveProject({
+      ...createProject(),
+      groups: [group],
+      scenes: [
+        createScene('scene-a', [], { position: { x: 100, y: 100 }, groupId: group.id }),
+        createScene('scene-b', [], { position: { x: 500, y: 100 }, groupId: group.id }),
+        createScene('scene-c', [], { position: { x: 900, y: 100 }, groupId: group.id }),
+      ],
+    });
+
+    useCanvasStore.getState().selectScenes(['scene-a']);
+    useCanvasStore.getState().ungroupSelectedScenes();
+
+    const groupAfterUngroup = (useWorkspaceStore.getState().activeProject as Project).groups[0];
+
+    expect(groupAfterUngroup).toMatchObject({
+      position: { x: 468, y: 68 },
+      size: { width: 704, height: 224 },
+    });
+  });
+
+  it('removes an empty group after ungrouping all selected member scenes', () => {
+    const group = createGroup('group-existing');
+    setActiveProject({
+      ...createProject(),
+      groups: [group],
+      scenes: [
+        createScene('scene-a', [], { groupId: group.id }),
+        createScene('scene-b', [], { groupId: group.id }),
+      ],
+    });
+
+    useCanvasStore.getState().selectScenes(['scene-a', 'scene-b']);
+    useCanvasStore.getState().ungroupSelectedScenes();
+
+    const project = useWorkspaceStore.getState().activeProject as Project;
+
+    expect(project.groups).toEqual([]);
+    expect(project.scenes.map((scene) => scene.groupId)).toEqual([null, null]);
+  });
+
+  it('preserves Story Logic when ungrouping selected scenes', () => {
+    const group = createGroup('group-existing');
+    const originalChoice = createChoice({ targetSceneId: 'scene-b' });
+    setActiveProject({
+      ...createProject(),
+      groups: [group],
+      scenes: [
+        createScene('scene-a', [originalChoice], { groupId: group.id }),
+        createScene('scene-b', [], { groupId: group.id }),
+      ],
+    });
+
+    useCanvasStore.getState().selectScenes(['scene-a']);
+    useCanvasStore.getState().ungroupSelectedScenes();
+
+    const project = useWorkspaceStore.getState().activeProject as Project;
+    const scene = project.scenes.find((item) => item.id === 'scene-a');
+
+    expect(scene?.choices[0]).toEqual(originalChoice);
+    expect(validateProject(project)).toEqual([]);
+  });
+
+  it('creates one undo snapshot when ungrouping selected scenes', () => {
+    const group = createGroup('group-existing');
+    setActiveProject({
+      ...createProject(),
+      groups: [group],
+      scenes: [
+        createScene('scene-a', [], { groupId: group.id }),
+        createScene('scene-b', [], { groupId: group.id }),
+      ],
+    });
+
+    useCanvasStore.getState().selectScenes(['scene-a']);
+    useCanvasStore.getState().ungroupSelectedScenes();
+
+    expect(useWorkspaceStore.getState().projectHistory.undoStack).toHaveLength(1);
+  });
+
+  it('does not mutate or create undo history when selected scenes are already ungrouped', () => {
+    setActiveProject({
+      ...createProject(),
+      scenes: [createScene('scene-a', []), createScene('scene-b', [])],
+    });
+    const originalProject = useWorkspaceStore.getState().activeProject;
+
+    useCanvasStore.getState().selectScenes(['scene-a', 'scene-b']);
+    useCanvasStore.getState().ungroupSelectedScenes();
+
+    expect(useWorkspaceStore.getState().activeProject).toBe(originalProject);
+    expect(useWorkspaceStore.getState().projectHistory.undoStack).toHaveLength(0);
+  });
+
   it('does not recalculate group bounds when an unrelated scene moves', () => {
     const group = createGroup('group-existing', {
       position: { x: 68, y: 68 },

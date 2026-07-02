@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import type { ProjectView } from '../store/useProjectViewStore';
 
 interface SceneGroupOption {
@@ -16,6 +16,7 @@ interface AppShellProps {
   onGroupSelectedScenes?: () => void;
   sceneGroupOptions?: SceneGroupOption[];
   onAddSelectedScenesToGroup?: (groupId: string) => void;
+  onUngroupSelectedScenes?: () => void;
   onUngroupSelectedGroup?: () => void;
   onBackToProjects?: () => void;
   onExportHtml?: () => void;
@@ -34,6 +35,7 @@ export function AppShell({
   onGroupSelectedScenes,
   sceneGroupOptions = [],
   onAddSelectedScenesToGroup,
+  onUngroupSelectedScenes,
   onUngroupSelectedGroup,
   onBackToProjects,
   onExportHtml,
@@ -41,7 +43,6 @@ export function AppShell({
   onEnterPreview,
   onProjectViewChange,
 }: AppShellProps) {
-  const [isGroupPickerOpen, setIsGroupPickerOpen] = useState(false);
   const projectNavItems: { view: ProjectView; label: string; title: string }[] = [
     { view: 'canvas', label: 'C', title: 'Canvas' },
     { view: 'characters', label: 'Ch', title: 'Characters' },
@@ -103,32 +104,37 @@ export function AppShell({
                 </button>
               ) : null}
               {onAddSelectedScenesToGroup && sceneGroupOptions.length > 0 ? (
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setIsGroupPickerOpen((isOpen) => !isOpen)}
-                    className="rounded bg-gray-700 px-2 py-1 text-xs font-medium text-gray-100 hover:bg-gray-600"
-                  >
+                <select
+                  aria-label="Add selected to group"
+                  className="rounded bg-gray-700 px-2 py-1 text-xs font-medium text-gray-100 hover:bg-gray-600"
+                  defaultValue=""
+                  onChange={(event) => {
+                    const groupId = event.target.value;
+
+                    if (groupId) {
+                      onAddSelectedScenesToGroup(groupId);
+                      event.target.value = '';
+                    }
+                  }}
+                >
+                  <option value="" disabled>
                     Add selected to group...
-                  </button>
-                  {isGroupPickerOpen ? (
-                    <div className="absolute right-0 z-20 mt-2 w-48 rounded border border-gray-700 bg-gray-900 p-1 shadow-xl">
-                      {sceneGroupOptions.map((group) => (
-                        <button
-                          key={group.id}
-                          type="button"
-                          className="block w-full rounded px-2 py-1.5 text-left text-xs font-medium text-gray-100 hover:bg-gray-800"
-                          onClick={() => {
-                            onAddSelectedScenesToGroup(group.id);
-                            setIsGroupPickerOpen(false);
-                          }}
-                        >
-                          {group.name}
-                        </button>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
+                  </option>
+                  {sceneGroupOptions.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.name}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
+              {onUngroupSelectedScenes ? (
+                <button
+                  type="button"
+                  onClick={onUngroupSelectedScenes}
+                  className="rounded bg-gray-700 px-2 py-1 text-xs font-medium text-gray-100 hover:bg-gray-600"
+                >
+                  Ungroup selected scenes
+                </button>
               ) : null}
               {onUngroupSelectedGroup ? (
                 <button

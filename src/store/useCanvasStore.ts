@@ -69,6 +69,7 @@ interface CanvasStore {
   openEditor: (id: string) => void;
   groupSelectedScenes: () => void;
   assignSelectedScenesToGroup: (groupId: string) => void;
+  ungroupSelectedScenes: () => void;
   ungroupSelectedGroup: () => void;
   updateSceneGroupName: (groupId: string, name: string) => void;
   updateSceneGroupCollapsed: (groupId: string, collapsed: boolean) => void;
@@ -707,6 +708,56 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
       selectedSceneId: null,
       selectedSceneIds: [],
       selectedGroupId: groupId,
+      selectedChoiceId: null,
+      activeView: 'canvas',
+    });
+    get().syncFromProject();
+  },
+  ungroupSelectedScenes: () => {
+    const activeProject = useWorkspaceStore.getState().activeProject;
+
+    if (!activeProject) {
+      return;
+    }
+
+    const selectedSceneIdSet = new Set(get().selectedSceneIds);
+    const selectedGroupedScenes = activeProject.scenes.filter(
+      (scene) => selectedSceneIdSet.has(scene.id) && scene.groupId !== null,
+    );
+
+    if (selectedGroupedScenes.length === 0) {
+      return;
+    }
+
+    const affectedGroupIds = new Set(
+      selectedGroupedScenes
+        .map((scene) => scene.groupId)
+        .filter((groupId): groupId is string => groupId !== null),
+    );
+
+    useWorkspaceStore.getState().updateActiveProject((project) => {
+      const scenes = project.scenes.map((scene) => {
+        if (!selectedSceneIdSet.has(scene.id) || scene.groupId === null) {
+          return scene;
+        }
+
+        return { ...scene, groupId: null };
+      });
+      const nextProject = {
+        ...project,
+        scenes,
+      };
+
+      return {
+        ...nextProject,
+        groups: finalizeSceneGroupMembership(nextProject, affectedGroupIds),
+      };
+    });
+
+    set({
+      selectedSceneId: null,
+      selectedSceneIds: [],
+      selectedGroupId: null,
       selectedChoiceId: null,
       activeView: 'canvas',
     });

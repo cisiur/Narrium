@@ -20,4 +20,35 @@ describe('AppShell', () => {
     expect(html).toContain('Add selected to group...');
     expect(html).not.toContain('Group selected scenes');
   });
+
+  it('renders the selected-scenes ungroup action separately from whole-group Ungroup', () => {
+    const html = renderToStaticMarkup(
+      <AppShell
+        isProjectOpen
+        projectName="Test Project"
+        onUngroupSelectedScenes={() => undefined}
+        onUngroupSelectedGroup={() => undefined}
+      >
+        <div />
+      </AppShell>,
+    );
+
+    expect(html).toContain('Ungroup selected scenes');
+    expect(html).toContain('Ungroup');
+  });
+
+  it('hides the add-to-group picker when no groups are assignable', () => {
+    const html = renderToStaticMarkup(
+      <AppShell
+        isProjectOpen
+        projectName="Test Project"
+        onAddSelectedScenesToGroup={() => undefined}
+        sceneGroupOptions={[]}
+      >
+        <div />
+      </AppShell>,
+    );
+
+    expect(html).not.toContain('Add selected to group...');
+  });
 });

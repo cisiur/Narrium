@@ -6,6 +6,19 @@ This changelog records milestone-level project changes. It is intentionally conc
 
 ## Unreleased / Next
 
+### Documentation - Desktop-first pivot
+
+Changes:
+- Documented that the completed browser MVP is archived on branch `MVP_web_legacy`.
+- Documented that active development on `main` is pivoting toward a desktop-first Narrium editor.
+- Added desktop-first direction for local project folders, `project.narrium.json`, local asset files, and future playable exports.
+- Added `docs/DESKTOP_ARCHITECTURE.md` as the initial architecture reference for the desktop pivot.
+- Kept the validated web MVP implementation history intact as foundation and migration reference.
+
+Validation:
+- Documentation-only change.
+- No desktop implementation, storage refactor, dependency change, or export format implementation is included.
+
 ### Completed - Canvas Scene Groups
 
 Commits:

@@ -7,11 +7,13 @@
 
 ## What is this project
 
-Narrium is a **no-code, browser-based visual novel editor**.
+Narrium is a **no-code, desktop-first visual novel editor**.
 
 Authors build branching interactive stories by connecting scene tiles on a visual canvas — no programming required. Each scene can contain a background image, ordered dialogue pages, and response choices. Choices can carry declarative condition groups and declarative effects.
 
-The finished story can be previewed in the browser, exported/imported as JSON, and exported as a standalone HTML player file.
+The completed browser-based MVP is preserved as a validated reference implementation on branch `MVP_web_legacy`. Active development on `main` now targets a desktop-first Narrium editor with local project folders, local asset files, and future playable exports.
+
+The validated web MVP can preview stories in the browser, export/import JSON, and export a standalone HTML player file. These features remain useful foundation and compatibility references, but standalone browser export is no longer the final production direction by itself.
 
 Target user:
 - non-technical authors
@@ -21,7 +23,10 @@ Target user:
 - people who want to create branching narratives without coding
 
 Platform:
-- browser-only web app for MVP
+- desktop-first editor on `main`
+- likely desktop shell around the existing React/TypeScript UI, with the final framework decision still open
+- local project folders and local asset file storage are the near-term production direction
+- browser-only web MVP is complete and archived on `MVP_web_legacy`
 - no mobile app for now
 
 ---
@@ -36,6 +41,8 @@ Platform:
 
 Workflow:
 - Active development happens directly on `main`.
+- `main` is for the future desktop-first Narrium editor direction.
+- The browser MVP snapshot is archived on branch `MVP_web_legacy`.
 - Do not create or target a `dev` branch unless the project owner explicitly changes the workflow.
 - The assistant acts as PM.
 - Codex implements.
@@ -63,16 +70,22 @@ Workflow:
 | Canvas / graph | React Flow (`reactflow` ^11) |
 | State management | Zustand |
 | Styling | Tailwind CSS v3 |
-| Storage | localStorage for MVP workspace and exported-player saves |
-| Project format | JSON-compatible `Project` object |
+| Storage | localStorage for archived web MVP; future desktop storage should use local project folders |
+| Project format | JSON-compatible `Project` object; future desktop project file should be `project.narrium.json` |
 | Runtime player | Embedded React Preview player |
-| Exported player | Standalone HTML file with embedded Project + inline runtime |
+| Exported player | Standalone HTML file for archived web MVP; future playable export format TBD |
 | Tests | Vitest |
 | Bundler | Vite |
 
 ---
 
 ## Current Project Status
+
+Strategic status:
+- The browser-based web MVP is complete, validated, and archived on branch `MVP_web_legacy`.
+- Active development on `main` now targets a desktop-first editor.
+- The existing React/TypeScript editor, canonical `Project` model, story logic runtime, preview, validation, JSON import/export, and standalone HTML export remain the validated MVP foundation.
+- No desktop shell, local project folder storage, local asset file storage, or future playable export system has been implemented yet on `main`.
 
 ```text
 Workspace Management       ██████████ 100%
@@ -91,7 +104,7 @@ Save / Export              ██████████ 100%
 Polish & Production UX     ██████░░░░  60%
 ```
 
-Current state:
+Validated web MVP state:
 Narrium has a usable local multi-project workspace, project settings sidebar, project thumbnails, React Flow scene graph editor, editor-only Canvas Scene Groups, Canvas-only keyboard shortcuts, Choice copy/paste, snapshot-based active-project undo/redo MVP, reusable application confirmation dialog, right-side scene editor with Project Validation, shared validation infrastructure including Story Logic reference validation, background system, asset library support, SceneNode thumbnails, ordered dialogue pages, character speaker selection, safe character deletion with dialogue speaker cleanup, choice target editing, edge-to-choice navigation, project-level Characters, Character attributes, project-level Resources with player-facing presentation metadata, project-level Variables, complete Story Logic Conditions including Variables, complete Story Logic Effects including Variables, runtime helper functions for condition/effect execution, a functional in-browser Story Player Preview with Resource HUD, JSON project export/import, standalone HTML story export with runtime parity and Resource HUD, polished standalone HTML playback, and exported standalone player save/load persistence including variable runtime values.
 
 Canvas Scene Groups now support:
@@ -129,15 +142,16 @@ Completed milestones:
 - EPIC 10 - Canvas Scene Groups is complete: architecture helpers, multi-selection, group creation/ungroup, expanded frames, rename, collapsed nodes, expand/collapse, visual edge projection, and UX polish.
 
 Current recommended next milestone:
-- **EPIC 9 — Polish & Production UX**
+- **EPIC 11 - Desktop Pivot & Local Project System**
 - Recommended next task should be selected by the project owner.
 
 Good candidates:
-- Export preflight using Project Validation.
-- `E9-14` - Story Player component-level tests.
-- `E9-08` - Empty/error states polish.
-- `E9-02` future enhancements - finer-grained undo/redo UX beyond the snapshot-based MVP.
-- Documentation / UX pass for authoring workflows.
+- Desktop app shell foundation.
+- Local project folder create/open/save.
+- Local `assets/` folder storage for imported files.
+- Import/migration path from legacy web MVP JSON, including future extraction of embedded Data URLs.
+- Desktop preview parity with the validated web MVP preview.
+- Future playable export foundation.
 
 ---
 
@@ -534,6 +548,8 @@ Implemented:
 
 ## Current EPIC 9 Status
 
+EPIC 9 status is preserved here as validated web MVP history. It is not the current strategic roadmap focus on `main`.
+
 Completed validation batch:
 - `E9-15` - Warn on targetless choices with no effects
 - `E9-16` - Validation infrastructure
@@ -573,11 +589,11 @@ Important:
 - Resources are player-facing numeric values when marked visible.
 
 Next recommended tasks:
-1. Export preflight using Project Validation.
-2. `E9-14` - Story Player component-level tests.
-3. `E9-08` - Empty/error states polish.
-4. `E9-02` future enhancements - finer-grained undo/redo UX beyond the snapshot-based MVP.
-5. Documentation / UX pass for authoring workflows.
+1. Desktop app shell foundation.
+2. Local project folder create/open/save.
+3. Local asset file storage under project `assets/`.
+4. Migration/import from legacy web MVP JSON.
+5. Desktop preview parity and future playable export foundation.
 
 ---
 

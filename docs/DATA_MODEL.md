@@ -9,7 +9,8 @@ This document defines the canonical data structures for Narrium. It is the prima
 - The model must be JSON-serializable without transformation.
 - The same `Project` object is the source of truth for editor, Preview player, JSON export/import, and exported standalone HTML player.
 - Scene logic is declarative only: conditions and effects, no scripting language.
-- Background assets are portable inside exported/imported project JSON.
+- Background assets are portable inside exported/imported web MVP project JSON.
+- Future desktop project storage should keep large imported assets as local files referenced by relative paths instead of embedding them as Data URLs.
 - Project thumbnails are stored in the full `Project` and mirrored into workspace metadata for fast project listing.
 - Workspace metadata is stored separately from full project payload.
 - Characters, Resources, and Variables are project data, not separate stores.
@@ -97,6 +98,38 @@ Notes:
 - JSON export uses the full `Project` object.
 - Standalone HTML export embeds the full `Project` object.
 - Old projects without `variables` are normalized to `variables: []`.
+
+---
+
+## Future desktop-first project format
+
+The current MVP `Project` object remains the validated domain model for scenes, choices, story logic, characters, resources, variables, groups, settings, and runtime initialization.
+
+For production desktop storage, the saved project should evolve from browser/localStorage payloads toward a local project folder:
+
+```text
+MyStory/
+  project.narrium.json
+  assets/
+    backgrounds/
+    characters/
+    audio/
+    ui/
+```
+
+Intended storage rules:
+- `project.narrium.json` stores the JSON-compatible `Project` data.
+- Asset references inside the project file should use relative paths such as `assets/backgrounds/castle.png`.
+- Imported or uploaded files should be copied into the local project folder.
+- Large uploaded image Data URLs should not be stored inside the long-term saved project file.
+- The project folder should be portable as a folder/package, not as one bloated JSON blob.
+- The exact desktop shell and file dialog implementation are not part of the data model and are not implemented yet.
+
+Compatibility:
+- Current web MVP exports may still contain embedded Data URLs in `Project.thumbnail`, `SceneBackground.url`, or `AssetLibraryItem.url`.
+- Desktop import should accept legacy web MVP JSON.
+- A future migration step should extract embedded Data URLs into local files where practical, then rewrite project references to relative paths.
+- The canonical story model should remain recognizable so existing validation, preview, and runtime logic can be reused.
 
 ---
 
@@ -448,10 +481,16 @@ interface AssetLibraryItem {
 
 Notes:
 - MVP supports background assets only.
-- Uploaded assets are stored as base64 data URLs in `url`.
+- Uploaded assets are stored as base64 data URLs in `url` in the archived web MVP.
 - URL assets store their external URL directly.
 - JSON project export/import preserves asset library items.
 - Standalone HTML export embeds the full Project, so uploaded asset Data URLs remain available in the exported player.
+
+Future desktop direction:
+- `AssetLibraryItem` should evolve to represent imported local files through project-relative paths.
+- A future item may keep `sourceType: 'upload'` for compatibility while storing `url` or a successor field as a relative path such as `assets/backgrounds/forest.png`.
+- Metadata such as original filename, media type, file size, dimensions, or checksum can be added when needed.
+- Long-term desktop project files should avoid large image Data URLs except when importing legacy web MVP JSON before migration.
 
 ---
 

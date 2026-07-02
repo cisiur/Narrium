@@ -3,6 +3,8 @@
 > **Version:** v13 documentation refresh after Canvas Scene Groups  
 > **Workflow:** active development happens directly on `main`. Do not use a `dev` branch unless the project owner explicitly changes this workflow.
 
+> **Strategic pivot:** the completed browser MVP is archived on branch `MVP_web_legacy`. Active development on `main` now targets a desktop-first Narrium editor with local project folders, local asset files, and future playable exports.
+
 ---
 
 ## Role Legend
@@ -17,6 +19,11 @@
 ---
 
 ## Current MVP Status
+
+Status note:
+- The browser-based MVP is validated and archived on `MVP_web_legacy`.
+- Completed MVP epics remain the product foundation and reference implementation.
+- No desktop shell, local project folder system, local asset file storage, or new playable export format has been implemented yet.
 
 ```text
 Workspace Management       ██████████ 100%
@@ -35,7 +42,7 @@ Save / Export              ██████████ 100%
 Polish & Production UX     ██████░░░░  60%
 ```
 
-Current state:
+Validated web MVP state:
 Narrium has a usable local multi-project workspace, project settings sidebar, project thumbnails, React Flow scene graph editor with editor-only Canvas Scene Groups, Canvas-only keyboard shortcuts, Choice copy/paste, snapshot-based active-project undo/redo MVP, reusable application confirmation dialog, right-side scene editor with Project Validation, shared validation infrastructure including Story Logic reference validation, background system, asset library support, SceneNode thumbnails, ordered dialogue pages, character speaker selection, safe character deletion with dialogue speaker cleanup, choice target editing, edge-to-choice navigation, project-level Characters, Character attributes, project-level Resources with player-facing presentation metadata, project-level Variables, complete Story Logic Conditions including Variables, complete Story Logic Effects including Variables, runtime helper functions for condition/effect execution, a functional in-browser Story Player preview with Resource HUD, JSON project export/import, standalone HTML story export with runtime parity and Resource HUD, polished standalone HTML playback, and exported standalone player save/load persistence including variable runtime values.
 
 Story Player Preview is complete:
@@ -73,7 +80,7 @@ Runtime helper tests are present through Vitest.
 Detailed documentation for the completed EPIC 9 validation batch lives in `docs/EPIC9_VALIDATION.md`.
 
 Next major roadmap area:
-**Post-Scene-Groups polish and production readiness**, continuing with targeted authoring and export-readiness improvements.
+**EPIC 11 - Desktop Pivot & Local Project System**, moving the validated MVP foundation toward a desktop-first editor.
 
 ---
 
@@ -383,14 +390,46 @@ Deliverable status:
 
 ---
 
+## EPIC 11 - Desktop Pivot & Local Project System
+
+Status: **planned**.
+
+Purpose:
+- Pivot `main` from browser-only MVP continuation to the future desktop-first Narrium editor.
+- Preserve the validated React/TypeScript UI and `Project` domain model where practical.
+- Replace long-term browser/localStorage assumptions with local project folders and local asset files.
+- Prepare for future playable exports without treating standalone HTML export as the final requirement.
+
+| ID | Task | Who | Status |
+|---|---|---|---|
+| E11-01 | Documentation and architecture pivot | [PM] | Done |
+| E11-02 | Desktop shell foundation, likely Tauri unless product/technical review chooses otherwise | [BOTH] | Planned |
+| E11-03 | Local project folder create/open/save workflow | [BOTH] | Planned |
+| E11-04 | `project.narrium.json` storage format using the validated `Project` domain model | [BOTH] | Planned |
+| E11-05 | Local asset file storage under project `assets/` folders | [BOTH] | Planned |
+| E11-06 | Relative asset paths in project JSON | [BOTH] | Planned |
+| E11-07 | Migration/import from legacy web MVP JSON | [BOTH] | Planned |
+| E11-08 | Extract legacy embedded Data URLs into local asset files during migration where practical | [BOTH] | Planned |
+| E11-09 | Desktop preview parity with validated web MVP preview behavior | [BOTH] | Planned |
+| E11-10 | Playable export foundation for folder/package-based exports | [BOTH] | Planned |
+
+Deliverable intent:
+- A desktop app can create, open, save, and preview Narrium projects from local folders.
+- Imported assets are copied into the project folder instead of being stored as large Data URLs in the long-term project file.
+- Legacy web MVP JSON remains importable as a migration path.
+- Future playable export work can build on the same project folder and relative asset path model.
+
+---
+
 ## Next Immediate Step
 
-Continue with post-Scene-Groups polish and production-readiness work.
+Continue with EPIC 11 desktop pivot planning and implementation.
 
 Recommended next task should be selected by the project owner.
 
 Good candidates:
-- `E9-24` - Export preflight using Project Validation.
-- `E9-14` - Story Player component-level tests.
-- `E9-08` - Empty/error states polish.
-- `E9-02` future enhancements - finer-grained undo/redo UX beyond the snapshot-based MVP.
+- Desktop shell foundation.
+- Local project folder create/open/save.
+- Local asset file storage.
+- Migration/import from legacy web MVP JSON.
+- Desktop preview parity.

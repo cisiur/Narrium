@@ -2,7 +2,7 @@
 
 Ten dokument jest dodatkiem do `story/szept/art_bible.md`.
 
-Cel: utrwalić praktyczne zasady wynikające z zaakceptowanych scen `SC01 — Archiwum po północy`, `SC02 — Rynek we mgle`, `SC03 — Spotkanie z Mirą` i `SC04 — Kaplica Soli`, aby kolejne prompty i edycje były bardziej spójne, czytelne i lepiej dopasowane do visual novel.
+Cel: utrwalić praktyczne zasady wynikające z zaakceptowanych scen `SC01 — Archiwum po północy`, `SC02 — Rynek we mgle`, `SC03 — Spotkanie z Mirą`, `SC04 — Kaplica Soli` i `SC05 — Dziecko na brzegu`, aby kolejne prompty i edycje były bardziej spójne, czytelne i lepiej dopasowane do visual novel.
 
 ---
 
@@ -59,6 +59,19 @@ Najważniejsze cechy, które warto utrzymać:
 - kaplica zachowuje morski, solny charakter,
 - krypta jest obecna jako story anchor, ale nie dominuje kadru.
 
+### SC05 — Dziecko na brzegu
+
+`SC05 — Dziecko na brzegu` zostaje zaakceptowana jako referencja dla szerokich, emocjonalnych scen plenerowych opartych na narracji środowiskowej.
+
+Najważniejsze cechy, które warto utrzymać:
+
+- szeroki kadr z dużą ilością oddechu i przestrzeni,
+- Lio jako obserwator wchodzący do sceny z lewej strony,
+- Noa pokazana z dystansu, od tyłu lub częściowego profilu, bez eksponowania twarzy,
+- rozbita łódź jako hero prop i naturalne wsparcie kompozycji,
+- klify, Veyr i latarnia jako silne story anchors,
+- samotność i tajemnica budowane przez lokację, pogodę, skalę i rekwizyty zamiast przez horrorowe efekty.
+
 Te zaakceptowane sceny powinny być traktowane jako **quality bar** dla kolejnych backgroundów / scene CG.
 
 ---
@@ -76,6 +89,7 @@ Przykłady:
 | SC01 — Archiwum po północy | Księga bez tytułu |
 | SC03 — Spotkanie z Mirą | Stara mapa tuneli |
 | SC04 — Kaplica Soli | Misa z solanką |
+| SC05 — Dziecko na brzegu | Rozbita łódź |
 | SC06 — Zakazane archiwum | Rejestr ofiar |
 | SC08 — Gabinet Vossa | Biały klucz latarni |
 | SC11 — Serce Latarni | Rdzeń latarni |
@@ -113,6 +127,15 @@ Hero Character: Lio
 Conflicted Character: Father Cael
 Hero Prop: The salt-water bowl
 Story Anchor: The sealed crypt door / lighthouse window
+```
+
+Dla SC05:
+
+```text
+Hero Character: Lio
+Mystery Character: Noa
+Hero Prop: The broken boat
+Story Anchor: The distant lighthouse and Veyr cliffs
 ```
 
 Schemat:
@@ -243,7 +266,43 @@ The scene captures the moment of hesitation before confession.
 
 ---
 
-## 7. Asymmetry and Vertical Staging
+## 7. Environmental Storytelling Rule
+
+Nie każda scena musi opowiadać przede wszystkim przez gest lub rekwizyt. W scenach plenerowych i przejściowych bardzo ważne jest, aby sama lokacja opowiadała emocjonalny stan historii.
+
+Dla SC05 najlepiej zadziałało to, że samotność Noi wynika z szerokiej przestrzeni, rozbitej łodzi, klifów Veyr, zimnego morza i światła latarni, a nie z horrorowego wyglądu postaci.
+
+Prompt rule:
+
+```text
+Whenever possible, let the environment tell part of the story before the characters do.
+The player should understand the emotional tone of the scene by looking at the location, weather, lighting, scale and props before reading the dialogue.
+Characters should feel like they exist inside the world rather than standing in front of a background.
+Use environmental storytelling especially for wide exterior scenes, transitions, lonely moments and discoveries.
+```
+
+Dobre elementy narracji środowiskowej:
+
+- rozbita łódź,
+- porzucone sieci,
+- mokre kamienie,
+- puste nabrzeże,
+- klify miasta,
+- światło latarni jako odległy nadzór,
+- mgła układająca rytm sceny,
+- skala postaci względem lokacji.
+
+Przykład dla SC05:
+
+```text
+The environment should tell the story before the characters speak.
+The broken boat, wet rocks, empty shoreline, distant city cliffs and lighthouse beam should make the scene feel lonely and important.
+Noa should remain small in the frame, making the viewer wonder why she is alone there.
+```
+
+---
+
+## 8. Asymmetry and Vertical Staging
 
 Modele generatywne często ustawiają postacie na tej samej wysokości i w podobnych pozach. To szybko daje efekt sztucznej, pozowanej sceny.
 
@@ -264,7 +323,7 @@ Przykłady:
 
 ---
 
-## 8. Background Hierarchy
+## 9. Background Hierarchy
 
 Tło powinno wspierać scenę, ale nie może konkurować z postacią i głównym rekwizytem.
 
@@ -280,7 +339,7 @@ Slightly soften and darken distant bookshelves, walls and secondary props.
 
 ---
 
-## 9. Visual Novel Dialogue Area
+## 10. Visual Novel Dialogue Area
 
 Każdy obraz musi działać z dialogue boxem na dole ekranu.
 
@@ -296,7 +355,7 @@ A dark wooden table, stone floor, shadow or empty foreground is preferred.
 
 ---
 
-## 10. Character Identity Preservation
+## 11. Character Identity Preservation
 
 Podczas edycji istniejących obrazów lub tworzenia kolejnych scen z tą samą postacią generator może przypadkowo zmienić twarz, wiek, fryzurę lub ubranie. Trzeba temu aktywnie zapobiegać.
 
@@ -329,9 +388,17 @@ Preserve Father Cael as the same older priest from SC04: grey hair, tired compas
 Do not make him look villainous, demonic or like a cult leader.
 ```
 
+Dla Noi:
+
+```text
+Noa should appear as a quiet, ordinary young child in simple oversized clothing, usually shown from distance, from behind or in partial profile.
+Do not use horror-child tropes, glowing eyes, demonic features, magical aura or overly cute fantasy styling.
+Let the environment and composition create mystery rather than changing the child into a supernatural-looking figure.
+```
+
 ---
 
-## 11. Edit Prompt Template
+## 12. Edit Prompt Template
 
 Do edycji istniejącego obrazu nie należy przepisywać całego promptu sceny. Edycja powinna jasno mówić, że obraz ma zostać zachowany, a zmienione mają być tylko konkretne elementy.
 
@@ -356,11 +423,11 @@ The final image should remain almost identical to the original, only improved ac
 
 ---
 
-## 12. Accepted Quality Direction
+## 13. Accepted Quality Direction
 
 SC01 is accepted even if it is slightly more realistic than the initial target style.
 
-SC02, SC03 and SC04 confirm that the preferred target style is:
+SC02, SC03, SC04 and SC05 confirm that the preferred target style is:
 
 - cinematic dark fantasy realism,
 - subtle painterly finish,
@@ -368,28 +435,31 @@ SC02, SC03 and SC04 confirm that the preferred target style is:
 - strong location identity,
 - one clear story action per scene,
 - one clear rekwizyt / decision structure per scene,
-- consistent Lio, Mira and Cael identities.
+- consistent Lio, Mira and Cael identities,
+- environmental storytelling that makes the world of Veyr feel alive before dialogue begins.
 
 For future scenes:
 
 - keep the same mood and quality,
 - keep the cinematic realism,
-- avoid going more photorealistic than SC01–SC04,
+- avoid going more photorealistic than SC01–SC05,
 - prefer a subtle painterly finish,
 - maintain consistent lighting and color grading,
-- add an action moment rather than static posing.
+- add an action moment rather than static posing,
+- use the environment to communicate emotional tone.
 
 Prompt rule:
 
 ```text
-Match the quality, mood and cinematic dark fantasy realism of the accepted SC01 archive scene, SC02 foggy marketplace scene, SC03 alley map scene and SC04 salt chapel scene.
+Match the quality, mood and cinematic dark fantasy realism of the accepted SC01 archive scene, SC02 foggy marketplace scene, SC03 alley map scene, SC04 salt chapel scene and SC05 rocky shore scene.
 Use a subtle painterly finish, but do not make the image anime, cartoon or overly stylized.
 Capture a natural action moment, not a static pose.
+Let the environment tell part of the story before the characters do.
 ```
 
 ---
 
-## 13. Practical Prompt Add-on
+## 14. Practical Prompt Add-on
 
 Ten blok można dopisywać do kolejnych promptów scen:
 
@@ -401,15 +471,16 @@ For choice-heavy scenes, use Decision Composition so routes, allies and threats 
 Characters should be captured in a natural action moment, not a posed illustration.
 Whenever characters interact with an object, the object should be used naturally rather than presented to the viewer.
 Avoid symmetrical standing poses; use posture, leaning, height differences and interaction with the environment.
+Let the environment tell part of the story through location, weather, lighting, scale and props.
 Background details should support the scene but never compete with the character or the hero prop.
 Keep the lower 25–30% darker, calmer and less detailed for visual novel dialogue overlay.
 Preserve character identity across scenes.
-Match the quality, mood and cinematic dark fantasy realism of the accepted SC01–SC04 scenes.
+Match the quality, mood and cinematic dark fantasy realism of the accepted SC01–SC05 scenes.
 ```
 
 ---
 
-## 14. Practical Edit Add-on
+## 15. Practical Edit Add-on
 
 Ten blok można dopisywać do promptów edycyjnych:
 
@@ -418,6 +489,7 @@ Do not regenerate the whole image.
 Preserve the exact composition, character identity, architecture, camera angle, color palette and mood.
 Only adjust the specific requested elements.
 If the scene feels posed, turn it into a captured action moment using natural body language and object interaction.
+If the scene feels empty or decorative, strengthen environmental storytelling through props, weather, lighting and scale.
 Keep the final image very close to the original.
 Do not add UI, text, logos, extra characters, modern objects or unrelated props.
 ```

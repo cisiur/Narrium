@@ -38,7 +38,7 @@ function createGroup(id: string, input: Partial<SceneGroup> = {}): SceneGroup {
   };
 }
 
-function createChoice(): Choice {
+function createChoice(input: Partial<Choice> = {}): Choice {
   return {
     id: 'choice-original',
     text: 'Open the gate',
@@ -84,6 +84,7 @@ function createChoice(): Choice {
         value: 2,
       },
     ],
+    ...input,
   };
 }
 
@@ -642,5 +643,212 @@ describe('scene groups', () => {
 
     expect(getStartScene(project).choices[0]).toEqual(originalChoice);
     expect(validateProject(project)).toEqual([]);
+  });
+
+  it('projects expanded to expanded edges as scene to scene', () => {
+    setActiveProject({
+      ...createProject(),
+      scenes: [
+        createScene('scene-a', [createChoice({ id: 'choice-a', targetSceneId: 'scene-b' })]),
+        createScene('scene-b'),
+      ],
+    });
+
+    expect(useCanvasStore.getState().edges).toMatchObject([
+      {
+        id: 'scene-a:choice-a',
+        source: 'scene-a',
+        target: 'scene-b',
+      },
+    ]);
+  });
+
+  it('hides edges inside the same collapsed group', () => {
+    const group = createGroup('group-a', { collapsed: true });
+    setActiveProject({
+      ...createProject(),
+      groups: [group],
+      scenes: [
+        createScene('scene-a', [createChoice({ id: 'choice-a', targetSceneId: 'scene-b' })], {
+          groupId: group.id,
+        }),
+        createScene('scene-b', [], { groupId: group.id }),
+      ],
+    });
+
+    expect(useCanvasStore.getState().edges).toEqual([]);
+  });
+
+  it('projects inside collapsed group to outside as group to scene', () => {
+    const group = createGroup('group-a', { collapsed: true });
+    setActiveProject({
+      ...createProject(),
+      groups: [group],
+      scenes: [
+        createScene('scene-a', [createChoice({ id: 'choice-a', targetSceneId: 'scene-b' })], {
+          groupId: group.id,
+        }),
+        createScene('scene-b'),
+      ],
+    });
+
+    expect(useCanvasStore.getState().edges).toMatchObject([
+      {
+        id: 'scene-a:choice-a',
+        source: 'group:group-a',
+        target: 'scene-b',
+      },
+    ]);
+  });
+
+  it('projects outside to inside collapsed group as scene to group', () => {
+    const group = createGroup('group-b', { collapsed: true });
+    setActiveProject({
+      ...createProject(),
+      groups: [group],
+      scenes: [
+        createScene('scene-a', [createChoice({ id: 'choice-a', targetSceneId: 'scene-b' })]),
+        createScene('scene-b', [], { groupId: group.id }),
+      ],
+    });
+
+    expect(useCanvasStore.getState().edges).toMatchObject([
+      {
+        id: 'scene-a:choice-a',
+        source: 'scene-a',
+        target: 'group:group-b',
+      },
+    ]);
+  });
+
+  it('projects between different collapsed groups as group to group', () => {
+    const sourceGroup = createGroup('group-a', { collapsed: true });
+    const targetGroup = createGroup('group-b', { collapsed: true });
+    setActiveProject({
+      ...createProject(),
+      groups: [sourceGroup, targetGroup],
+      scenes: [
+        createScene('scene-a', [createChoice({ id: 'choice-a', targetSceneId: 'scene-b' })], {
+          groupId: sourceGroup.id,
+        }),
+        createScene('scene-b', [], { groupId: targetGroup.id }),
+      ],
+    });
+
+    expect(useCanvasStore.getState().edges).toMatchObject([
+      {
+        id: 'scene-a:choice-a',
+        source: 'group:group-a',
+        target: 'group:group-b',
+      },
+    ]);
+  });
+
+  it('projects expanded to collapsed as scene to group', () => {
+    const sourceGroup = createGroup('group-a');
+    const targetGroup = createGroup('group-b', { collapsed: true });
+    setActiveProject({
+      ...createProject(),
+      groups: [sourceGroup, targetGroup],
+      scenes: [
+        createScene('scene-a', [createChoice({ id: 'choice-a', targetSceneId: 'scene-b' })], {
+          groupId: sourceGroup.id,
+        }),
+        createScene('scene-b', [], { groupId: targetGroup.id }),
+      ],
+    });
+
+    expect(useCanvasStore.getState().edges).toMatchObject([
+      {
+        id: 'scene-a:choice-a',
+        source: 'scene-a',
+        target: 'group:group-b',
+      },
+    ]);
+  });
+
+  it('projects collapsed to expanded as group to scene', () => {
+    const sourceGroup = createGroup('group-a', { collapsed: true });
+    const targetGroup = createGroup('group-b');
+    setActiveProject({
+      ...createProject(),
+      groups: [sourceGroup, targetGroup],
+      scenes: [
+        createScene('scene-a', [createChoice({ id: 'choice-a', targetSceneId: 'scene-b' })], {
+          groupId: sourceGroup.id,
+        }),
+        createScene('scene-b', [], { groupId: targetGroup.id }),
+      ],
+    });
+
+    expect(useCanvasStore.getState().edges).toMatchObject([
+      {
+        id: 'scene-a:choice-a',
+        source: 'group:group-a',
+        target: 'scene-b',
+      },
+    ]);
+  });
+
+  it('keeps duplicate projected edges separate', () => {
+    const targetGroup = createGroup('group-b', { collapsed: true });
+    setActiveProject({
+      ...createProject(),
+      groups: [targetGroup],
+      scenes: [
+        createScene('scene-a', [
+          createChoice({ id: 'choice-one', text: 'First route', targetSceneId: 'scene-b' }),
+          createChoice({ id: 'choice-two', text: 'Second route', targetSceneId: 'scene-c' }),
+        ]),
+        createScene('scene-b', [], { groupId: targetGroup.id }),
+        createScene('scene-c', [], { groupId: targetGroup.id }),
+      ],
+    });
+
+    expect(useCanvasStore.getState().edges).toMatchObject([
+      {
+        id: 'scene-a:choice-one',
+        source: 'scene-a',
+        target: 'group:group-b',
+      },
+      {
+        id: 'scene-a:choice-two',
+        source: 'scene-a',
+        target: 'group:group-b',
+      },
+    ]);
+  });
+
+  it('preserves edge labels from original choice text', () => {
+    const group = createGroup('group-b', { collapsed: true });
+    setActiveProject({
+      ...createProject(),
+      groups: [group],
+      scenes: [
+        createScene('scene-a', [
+          createChoice({ id: 'choice-a', text: 'Take the hidden road', targetSceneId: 'scene-b' }),
+        ]),
+        createScene('scene-b', [], { groupId: group.id }),
+      ],
+    });
+
+    expect(useCanvasStore.getState().edges[0].label).toBe('Take the hidden road');
+  });
+
+  it('does not mutate Choice.targetSceneId when projecting edges', () => {
+    const group = createGroup('group-b', { collapsed: true });
+    setActiveProject({
+      ...createProject(),
+      groups: [group],
+      scenes: [
+        createScene('scene-a', [createChoice({ id: 'choice-a', targetSceneId: 'scene-b' })]),
+        createScene('scene-b', [], { groupId: group.id }),
+      ],
+    });
+
+    const project = useWorkspaceStore.getState().activeProject as Project;
+    const sourceScene = project.scenes.find((scene) => scene.id === 'scene-a');
+
+    expect(sourceScene?.choices[0].targetSceneId).toBe('scene-b');
   });
 });

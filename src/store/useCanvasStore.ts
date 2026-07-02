@@ -15,6 +15,7 @@ import {
   computeSceneGroupBounds,
   getGroupNodeId,
   getScenesInGroup,
+  projectSceneEdge,
   shouldRenderSceneNode,
 } from '../features/canvas/sceneGroups';
 import type { AssetLibraryItem, Choice, DialoguePage, Scene, SceneBackground, SceneGroup } from '../types';
@@ -230,18 +231,31 @@ function buildNodes(
   return [...groupNodes, ...collapsedGroupNodes, ...sceneNodes];
 }
 
-function buildEdges(scenes: Scene[]): Edge[] {
+function buildEdges(scenes: Scene[], groups: SceneGroup[]): Edge[] {
   return scenes.flatMap((scene) =>
     scene.choices
       .filter((choice) => choice.targetSceneId)
-      .map((choice) => ({
-        id: `${scene.id}:${choice.id}`,
-        source: scene.id,
-        target: choice.targetSceneId as string,
-        label: choice.text || 'Choice',
-        animated: false,
-        className: 'text-gray-200',
-      })),
+      .flatMap((choice) => {
+        const projectedEdge = projectSceneEdge({
+          sourceSceneId: scene.id,
+          targetSceneId: choice.targetSceneId as string,
+          scenes,
+          groups,
+        });
+
+        if (!projectedEdge.visible) {
+          return [];
+        }
+
+        return {
+          id: `${scene.id}:${choice.id}`,
+          source: projectedEdge.sourceNodeId,
+          target: projectedEdge.targetNodeId,
+          label: choice.text || 'Choice',
+          animated: false,
+          className: 'text-gray-200',
+        };
+      }),
   );
 }
 
@@ -691,7 +705,7 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
         nextSelectedSceneIds,
         nextSelectedGroupId,
       ),
-      edges: buildEdges(activeProject.scenes),
+      edges: buildEdges(activeProject.scenes, activeProject.groups),
       selectedSceneId: nextSelectedSceneId,
       selectedSceneIds: nextSelectedSceneIds,
       selectedGroupId: nextSelectedGroupId,

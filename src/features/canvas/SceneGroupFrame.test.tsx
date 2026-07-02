@@ -50,4 +50,13 @@ describe('SceneGroupFrame', () => {
 
     expect(html).toContain('Collapse');
   });
+
+  it('marks only the group header and controls as React Flow-interactive', () => {
+    const html = renderFrame();
+
+    expect(html).toContain('pointer-events-none');
+    expect(html).toContain('pointer-events-auto');
+    expect(html).toContain('nodrag nopan');
+    expect(html).toContain('nodrag nopan nowheel');
+  });
 });

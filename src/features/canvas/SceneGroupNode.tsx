@@ -11,12 +11,16 @@ export function SceneGroupNode({ data, selected }: NodeProps<CollapsedSceneGroup
       role="button"
       tabIndex={0}
       className={[
-        'min-w-56 rounded-lg border bg-sky-950 px-3 py-3 text-left text-sky-50 shadow-xl shadow-sky-950/40 transition',
+        'nodrag nopan min-w-56 rounded-lg border bg-sky-950 px-3 py-3 text-left text-sky-50 shadow-xl shadow-sky-950/40 transition',
         selected ? 'border-sky-200 ring-2 ring-sky-300/35' : 'border-sky-500/70 hover:border-sky-300',
       ].join(' ')}
-      onClick={() => selectGroup(data.group.id)}
+      onClick={(event) => {
+        event.stopPropagation();
+        selectGroup(data.group.id);
+      }}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
+          event.stopPropagation();
           selectGroup(data.group.id);
         }
       }}
@@ -31,7 +35,13 @@ export function SceneGroupNode({ data, selected }: NodeProps<CollapsedSceneGroup
       <div className="flex items-center gap-2">
         <button
           type="button"
-          className="nodrag rounded bg-sky-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-sky-500"
+          className="nodrag nopan rounded bg-sky-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-sky-500"
+          onPointerDown={(event) => {
+            event.stopPropagation();
+          }}
+          onMouseDown={(event) => {
+            event.stopPropagation();
+          }}
           onClick={(event) => {
             event.stopPropagation();
             updateSceneGroupCollapsed(data.group.id, false);
@@ -41,7 +51,13 @@ export function SceneGroupNode({ data, selected }: NodeProps<CollapsedSceneGroup
         </button>
         <button
           type="button"
-          className="nodrag rounded bg-gray-700 px-2.5 py-1 text-xs font-semibold text-gray-100 hover:bg-gray-600"
+          className="nodrag nopan rounded bg-gray-700 px-2.5 py-1 text-xs font-semibold text-gray-100 hover:bg-gray-600"
+          onPointerDown={(event) => {
+            event.stopPropagation();
+          }}
+          onMouseDown={(event) => {
+            event.stopPropagation();
+          }}
           onClick={(event) => {
             event.stopPropagation();
             selectGroup(data.group.id);

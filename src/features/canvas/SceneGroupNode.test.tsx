@@ -48,4 +48,10 @@ describe('SceneGroupNode', () => {
     expect(html).toContain('Expand');
     expect(html).toContain('Ungroup');
   });
+
+  it('marks the collapsed group node controls as React Flow-interactive', () => {
+    const html = renderNode();
+
+    expect(html).toContain('nodrag nopan');
+  });
 });

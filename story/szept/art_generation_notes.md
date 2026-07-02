@@ -2,7 +2,7 @@
 
 Ten dokument jest dodatkiem do `story/szept/art_bible.md`.
 
-Cel: utrwalić praktyczne zasady wynikające z zaakceptowanych scen `SC01 — Archiwum po północy`, `SC02 — Rynek we mgle`, `SC03 — Spotkanie z Mirą`, `SC04 — Kaplica Soli` i `SC05 — Dziecko na brzegu`, aby kolejne prompty i edycje były bardziej spójne, czytelne i lepiej dopasowane do visual novel.
+Cel: utrwalić praktyczne zasady wynikające z zaakceptowanych scen `SC01 — Archiwum po północy`, `SC02 — Rynek we mgle`, `SC03 — Spotkanie z Mirą`, `SC04 — Kaplica Soli`, `SC05 — Dziecko na brzegu` i `SC06 — Zakazane archiwum`, aby kolejne prompty i edycje były bardziej spójne, czytelne i lepiej dopasowane do visual novel.
 
 ---
 
@@ -72,6 +72,19 @@ Najważniejsze cechy, które warto utrzymać:
 - klify, Veyr i latarnia jako silne story anchors,
 - samotność i tajemnica budowane przez lokację, pogodę, skalę i rekwizyty zamiast przez horrorowe efekty.
 
+### SC06 — Zakazane archiwum
+
+`SC06 — Zakazane archiwum` zostaje zaakceptowana jako referencja dla scen śledztwa i odkrywania spisku.
+
+Najważniejsze cechy, które warto utrzymać:
+
+- Lio aktywnie porównuje dokumenty z mapą, zamiast statycznie stać w lokacji,
+- rejestr ofiar jest głównym dowodem odkrycia,
+- mapa Veyr z nićmi i pinezkami działa jako wtórne potwierdzenie spisku,
+- archiwum wygląda jak stare, wilgotne i długo ukrywane miejsce,
+- czerwone nici i stare pieczęcie sugerują wzór zaginięć bez czytelnego tekstu,
+- pojedyncza świeca oraz zimne okno tworzą silną hierarchię światła.
+
 Te zaakceptowane sceny powinny być traktowane jako **quality bar** dla kolejnych backgroundów / scene CG.
 
 ---
@@ -136,6 +149,15 @@ Hero Character: Lio
 Mystery Character: Noa
 Hero Prop: The broken boat
 Story Anchor: The distant lighthouse and Veyr cliffs
+```
+
+Dla SC06:
+
+```text
+Hero Character: Lio
+Primary Discovery: The victim register
+Secondary Confirmation: The red-thread wall map
+Story Anchor: The hidden underground archive
 ```
 
 Schemat:
@@ -302,7 +324,34 @@ Noa should remain small in the frame, making the viewer wonder why she is alone 
 
 ---
 
-## 8. Asymmetry and Vertical Staging
+## 8. Discovery Hierarchy Rule
+
+Sceny śledztwa powinny mieć jasną hierarchię informacji. Gracz musi najpierw zauważyć **główne odkrycie**, a dopiero potem element, który je potwierdza lub rozszerza.
+
+W SC06 głównym odkryciem jest rejestr ofiar, a mapa Veyr z czerwonymi nićmi jest wtórnym potwierdzeniem, że zaginięcia tworzą wzór.
+
+Prompt rule:
+
+```text
+Every investigation scene should contain a clear discovery hierarchy.
+Primary Discovery: the object that reveals the new information.
+Secondary Confirmation: the environmental element that reinforces or proves the discovery.
+The primary discovery should attract the viewer before the secondary confirmation.
+Do not let a large background clue overpower the smaller object that carries the key revelation.
+```
+
+Przykład dla SC06:
+
+```text
+Primary Discovery: the open victim register on the table.
+Secondary Confirmation: the red-thread wall map of Veyr.
+The register should be naturally emphasized by candlelight and Lio's hand placement.
+The wall map should remain powerful and readable, but it should feel like confirmation of what Lio found in the register, not the first thing the viewer notices.
+```
+
+---
+
+## 9. Asymmetry and Vertical Staging
 
 Modele generatywne często ustawiają postacie na tej samej wysokości i w podobnych pozach. To szybko daje efekt sztucznej, pozowanej sceny.
 
@@ -323,7 +372,7 @@ Przykłady:
 
 ---
 
-## 9. Background Hierarchy
+## 10. Background Hierarchy
 
 Tło powinno wspierać scenę, ale nie może konkurować z postacią i głównym rekwizytem.
 
@@ -339,7 +388,7 @@ Slightly soften and darken distant bookshelves, walls and secondary props.
 
 ---
 
-## 10. Visual Novel Dialogue Area
+## 11. Visual Novel Dialogue Area
 
 Każdy obraz musi działać z dialogue boxem na dole ekranu.
 
@@ -355,7 +404,7 @@ A dark wooden table, stone floor, shadow or empty foreground is preferred.
 
 ---
 
-## 11. Character Identity Preservation
+## 12. Character Identity Preservation
 
 Podczas edycji istniejących obrazów lub tworzenia kolejnych scen z tą samą postacią generator może przypadkowo zmienić twarz, wiek, fryzurę lub ubranie. Trzeba temu aktywnie zapobiegać.
 
@@ -398,7 +447,7 @@ Let the environment and composition create mystery rather than changing the chil
 
 ---
 
-## 12. Edit Prompt Template
+## 13. Edit Prompt Template
 
 Do edycji istniejącego obrazu nie należy przepisywać całego promptu sceny. Edycja powinna jasno mówić, że obraz ma zostać zachowany, a zmienione mają być tylko konkretne elementy.
 
@@ -423,11 +472,11 @@ The final image should remain almost identical to the original, only improved ac
 
 ---
 
-## 13. Accepted Quality Direction
+## 14. Accepted Quality Direction
 
 SC01 is accepted even if it is slightly more realistic than the initial target style.
 
-SC02, SC03, SC04 and SC05 confirm that the preferred target style is:
+SC02, SC03, SC04, SC05 and SC06 confirm that the preferred target style is:
 
 - cinematic dark fantasy realism,
 - subtle painterly finish,
@@ -436,30 +485,33 @@ SC02, SC03, SC04 and SC05 confirm that the preferred target style is:
 - one clear story action per scene,
 - one clear rekwizyt / decision structure per scene,
 - consistent Lio, Mira and Cael identities,
-- environmental storytelling that makes the world of Veyr feel alive before dialogue begins.
+- environmental storytelling that makes the world of Veyr feel alive before dialogue begins,
+- investigation scenes with a clear primary discovery and secondary confirmation.
 
 For future scenes:
 
 - keep the same mood and quality,
 - keep the cinematic realism,
-- avoid going more photorealistic than SC01–SC05,
+- avoid going more photorealistic than SC01–SC06,
 - prefer a subtle painterly finish,
 - maintain consistent lighting and color grading,
 - add an action moment rather than static posing,
-- use the environment to communicate emotional tone.
+- use the environment to communicate emotional tone,
+- keep the main clue hierarchy readable.
 
 Prompt rule:
 
 ```text
-Match the quality, mood and cinematic dark fantasy realism of the accepted SC01 archive scene, SC02 foggy marketplace scene, SC03 alley map scene, SC04 salt chapel scene and SC05 rocky shore scene.
+Match the quality, mood and cinematic dark fantasy realism of the accepted SC01 archive scene, SC02 foggy marketplace scene, SC03 alley map scene, SC04 salt chapel scene, SC05 rocky shore scene and SC06 forbidden archive scene.
 Use a subtle painterly finish, but do not make the image anime, cartoon or overly stylized.
 Capture a natural action moment, not a static pose.
 Let the environment tell part of the story before the characters do.
+For investigation scenes, make the primary discovery visually read before the secondary confirmation.
 ```
 
 ---
 
-## 14. Practical Prompt Add-on
+## 15. Practical Prompt Add-on
 
 Ten blok można dopisywać do kolejnych promptów scen:
 
@@ -468,6 +520,7 @@ Composition guidance:
 Build the scene around a clear visual story triangle: main character, primary story prop and story anchor.
 The primary story prop must be immediately readable and naturally emphasized by light and contrast.
 For choice-heavy scenes, use Decision Composition so routes, allies and threats are readable in the frame.
+For investigation scenes, use Discovery Hierarchy: primary discovery first, secondary confirmation second.
 Characters should be captured in a natural action moment, not a posed illustration.
 Whenever characters interact with an object, the object should be used naturally rather than presented to the viewer.
 Avoid symmetrical standing poses; use posture, leaning, height differences and interaction with the environment.
@@ -475,12 +528,12 @@ Let the environment tell part of the story through location, weather, lighting, 
 Background details should support the scene but never compete with the character or the hero prop.
 Keep the lower 25–30% darker, calmer and less detailed for visual novel dialogue overlay.
 Preserve character identity across scenes.
-Match the quality, mood and cinematic dark fantasy realism of the accepted SC01–SC05 scenes.
+Match the quality, mood and cinematic dark fantasy realism of the accepted SC01–SC06 scenes.
 ```
 
 ---
 
-## 15. Practical Edit Add-on
+## 16. Practical Edit Add-on
 
 Ten blok można dopisywać do promptów edycyjnych:
 
@@ -490,6 +543,7 @@ Preserve the exact composition, character identity, architecture, camera angle, 
 Only adjust the specific requested elements.
 If the scene feels posed, turn it into a captured action moment using natural body language and object interaction.
 If the scene feels empty or decorative, strengthen environmental storytelling through props, weather, lighting and scale.
+For investigation scenes, ensure the primary discovery attracts attention before the secondary confirmation.
 Keep the final image very close to the original.
 Do not add UI, text, logos, extra characters, modern objects or unrelated props.
 ```

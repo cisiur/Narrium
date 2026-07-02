@@ -44,4 +44,10 @@ describe('SceneGroupFrame', () => {
 
     expect(html).toContain('(12)');
   });
+
+  it('renders a Collapse action', () => {
+    const html = renderFrame();
+
+    expect(html).toContain('Collapse');
+  });
 });

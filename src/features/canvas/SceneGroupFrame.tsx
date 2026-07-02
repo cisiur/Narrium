@@ -5,6 +5,7 @@ import { useCanvasStore, type SceneGroupFrameData } from '../../store/useCanvasS
 export function SceneGroupFrame({ data }: NodeProps<SceneGroupFrameData>) {
   const selectedGroupId = useCanvasStore((state) => state.selectedGroupId);
   const selectGroup = useCanvasStore((state) => state.selectGroup);
+  const updateSceneGroupCollapsed = useCanvasStore((state) => state.updateSceneGroupCollapsed);
   const updateSceneGroupName = useCanvasStore((state) => state.updateSceneGroupName);
   const [draftName, setDraftName] = useState(data.group.name);
   const isSelected = selectedGroupId === data.group.id;
@@ -57,6 +58,16 @@ export function SceneGroupFrame({ data }: NodeProps<SceneGroupFrameData>) {
           }}
         />
         <span className="shrink-0 text-xs font-medium text-sky-200">({data.sceneCount})</span>
+        <button
+          type="button"
+          className="nodrag rounded bg-sky-700 px-2 py-1 text-xs font-semibold text-white hover:bg-sky-600"
+          onClick={(event) => {
+            event.stopPropagation();
+            updateSceneGroupCollapsed(data.group.id, true);
+          }}
+        >
+          Collapse
+        </button>
       </div>
     </div>
   );

@@ -15,6 +15,7 @@ import {
   computeSceneGroupBounds,
   getGroupNodeId,
   getScenesInGroup,
+  shouldRenderSceneNode,
 } from '../features/canvas/sceneGroups';
 import type { AssetLibraryItem, Choice, DialoguePage, Scene, SceneBackground, SceneGroup } from '../types';
 import { useWorkspaceStore } from './workspaceStore';
@@ -32,7 +33,12 @@ export interface SceneGroupFrameData {
   sceneCount: number;
 }
 
-export type CanvasNodeData = SceneNodeData | SceneGroupFrameData;
+export interface CollapsedSceneGroupNodeData {
+  group: SceneGroup;
+  sceneCount: number;
+}
+
+export type CanvasNodeData = SceneNodeData | SceneGroupFrameData | CollapsedSceneGroupNodeData;
 
 interface AddBackgroundAssetInput {
   name: string;
@@ -62,6 +68,7 @@ interface CanvasStore {
   groupSelectedScenes: () => void;
   ungroupSelectedGroup: () => void;
   updateSceneGroupName: (groupId: string, name: string) => void;
+  updateSceneGroupCollapsed: (groupId: string, collapsed: boolean) => void;
   syncFromProject: () => void;
   updateSceneName: (sceneId: string, name: string) => void;
   updateSceneBackground: (sceneId: string, background: SceneBackground) => void;
@@ -169,6 +176,7 @@ function buildNodes(
   groups: SceneGroup[],
   assetLibrary: AssetLibraryItem[],
   selectedSceneIds: string[],
+  selectedGroupId: string | null,
 ): Node<CanvasNodeData>[] {
   const selectedSceneIdSet = new Set(selectedSceneIds);
   const groupNodes: Node<SceneGroupFrameData>[] = groups
@@ -191,19 +199,35 @@ function buildNodes(
       },
     }));
 
-  const sceneNodes: Node<SceneNodeData>[] = scenes.map((scene) => ({
-    id: scene.id,
-    type: 'scene',
-    position: scene.position,
-    selected: selectedSceneIdSet.has(scene.id),
-    data: {
-      scene,
-      scenes,
-      assetLibrary,
-    },
-  }));
+  const collapsedGroupNodes: Node<CollapsedSceneGroupNodeData>[] = groups
+    .filter((group) => group.collapsed)
+    .map((group) => ({
+      id: getGroupNodeId(group.id),
+      type: 'sceneGroup',
+      position: group.position,
+      draggable: false,
+      selected: group.id === selectedGroupId,
+      data: {
+        group,
+        sceneCount: getScenesInGroup(scenes, group.id).length,
+      },
+    }));
 
-  return [...groupNodes, ...sceneNodes];
+  const sceneNodes: Node<SceneNodeData>[] = scenes
+    .filter((scene) => shouldRenderSceneNode(scene, groups))
+    .map((scene) => ({
+      id: scene.id,
+      type: 'scene',
+      position: scene.position,
+      selected: selectedSceneIdSet.has(scene.id),
+      data: {
+        scene,
+        scenes,
+        assetLibrary,
+      },
+    }));
+
+  return [...groupNodes, ...collapsedGroupNodes, ...sceneNodes];
 }
 
 function buildEdges(scenes: Scene[]): Edge[] {
@@ -223,6 +247,12 @@ function buildEdges(scenes: Scene[]): Edge[] {
 
 function getSelectedSceneIdsFromNodes(nodes: Node<CanvasNodeData>[]): string[] {
   return nodes.filter((node) => node.type === 'scene' && node.selected).map((node) => node.id);
+}
+
+function getSelectedGroupIdFromNodes(nodes: Node<CanvasNodeData>[]): string | null {
+  const selectedGroupNode = nodes.find((node) => node.type === 'sceneGroup' && node.selected);
+
+  return selectedGroupNode ? (selectedGroupNode.data as CollapsedSceneGroupNodeData).group.id : null;
 }
 
 function updateActiveProject(mutator: (scenes: Scene[]) => Scene[]) {
@@ -274,12 +304,13 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
 
         const selectedSceneIds = getSelectedSceneIdsFromNodes(nodes);
         const selectedSceneId = selectedSceneIds.length === 1 ? selectedSceneIds[0] : null;
+        const selectedGroupId = selectedSceneIds.length === 0 ? getSelectedGroupIdFromNodes(nodes) : null;
 
         return {
           nodes,
           selectedSceneIds,
           selectedSceneId,
-          selectedGroupId: null,
+          selectedGroupId,
           selectedChoiceId: null,
           activeView: selectedSceneId ? 'editor' : 'canvas',
         };
@@ -478,7 +509,7 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
       activeView: 'canvas',
       nodes: state.nodes.map((node) => ({
         ...node,
-        selected: false,
+        selected: id !== null && node.id === getGroupNodeId(id),
       })),
     }));
   },
@@ -595,6 +626,22 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
     }));
     get().syncFromProject();
   },
+  updateSceneGroupCollapsed: (groupId: string, collapsed: boolean) => {
+    useWorkspaceStore.getState().updateActiveProject((project) => ({
+      ...project,
+      groups: project.groups.map((group) =>
+        group.id === groupId ? { ...group, collapsed } : group,
+      ),
+    }));
+    set({
+      selectedSceneId: null,
+      selectedSceneIds: [],
+      selectedGroupId: groupId,
+      selectedChoiceId: null,
+      activeView: 'canvas',
+    });
+    get().syncFromProject();
+  },
   syncFromProject: () => {
     const activeProject = useWorkspaceStore.getState().activeProject;
     const selectedSceneId = get().selectedSceneId;
@@ -617,11 +664,15 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
       return;
     }
 
-    const selectedSceneExists = activeProject.scenes.some((scene) => scene.id === selectedSceneId);
+    const selectedScene = activeProject.scenes.find((scene) => scene.id === selectedSceneId);
+    const selectedSceneExists =
+      selectedScene !== undefined && shouldRenderSceneNode(selectedScene, activeProject.groups);
     const nextSelectedSceneId = selectedSceneExists ? selectedSceneId : null;
-    const nextSelectedSceneIds = selectedSceneIds.filter((id) =>
-      activeProject.scenes.some((scene) => scene.id === id),
-    );
+    const nextSelectedSceneIds = selectedSceneIds.filter((id) => {
+      const scene = activeProject.scenes.find((item) => item.id === id);
+
+      return scene ? shouldRenderSceneNode(scene, activeProject.groups) : false;
+    });
     const nextSelectedGroupId = activeProject.groups.some((group) => group.id === selectedGroupId)
       ? selectedGroupId
       : null;
@@ -638,6 +689,7 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
         activeProject.groups,
         activeProject.assetLibrary,
         nextSelectedSceneIds,
+        nextSelectedGroupId,
       ),
       edges: buildEdges(activeProject.scenes),
       selectedSceneId: nextSelectedSceneId,

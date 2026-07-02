@@ -11,6 +11,7 @@ import 'reactflow/dist/style.css';
 import { useCanvasStore } from '../../store/useCanvasStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { SceneGroupFrame } from './SceneGroupFrame';
+import { SceneGroupNode } from './SceneGroupNode';
 import { SceneNode } from './SceneNode';
 
 function SceneCanvasSurface() {
@@ -24,7 +25,7 @@ function SceneCanvasSurface() {
   const selectChoice = useCanvasStore((state) => state.selectChoice);
   const syncFromProject = useCanvasStore((state) => state.syncFromProject);
   const nodeTypes = useMemo<NodeTypes>(
-    () => ({ scene: SceneNode, sceneGroupFrame: SceneGroupFrame }),
+    () => ({ scene: SceneNode, sceneGroupFrame: SceneGroupFrame, sceneGroup: SceneGroupNode }),
     [],
   );
 

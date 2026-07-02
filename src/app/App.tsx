@@ -27,6 +27,7 @@ export function App() {
   const closeProject = useWorkspaceStore((state) => state.closeProject);
   const addScene = useCanvasStore((state) => state.addScene);
   const groupSelectedScenes = useCanvasStore((state) => state.groupSelectedScenes);
+  const assignSelectedScenesToGroup = useCanvasStore((state) => state.assignSelectedScenesToGroup);
   const ungroupSelectedGroup = useCanvasStore((state) => state.ungroupSelectedGroup);
   const selectedSceneIds = useCanvasStore((state) => state.selectedSceneIds);
   const selectedGroupId = useCanvasStore((state) => state.selectedGroupId);
@@ -153,6 +154,12 @@ export function App() {
         onAddScene={isCanvasView ? () => addScene('New Scene') : undefined}
         onGroupSelectedScenes={
           isCanvasView && selectedSceneIds.length >= 2 ? groupSelectedScenes : undefined
+        }
+        sceneGroupOptions={activeProject.groups.map((group) => ({ id: group.id, name: group.name }))}
+        onAddSelectedScenesToGroup={
+          isCanvasView && selectedSceneIds.length >= 1 && activeProject.groups.length > 0
+            ? assignSelectedScenesToGroup
+            : undefined
         }
         onUngroupSelectedGroup={isCanvasView && selectedGroupId ? ungroupSelectedGroup : undefined}
         onBackToProjects={closeProject}

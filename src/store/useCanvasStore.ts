@@ -68,6 +68,7 @@ interface CanvasStore {
   clearSelectedChoice: () => void;
   openEditor: (id: string) => void;
   groupSelectedScenes: () => void;
+  assignSelectedScenesToGroup: (groupId: string) => void;
   ungroupSelectedGroup: () => void;
   updateSceneGroupName: (groupId: string, name: string) => void;
   updateSceneGroupCollapsed: (groupId: string, collapsed: boolean) => void;
@@ -640,6 +641,59 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
       const nextProject = {
         ...project,
         groups,
+        scenes,
+      };
+
+      return {
+        ...nextProject,
+        groups: finalizeSceneGroupMembership(nextProject, affectedGroupIds),
+      };
+    });
+
+    set({
+      selectedSceneId: null,
+      selectedSceneIds: [],
+      selectedGroupId: groupId,
+      selectedChoiceId: null,
+      activeView: 'canvas',
+    });
+    get().syncFromProject();
+  },
+  assignSelectedScenesToGroup: (groupId: string) => {
+    const activeProject = useWorkspaceStore.getState().activeProject;
+
+    if (!activeProject || !activeProject.groups.some((group) => group.id === groupId)) {
+      return;
+    }
+
+    const selectedSceneIdSet = new Set(get().selectedSceneIds);
+    const selectedScenes = activeProject.scenes.filter((scene) => selectedSceneIdSet.has(scene.id));
+
+    if (selectedScenes.length === 0 || selectedScenes.every((scene) => scene.groupId === groupId)) {
+      set({
+        selectedSceneId: null,
+        selectedSceneIds: [],
+        selectedGroupId: groupId,
+        selectedChoiceId: null,
+        activeView: 'canvas',
+      });
+      get().syncFromProject();
+      return;
+    }
+
+    const affectedGroupIds = new Set(
+      selectedScenes
+        .map((scene) => scene.groupId)
+        .filter((existingGroupId): existingGroupId is string => existingGroupId !== null),
+    );
+    affectedGroupIds.add(groupId);
+
+    useWorkspaceStore.getState().updateActiveProject((project) => {
+      const scenes = project.scenes.map((scene) =>
+        selectedSceneIdSet.has(scene.id) ? { ...scene, groupId } : scene,
+      );
+      const nextProject = {
+        ...project,
         scenes,
       };
 

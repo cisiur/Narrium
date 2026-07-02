@@ -975,6 +975,144 @@ describe('scene groups', () => {
     ]);
   });
 
+  it('assigns selected scenes to an existing group and selects the destination group', () => {
+    const sourceGroup = createGroup('group-source');
+    const destinationGroup = createGroup('group-destination');
+    setActiveProject({
+      ...createProject(),
+      groups: [sourceGroup, destinationGroup],
+      scenes: [
+        createScene('scene-a', [], { position: { x: 100, y: 100 }, groupId: sourceGroup.id }),
+        createScene('scene-b', [], { position: { x: 500, y: 100 }, groupId: sourceGroup.id }),
+        createScene('scene-c', [], { position: { x: 900, y: 100 }, groupId: destinationGroup.id }),
+      ],
+    });
+
+    useCanvasStore.getState().selectScenes(['scene-a']);
+    useCanvasStore.getState().assignSelectedScenesToGroup(destinationGroup.id);
+
+    const project = useWorkspaceStore.getState().activeProject as Project;
+
+    expect(project.scenes.map((scene) => scene.groupId)).toEqual([
+      destinationGroup.id,
+      sourceGroup.id,
+      destinationGroup.id,
+    ]);
+    expect(useCanvasStore.getState()).toMatchObject({
+      selectedSceneId: null,
+      selectedSceneIds: [],
+      selectedGroupId: destinationGroup.id,
+      activeView: 'canvas',
+    });
+  });
+
+  it('updates destination and source group bounds when assigning selected scenes', () => {
+    const sourceGroup = createGroup('group-source');
+    const destinationGroup = createGroup('group-destination', {
+      collapsed: true,
+      name: 'Destination',
+      color: '#f97316',
+    });
+    setActiveProject({
+      ...createProject(),
+      groups: [sourceGroup, destinationGroup],
+      scenes: [
+        createScene('scene-a', [], { position: { x: 100, y: 100 }, groupId: sourceGroup.id }),
+        createScene('scene-b', [], { position: { x: 500, y: 100 }, groupId: sourceGroup.id }),
+        createScene('scene-c', [], { position: { x: 900, y: 100 }, groupId: destinationGroup.id }),
+      ],
+    });
+
+    useCanvasStore.getState().selectScenes(['scene-a']);
+    useCanvasStore.getState().assignSelectedScenesToGroup(destinationGroup.id);
+
+    const project = useWorkspaceStore.getState().activeProject as Project;
+    const source = project.groups.find((group) => group.id === sourceGroup.id);
+    const destination = project.groups.find((group) => group.id === destinationGroup.id);
+
+    expect(source).toMatchObject({
+      position: { x: 468, y: 68 },
+      size: { width: 304, height: 224 },
+    });
+    expect(destination).toEqual({
+      ...destinationGroup,
+      position: { x: 68, y: 68 },
+      size: { width: 1104, height: 224 },
+    });
+  });
+
+  it('removes an empty source group after assigning all its scenes to an existing group', () => {
+    const sourceGroup = createGroup('group-source', { collapsed: true });
+    const destinationGroup = createGroup('group-destination');
+    setActiveProject({
+      ...createProject(),
+      groups: [sourceGroup, destinationGroup],
+      scenes: [
+        createScene('scene-a', [], { position: { x: 100, y: 100 }, groupId: sourceGroup.id }),
+        createScene('scene-b', [], { position: { x: 500, y: 100 }, groupId: sourceGroup.id }),
+        createScene('scene-c', [], { position: { x: 900, y: 100 }, groupId: destinationGroup.id }),
+      ],
+    });
+
+    useCanvasStore.getState().selectScenes(['scene-a', 'scene-b']);
+    useCanvasStore.getState().assignSelectedScenesToGroup(destinationGroup.id);
+
+    const project = useWorkspaceStore.getState().activeProject as Project;
+
+    expect(project.groups).toEqual([
+      {
+        ...destinationGroup,
+        position: { x: 68, y: 68 },
+        size: { width: 1104, height: 224 },
+      },
+    ]);
+    expect(project.scenes.every((scene) => scene.groupId === destinationGroup.id)).toBe(true);
+  });
+
+  it('preserves Story Logic when assigning selected scenes to an existing group', () => {
+    const sourceGroup = createGroup('group-source');
+    const destinationGroup = createGroup('group-destination');
+    const originalChoice = createChoice({ targetSceneId: 'scene-c' });
+    setActiveProject({
+      ...createProject(),
+      groups: [sourceGroup, destinationGroup],
+      scenes: [
+        createScene('scene-a', [originalChoice], { groupId: sourceGroup.id }),
+        createScene('scene-b', [], { groupId: sourceGroup.id }),
+        createScene('scene-c', [], { groupId: destinationGroup.id }),
+      ],
+    });
+
+    useCanvasStore.getState().selectScenes(['scene-a']);
+    useCanvasStore.getState().assignSelectedScenesToGroup(destinationGroup.id);
+
+    const project = useWorkspaceStore.getState().activeProject as Project;
+    const scene = project.scenes.find((item) => item.id === 'scene-a');
+
+    expect(scene?.choices[0]).toEqual(originalChoice);
+    expect(validateProject(project)).toEqual([]);
+  });
+
+  it('creates one undo snapshot when assigning selected scenes to an existing group', () => {
+    const sourceGroup = createGroup('group-source');
+    const destinationGroup = createGroup('group-destination');
+    setActiveProject({
+      ...createProject(),
+      groups: [sourceGroup, destinationGroup],
+      scenes: [
+        createScene('scene-a', [], { groupId: sourceGroup.id }),
+        createScene('scene-b', [], { groupId: sourceGroup.id }),
+        createScene('scene-c', [], { groupId: destinationGroup.id }),
+      ],
+    });
+
+    useCanvasStore.getState().selectScenes(['scene-a', 'scene-b']);
+    useCanvasStore.getState().assignSelectedScenesToGroup(destinationGroup.id);
+
+    expect((useWorkspaceStore.getState().activeProject as Project).groups).toHaveLength(1);
+    expect(useWorkspaceStore.getState().projectHistory.undoStack).toHaveLength(1);
+  });
+
   it('does not recalculate group bounds when an unrelated scene moves', () => {
     const group = createGroup('group-existing', {
       position: { x: 68, y: 68 },

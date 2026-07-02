@@ -267,8 +267,22 @@ function updateGroupBoundsForSceneMembership(project: Project, groupIds: Set<str
           ...group,
           position: bounds.position,
           size: bounds.size,
-        };
+      };
   });
+}
+
+function finalizeSceneGroupMembership(project: Project, groupIdsToUpdate: Set<string>): SceneGroup[] {
+  const groupsWithMembers = project.groups.filter(
+    (group) => getScenesInGroup(project.scenes, group.id).length > 0,
+  );
+
+  return updateGroupBoundsForSceneMembership(
+    {
+      ...project,
+      groups: groupsWithMembers,
+    },
+    groupIdsToUpdate,
+  );
 }
 
 function buildEdges(scenes: Scene[], groups: SceneGroup[]): Edge[] {
@@ -631,7 +645,7 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
 
       return {
         ...nextProject,
-        groups: updateGroupBoundsForSceneMembership(nextProject, affectedGroupIds),
+        groups: finalizeSceneGroupMembership(nextProject, affectedGroupIds),
       };
     });
 
@@ -658,13 +672,20 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
       return;
     }
 
-    useWorkspaceStore.getState().updateActiveProject((project) => ({
-      ...project,
-      groups: project.groups.filter((item) => item.id !== selectedGroupId),
-      scenes: project.scenes.map((scene) =>
-        scene.groupId === selectedGroupId ? { ...scene, groupId: null } : scene,
-      ),
-    }));
+    useWorkspaceStore.getState().updateActiveProject((project) => {
+      const nextProject = {
+        ...project,
+        groups: project.groups.filter((item) => item.id !== selectedGroupId),
+        scenes: project.scenes.map((scene) =>
+          scene.groupId === selectedGroupId ? { ...scene, groupId: null } : scene,
+        ),
+      };
+
+      return {
+        ...nextProject,
+        groups: finalizeSceneGroupMembership(nextProject, new Set()),
+      };
+    });
 
     set({
       selectedSceneId: null,

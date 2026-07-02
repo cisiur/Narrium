@@ -876,6 +876,7 @@ describe('scene groups', () => {
       newGroup?.id,
       oldGroup.id,
     ]);
+    expect(project.groups.some((group) => group.id === oldGroup.id)).toBe(true);
   });
 
   it('updates old and new group bounds after regrouping scenes', () => {
@@ -907,52 +908,71 @@ describe('scene groups', () => {
     });
   });
 
-  it('keeps an empty expanded group visible and stable', () => {
-    const emptyGroup = createGroup('group-empty', {
-      position: { x: 40, y: 60 },
-      size: { width: 320, height: 180 },
-    });
+  it('removes the old group when all of its scenes are regrouped', () => {
+    const oldGroup = createGroup('group-old');
     setActiveProject({
       ...createProject(),
-      groups: [emptyGroup],
-      scenes: [],
+      groups: [oldGroup],
+      scenes: [
+        createScene('scene-a', [], { position: { x: 100, y: 100 }, groupId: oldGroup.id }),
+        createScene('scene-b', [], { position: { x: 500, y: 100 }, groupId: oldGroup.id }),
+      ],
     });
 
-    const groupNode = useCanvasStore.getState().nodes.find((node) => node.id === 'group:group-empty');
+    useCanvasStore.getState().selectScenes(['scene-a', 'scene-b']);
+    useCanvasStore.getState().groupSelectedScenes();
 
-    expect(groupNode).toMatchObject({
-      id: 'group:group-empty',
-      type: 'sceneGroupFrame',
-      position: emptyGroup.position,
-      data: {
-        sceneCount: 0,
-      },
-    });
-    expect(groupNode?.style).toMatchObject(emptyGroup.size);
+    const project = useWorkspaceStore.getState().activeProject as Project;
+    const newGroup = project.groups[0];
+
+    expect(project.groups).toHaveLength(1);
+    expect(newGroup.id).not.toBe(oldGroup.id);
+    expect(project.scenes.every((scene) => scene.groupId === newGroup.id)).toBe(true);
+    expect(useCanvasStore.getState().nodes.some((node) => node.id === 'group:group-old')).toBe(false);
   });
 
-  it('keeps an empty collapsed group visible and stable', () => {
-    const emptyGroup = createGroup('group-empty', {
+  it('removes only groups that become empty when regrouping across multiple groups', () => {
+    const emptiedGroup = createGroup('group-emptied', { collapsed: true, name: 'Emptied Group' });
+    const remainingGroup = createGroup('group-remaining', {
       collapsed: true,
-      position: { x: 40, y: 60 },
-      size: { width: 320, height: 180 },
+      name: 'Remaining Group',
+      color: '#f97316',
     });
     setActiveProject({
       ...createProject(),
-      groups: [emptyGroup],
-      scenes: [],
+      groups: [emptiedGroup, remainingGroup],
+      scenes: [
+        createScene('scene-a', [], { position: { x: 100, y: 100 }, groupId: emptiedGroup.id }),
+        createScene('scene-b', [], { position: { x: 500, y: 100 }, groupId: emptiedGroup.id }),
+        createScene('scene-c', [], { position: { x: 900, y: 100 }, groupId: remainingGroup.id }),
+        createScene('scene-d', [], { position: { x: 1300, y: 100 }, groupId: remainingGroup.id }),
+      ],
     });
 
-    const groupNode = useCanvasStore.getState().nodes.find((node) => node.id === 'group:group-empty');
+    useCanvasStore.getState().selectScenes(['scene-a', 'scene-b', 'scene-c']);
+    useCanvasStore.getState().groupSelectedScenes();
 
-    expect(groupNode).toMatchObject({
-      id: 'group:group-empty',
-      type: 'sceneGroup',
-      position: emptyGroup.position,
-      data: {
-        sceneCount: 0,
-      },
+    const project = useWorkspaceStore.getState().activeProject as Project;
+    const createdGroup = project.groups.find(
+      (group) => group.id !== emptiedGroup.id && group.id !== remainingGroup.id,
+    );
+
+    expect(project.groups.some((group) => group.id === emptiedGroup.id)).toBe(false);
+    expect(project.groups).toContainEqual({
+      ...remainingGroup,
+      position: { x: 1268, y: 68 },
+      size: { width: 304, height: 224 },
     });
+    expect(createdGroup).toMatchObject({
+      position: { x: 68, y: 68 },
+      size: { width: 1104, height: 224 },
+    });
+    expect(project.scenes.map((scene) => scene.groupId)).toEqual([
+      createdGroup?.id,
+      createdGroup?.id,
+      createdGroup?.id,
+      remainingGroup.id,
+    ]);
   });
 
   it('does not recalculate group bounds when an unrelated scene moves', () => {
@@ -1069,13 +1089,16 @@ describe('scene groups', () => {
       scenes: [
         createScene('scene-a', [], { groupId: oldGroup.id }),
         createScene('scene-b', [], { groupId: oldGroup.id }),
-        createScene('scene-c', [], { groupId: oldGroup.id }),
       ],
     });
 
     useCanvasStore.getState().selectScenes(['scene-a', 'scene-b']);
     useCanvasStore.getState().groupSelectedScenes();
 
+    const project = useWorkspaceStore.getState().activeProject as Project;
+
+    expect(project.groups).toHaveLength(1);
+    expect(project.groups[0].id).not.toBe(oldGroup.id);
     expect(useWorkspaceStore.getState().projectHistory.undoStack).toHaveLength(1);
   });
 });

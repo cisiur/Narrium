@@ -42,7 +42,7 @@ describe('SceneGroupFrame', () => {
   it('displays the scene count', () => {
     const html = renderFrame();
 
-    expect(html).toContain('(12)');
+    expect(html).toContain('12');
   });
 
   it('renders a Collapse action', () => {

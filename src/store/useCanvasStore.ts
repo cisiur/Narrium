@@ -19,6 +19,7 @@ import {
   shouldRenderSceneNode,
 } from '../features/canvas/sceneGroups';
 import type { AssetLibraryItem, Choice, DialoguePage, Scene, SceneBackground, SceneGroup } from '../types';
+import type { Project } from '../types';
 import { useWorkspaceStore } from './workspaceStore';
 
 export type CanvasView = 'canvas' | 'editor';
@@ -189,7 +190,7 @@ function buildNodes(
       draggable: false,
       selectable: false,
       connectable: false,
-      zIndex: -1,
+      zIndex: 0,
       style: {
         width: group.size.width,
         height: group.size.height,
@@ -208,6 +209,7 @@ function buildNodes(
       position: group.position,
       draggable: false,
       selected: group.id === selectedGroupId,
+      zIndex: 3,
       data: {
         group,
         sceneCount: getScenesInGroup(scenes, group.id).length,
@@ -221,6 +223,7 @@ function buildNodes(
       type: 'scene',
       position: scene.position,
       selected: selectedSceneIdSet.has(scene.id),
+      zIndex: 2,
       data: {
         scene,
         scenes,
@@ -229,6 +232,43 @@ function buildNodes(
     }));
 
   return [...groupNodes, ...collapsedGroupNodes, ...sceneNodes];
+}
+
+function areBoundsEqual(group: SceneGroup, bounds: { position: SceneGroup['position']; size: SceneGroup['size'] }) {
+  return (
+    group.position.x === bounds.position.x &&
+    group.position.y === bounds.position.y &&
+    group.size.width === bounds.size.width &&
+    group.size.height === bounds.size.height
+  );
+}
+
+function updateGroupBoundsForSceneMembership(project: Project, groupIds: Set<string>): SceneGroup[] {
+  if (groupIds.size === 0) {
+    return project.groups;
+  }
+
+  return project.groups.map((group) => {
+    if (!groupIds.has(group.id)) {
+      return group;
+    }
+
+    const memberScenes = getScenesInGroup(project.scenes, group.id);
+
+    if (memberScenes.length === 0) {
+      return group;
+    }
+
+    const bounds = computeSceneGroupBounds(memberScenes);
+
+    return areBoundsEqual(group, bounds)
+      ? group
+      : {
+          ...group,
+          position: bounds.position,
+          size: bounds.size,
+        };
+  });
 }
 
 function buildEdges(scenes: Scene[], groups: SceneGroup[]): Edge[] {
@@ -362,19 +402,7 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
         return {
           ...project,
           scenes,
-          groups: project.groups.map((group) => {
-            if (!movedSceneGroupIds.has(group.id)) {
-              return group;
-            }
-
-            const bounds = computeSceneGroupBounds(getScenesInGroup(scenes, group.id));
-
-            return {
-              ...group,
-              position: bounds.position,
-              size: bounds.size,
-            };
-          }),
+          groups: updateGroupBoundsForSceneMembership({ ...project, scenes }, movedSceneGroupIds),
         };
       });
     }
@@ -515,15 +543,18 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
     }));
   },
   selectGroup: (id: string | null) => {
+    const activeProject = useWorkspaceStore.getState().activeProject;
+    const selectedGroupId = id && activeProject?.groups.some((group) => group.id === id) ? id : null;
+
     set((state) => ({
       selectedSceneId: null,
       selectedSceneIds: [],
-      selectedGroupId: id,
+      selectedGroupId,
       selectedChoiceId: null,
       activeView: 'canvas',
       nodes: state.nodes.map((node) => ({
         ...node,
-        selected: id !== null && node.id === getGroupNodeId(id),
+        selected: selectedGroupId !== null && node.id === getGroupNodeId(selectedGroupId),
       })),
     }));
   },
@@ -570,10 +601,15 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
 
     const groupId = createId('group');
     const bounds = computeSceneGroupBounds(selectedScenes);
+    const affectedGroupIds = new Set(
+      selectedScenes
+        .map((scene) => scene.groupId)
+        .filter((existingGroupId): existingGroupId is string => existingGroupId !== null),
+    );
+    affectedGroupIds.add(groupId);
 
-    useWorkspaceStore.getState().updateActiveProject((project) => ({
-      ...project,
-      groups: [
+    useWorkspaceStore.getState().updateActiveProject((project) => {
+      const groups = [
         ...project.groups,
         {
           id: groupId,
@@ -583,11 +619,21 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
           position: bounds.position,
           size: bounds.size,
         },
-      ],
-      scenes: project.scenes.map((scene) =>
+      ];
+      const scenes = project.scenes.map((scene) =>
         selectedSceneIdSet.has(scene.id) ? { ...scene, groupId } : scene,
-      ),
-    }));
+      );
+      const nextProject = {
+        ...project,
+        groups,
+        scenes,
+      };
+
+      return {
+        ...nextProject,
+        groups: updateGroupBoundsForSceneMembership(nextProject, affectedGroupIds),
+      };
+    });
 
     set({
       selectedSceneId: null,

@@ -851,4 +851,231 @@ describe('scene groups', () => {
 
     expect(sourceScene?.choices[0].targetSceneId).toBe('scene-b');
   });
+
+  it('regroups selected scenes into a new group without duplicated membership', () => {
+    const oldGroup = createGroup('group-old');
+    setActiveProject({
+      ...createProject(),
+      groups: [oldGroup],
+      scenes: [
+        createScene('scene-a', [], { position: { x: 100, y: 100 }, groupId: oldGroup.id }),
+        createScene('scene-b', [], { position: { x: 500, y: 100 }, groupId: oldGroup.id }),
+        createScene('scene-c', [], { position: { x: 900, y: 100 }, groupId: oldGroup.id }),
+      ],
+    });
+
+    useCanvasStore.getState().selectScenes(['scene-a', 'scene-b']);
+    useCanvasStore.getState().groupSelectedScenes();
+
+    const project = useWorkspaceStore.getState().activeProject as Project;
+    const newGroup = project.groups.find((group) => group.id !== oldGroup.id);
+
+    expect(newGroup).toBeDefined();
+    expect(project.scenes.map((scene) => scene.groupId)).toEqual([
+      newGroup?.id,
+      newGroup?.id,
+      oldGroup.id,
+    ]);
+  });
+
+  it('updates old and new group bounds after regrouping scenes', () => {
+    const oldGroup = createGroup('group-old');
+    setActiveProject({
+      ...createProject(),
+      groups: [oldGroup],
+      scenes: [
+        createScene('scene-a', [], { position: { x: 100, y: 100 }, groupId: oldGroup.id }),
+        createScene('scene-b', [], { position: { x: 500, y: 100 }, groupId: oldGroup.id }),
+        createScene('scene-c', [], { position: { x: 900, y: 100 }, groupId: oldGroup.id }),
+      ],
+    });
+
+    useCanvasStore.getState().selectScenes(['scene-a', 'scene-b']);
+    useCanvasStore.getState().groupSelectedScenes();
+
+    const project = useWorkspaceStore.getState().activeProject as Project;
+    const regrouped = project.groups.find((group) => group.id !== oldGroup.id);
+    const remainingOldGroup = project.groups.find((group) => group.id === oldGroup.id);
+
+    expect(regrouped).toMatchObject({
+      position: { x: 68, y: 68 },
+      size: { width: 704, height: 224 },
+    });
+    expect(remainingOldGroup).toMatchObject({
+      position: { x: 868, y: 68 },
+      size: { width: 304, height: 224 },
+    });
+  });
+
+  it('keeps an empty expanded group visible and stable', () => {
+    const emptyGroup = createGroup('group-empty', {
+      position: { x: 40, y: 60 },
+      size: { width: 320, height: 180 },
+    });
+    setActiveProject({
+      ...createProject(),
+      groups: [emptyGroup],
+      scenes: [],
+    });
+
+    const groupNode = useCanvasStore.getState().nodes.find((node) => node.id === 'group:group-empty');
+
+    expect(groupNode).toMatchObject({
+      id: 'group:group-empty',
+      type: 'sceneGroupFrame',
+      position: emptyGroup.position,
+      data: {
+        sceneCount: 0,
+      },
+    });
+    expect(groupNode?.style).toMatchObject(emptyGroup.size);
+  });
+
+  it('keeps an empty collapsed group visible and stable', () => {
+    const emptyGroup = createGroup('group-empty', {
+      collapsed: true,
+      position: { x: 40, y: 60 },
+      size: { width: 320, height: 180 },
+    });
+    setActiveProject({
+      ...createProject(),
+      groups: [emptyGroup],
+      scenes: [],
+    });
+
+    const groupNode = useCanvasStore.getState().nodes.find((node) => node.id === 'group:group-empty');
+
+    expect(groupNode).toMatchObject({
+      id: 'group:group-empty',
+      type: 'sceneGroup',
+      position: emptyGroup.position,
+      data: {
+        sceneCount: 0,
+      },
+    });
+  });
+
+  it('does not recalculate group bounds when an unrelated scene moves', () => {
+    const group = createGroup('group-existing', {
+      position: { x: 68, y: 68 },
+      size: { width: 304, height: 224 },
+    });
+    setActiveProject({
+      ...createProject(),
+      groups: [group],
+      scenes: [
+        createScene('scene-a', [], { position: { x: 100, y: 100 }, groupId: group.id }),
+        createScene('scene-outside', [], { position: { x: 500, y: 500 } }),
+      ],
+    });
+
+    useCanvasStore.getState().onNodesChange([
+      {
+        type: 'position',
+        id: 'scene-outside',
+        position: { x: 700, y: 700 },
+      },
+    ]);
+
+    expect((useWorkspaceStore.getState().activeProject as Project).groups[0]).toEqual(group);
+  });
+
+  it('clears stale selection when switching between scenes, groups, and multi-selection', () => {
+    const group = createGroup('group-existing');
+    setActiveProject({
+      ...createProject(),
+      groups: [group],
+      scenes: [
+        createScene('scene-a', [], { groupId: group.id }),
+        createScene('scene-b', [], { groupId: group.id }),
+      ],
+    });
+
+    useCanvasStore.getState().selectGroup(group.id);
+    expect(useCanvasStore.getState()).toMatchObject({
+      selectedSceneId: null,
+      selectedSceneIds: [],
+      selectedGroupId: group.id,
+      activeView: 'canvas',
+    });
+
+    useCanvasStore.getState().selectScene('scene-a');
+    expect(useCanvasStore.getState()).toMatchObject({
+      selectedSceneId: 'scene-a',
+      selectedSceneIds: ['scene-a'],
+      selectedGroupId: null,
+      activeView: 'editor',
+    });
+
+    useCanvasStore.getState().selectScenes(['scene-a', 'scene-b']);
+    expect(useCanvasStore.getState()).toMatchObject({
+      selectedSceneId: null,
+      selectedSceneIds: ['scene-a', 'scene-b'],
+      selectedGroupId: null,
+      activeView: 'canvas',
+    });
+  });
+
+  it('clears selected scenes when a selected group is collapsed', () => {
+    const group = createGroup('group-existing');
+    setActiveProject({
+      ...createProject(),
+      groups: [group],
+      scenes: [
+        createScene('scene-a', [], { groupId: group.id }),
+        createScene('scene-b', [], { groupId: group.id }),
+      ],
+    });
+    useCanvasStore.getState().selectScenes(['scene-a', 'scene-b']);
+
+    useCanvasStore.getState().updateSceneGroupCollapsed(group.id, true);
+
+    expect(useCanvasStore.getState()).toMatchObject({
+      selectedSceneId: null,
+      selectedSceneIds: [],
+      selectedGroupId: group.id,
+      activeView: 'canvas',
+    });
+  });
+
+  it('preserves Story Logic when regrouping scenes', () => {
+    const oldGroup = createGroup('group-old');
+    const originalChoice = createChoice({ targetSceneId: 'scene-b' });
+    setActiveProject({
+      ...createProject(),
+      groups: [oldGroup],
+      scenes: [
+        createScene('scene-a', [originalChoice], { groupId: oldGroup.id }),
+        createScene('scene-b', [], { groupId: oldGroup.id }),
+        createScene('scene-c', [], { groupId: oldGroup.id }),
+      ],
+    });
+
+    useCanvasStore.getState().selectScenes(['scene-a', 'scene-b']);
+    useCanvasStore.getState().groupSelectedScenes();
+
+    const project = useWorkspaceStore.getState().activeProject as Project;
+    const scene = project.scenes.find((item) => item.id === 'scene-a');
+
+    expect(scene?.choices[0]).toEqual(originalChoice);
+    expect(validateProject(project)).toEqual([]);
+  });
+
+  it('creates one undo snapshot when regrouping scenes', () => {
+    const oldGroup = createGroup('group-old');
+    setActiveProject({
+      ...createProject(),
+      groups: [oldGroup],
+      scenes: [
+        createScene('scene-a', [], { groupId: oldGroup.id }),
+        createScene('scene-b', [], { groupId: oldGroup.id }),
+        createScene('scene-c', [], { groupId: oldGroup.id }),
+      ],
+    });
+
+    useCanvasStore.getState().selectScenes(['scene-a', 'scene-b']);
+    useCanvasStore.getState().groupSelectedScenes();
+
+    expect(useWorkspaceStore.getState().projectHistory.undoStack).toHaveLength(1);
+  });
 });

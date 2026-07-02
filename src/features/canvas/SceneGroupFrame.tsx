@@ -27,17 +27,17 @@ export function SceneGroupFrame({ data }: NodeProps<SceneGroupFrameData>) {
   return (
     <div
       className={[
-        'h-full w-full rounded-lg border bg-sky-500/10 text-sky-50 shadow-[0_0_0_1px_rgba(14,165,233,0.08)]',
-        isSelected ? 'border-sky-300 ring-2 ring-sky-300/30' : 'border-sky-500/50',
+        'h-full w-full rounded-lg border bg-sky-500/10 text-sky-50 shadow-[inset_0_0_0_1px_rgba(14,165,233,0.10)]',
+        isSelected ? 'border-sky-200 ring-2 ring-sky-300/35' : 'border-sky-500/60',
       ].join(' ')}
       onClick={(event) => {
         event.stopPropagation();
         selectGroup(data.group.id);
       }}
     >
-      <div className="flex h-9 items-center gap-2 rounded-t-lg border-b border-sky-400/30 bg-sky-950/80 px-3">
+      <div className="flex h-10 items-center gap-2 rounded-t-lg border-b border-sky-300/35 bg-sky-950/90 px-3 shadow-sm">
         <input
-          className="nodrag nowheel min-w-0 flex-1 rounded border border-transparent bg-transparent px-1 py-0.5 text-xs font-semibold text-sky-50 outline-none focus:border-sky-300/70 focus:bg-gray-950/70"
+          className="nodrag nowheel min-w-0 flex-1 rounded border border-transparent bg-transparent px-1 py-0.5 text-sm font-semibold text-sky-50 outline-none focus:border-sky-300/70 focus:bg-gray-950/70"
           value={draftName}
           aria-label="Scene group name"
           onChange={(event) => setDraftName(event.target.value)}
@@ -57,10 +57,12 @@ export function SceneGroupFrame({ data }: NodeProps<SceneGroupFrameData>) {
             }
           }}
         />
-        <span className="shrink-0 text-xs font-medium text-sky-200">({data.sceneCount})</span>
+        <span className="shrink-0 rounded bg-sky-800/80 px-2 py-1 text-xs font-semibold text-sky-100">
+          {data.sceneCount}
+        </span>
         <button
           type="button"
-          className="nodrag rounded bg-sky-700 px-2 py-1 text-xs font-semibold text-white hover:bg-sky-600"
+          className="nodrag rounded bg-sky-700 px-2.5 py-1 text-xs font-semibold text-white hover:bg-sky-600"
           onClick={(event) => {
             event.stopPropagation();
             updateSceneGroupCollapsed(data.group.id, true);

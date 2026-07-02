@@ -33,6 +33,26 @@ Validation:
 - `npm.cmd test` -> 128 tests passed
 - `npm.cmd run build` -> passed
 
+### Completed - Scene Groups final UX improvements
+
+Commits:
+- `347bf48` - `fix: restore scene group frame interactions`
+- `0eefef2` - `fix: remove empty scene groups automatically`
+- `c39dbc3` - `feat: assign selected scenes to existing groups`
+- `45729b8` - `feat: ungroup selected scenes`
+
+Changes:
+- Scene Group controls are now fully interactive inside React Flow.
+- Empty groups are removed automatically after scene membership changes.
+- Authors can move selected scenes between existing groups.
+- Authors can remove only selected scenes from a group without ungrouping the whole group.
+- Scene Group bounds are recomputed after membership changes.
+- Scene Group workflow is now considered feature-complete for EPIC 10.
+
+Validation:
+- `npm.cmd test` -> 146 tests passed
+- `npm.cmd run build` -> passed
+
 ### Completed - Project Variables foundation
 
 Commit:

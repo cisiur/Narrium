@@ -96,13 +96,16 @@ Narrium has a usable local multi-project workspace, project settings sidebar, pr
 
 Canvas Scene Groups now support:
 - selecting multiple scenes,
-- grouping selected scenes,
+- creating a new group from selected scenes,
+- adding selected scenes to an existing group,
+- removing selected scenes from their current group,
 - naming and renaming groups,
 - expanded group frames,
 - collapsed group nodes,
 - expand/collapse,
-- ungroup,
-- projected visual edges for collapsed groups.
+- ungrouping whole groups,
+- projected visual edges for collapsed groups,
+- automatic removal of empty groups.
 
 Scene Groups are editor-only. Grouping does not change Story Logic, and runtime, Preview, and standalone HTML playback are unchanged by grouping.
 
@@ -247,8 +250,11 @@ Good candidates:
   - shortcuts ignore input, textarea, select, and contenteditable targets
 - Scene Groups:
   - multi-scene selection is tracked without breaking single-scene editor navigation
-  - selected scenes can be grouped into a named `SceneGroup`
-  - groups can be renamed, collapsed, expanded, and ungrouped
+  - selected scenes can create a new named `SceneGroup`
+  - selected scenes can be added to an existing `SceneGroup`
+  - selected scenes can be removed from their current group
+  - groups can be renamed, collapsed, expanded, and ungrouped as whole groups
+  - groups with no member scenes are removed automatically
   - expanded groups render as visual frames behind their member scenes
   - collapsed groups render as one special group node using `group:{groupId}`
   - scenes inside collapsed groups are hidden from normal scene-node rendering
@@ -502,7 +508,7 @@ Standalone save/load snapshots include:
 Implemented:
 - Vitest added.
 - `npm.cmd test` runs `vitest run`.
-- Current test count after Scene Groups: **128 tests**.
+- Current test count after Scene Groups: **146 tests**.
 - `runtimeState.test.ts` covers initial RuntimeState creation, including Variables.
 - `runtimeLogic.test.ts` covers representative behavior for:
   - `applyEffects()`

@@ -133,7 +133,7 @@ Ungrouping removes only the visual organization:
 Author flow:
 
 1. Select multiple scene nodes on the canvas.
-2. Click **Group selected scenes**.
+2. Click **New group from selection**.
 3. A new group is created.
 4. Selected scenes receive the new `groupId`.
 5. Group starts expanded.
@@ -143,6 +143,13 @@ Author flow:
 Minimum selection requirement:
 
 - at least 2 scenes.
+
+### 6.1B Recommended author workflow
+
+1. Create a group from selected scenes.
+2. Add more scenes to an existing group later.
+3. Remove selected scenes from a group without deleting the group.
+4. Ungroup an entire group when desired.
 
 ### 6.2 Expanded group
 
@@ -352,7 +359,9 @@ Desired MVP selection behavior:
 - single-click scene selects one scene and opens editor as today,
 - multi-select can be done through React Flow selection mechanics,
 - selected scene ids are tracked in canvas/editor state,
-- **Group selected scenes** appears only when at least 2 scene nodes are selected,
+- **New group from selection** appears only when at least 2 scene nodes are selected,
+- **Add selected to group...** appears when selected scenes can be assigned to at least one existing group,
+- **Ungroup selected scenes** appears when at least one selected scene belongs to a group,
 - selecting a collapsed group node selects that group, not an internal scene.
 
 Implementation should preserve existing single-scene editing behavior.
@@ -494,7 +503,7 @@ Scope:
 
 - track selected scene ids,
 - keep existing single-scene behavior intact,
-- show **Group selected scenes** when at least 2 scenes are selected,
+- show **New group from selection** when at least 2 scenes are selected,
 - create `SceneGroup`,
 - assign `scene.groupId`,
 - calculate initial group position and size,
@@ -609,7 +618,7 @@ Scope:
 
 - improve bounds stability after member scenes move,
 - avoid unnecessary bounds recalculation when unrelated scenes move,
-- keep empty groups stable,
+- remove empty groups automatically after membership changes,
 - keep regrouping scenes robust,
 - improve group z-index/selection behavior,
 - polish visual spacing.
@@ -660,6 +669,10 @@ Implemented:
 - SG-06 - Scene Group UX polish
 
 Implementation notes:
+- Final toolbar UX supports **New group from selection**, **Add selected to group...**, **Ungroup selected scenes**, and whole-group **Ungroup**.
+- Scene membership changes reuse one membership finalization path.
+- Empty Scene Groups are removed automatically after membership changes.
+- Group bounds are recomputed automatically after membership changes for remaining affected groups.
 - Edge projection is implemented through `projectSceneEdge`.
 - Collapsed group node ids use the stable pattern:
 
@@ -680,10 +693,9 @@ group:{groupId}
 
 - moving whole groups with member scenes,
 - manual group resize,
-- group color editing,
+- editable group colors,
 - duplicate projected edge aggregation,
-- nested groups, if ever needed,
-- export/validation polish for empty or orphaned groups.
+- nested groups, if ever needed.
 
 ## 16. Acceptance criteria for complete epic
 

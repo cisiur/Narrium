@@ -1,6 +1,6 @@
 # EPIC 10 — Canvas Scene Groups
 
-> Status: planned  
+> Status: completed  
 > Scope: editor-only canvas organization system  
 > Runtime impact: none
 
@@ -600,53 +600,92 @@ feat: project edges for collapsed scene groups
 
 ---
 
-### SG-06 — Group movement and layout polish
+### SG-06 — Scene Group UX polish
 
 Goal:
 Improve authoring ergonomics after the core group model works.
 
 Scope:
 
-- move collapsed group nodes and persist `SceneGroup.position`,
-- optionally move expanded group with member scenes if safe,
-- recalculate group frame size after member scenes move,
+- improve bounds stability after member scenes move,
+- avoid unnecessary bounds recalculation when unrelated scenes move,
+- keep empty groups stable,
+- keep regrouping scenes robust,
 - improve group z-index/selection behavior,
 - polish visual spacing.
 
 Out of scope:
 
+- moving whole groups with member scenes,
+- moving collapsed group nodes,
 - auto-layout engine,
 - nested groups.
 
 Suggested commit:
 
 ```text
-feat: polish scene group movement
+feat: polish scene group interactions
 ```
 
 ---
 
-### SG-07 — Validation, docs, and final polish
+### SG-07 — Documentation update
 
 Goal:
 Finalize Scene Groups as a documented subsystem.
 
 Scope:
 
-- add validation rules if needed,
 - update `CONTEXT.md`, `DATA_MODEL.md`, `ROADMAP.md`, and `CHANGELOG.md`,
-- add/extend tests for regressions,
 - update this document with final implementation notes.
 
 Suggested commit:
 
 ```text
-docs: document scene groups implementation
+docs: document completed scene groups epic
 ```
 
 ---
 
-## 14. Acceptance criteria for complete epic
+## 14. Final implementation summary
+
+Status: **completed**.
+
+Implemented:
+- SG-01 - Scene Group architecture helpers
+- SG-02 - Multi-selection and group creation/ungroup workflow
+- SG-03 - Expanded group rendering and rename
+- SG-04 - Collapsed Scene Group nodes and expand/collapse
+- SG-05 - Collapsed group edge projection
+- SG-06 - Scene Group UX polish
+
+Implementation notes:
+- Edge projection is implemented through `projectSceneEdge`.
+- Collapsed group node ids use the stable pattern:
+
+```text
+group:{groupId}
+```
+
+- Expanded groups render as frame nodes behind scenes.
+- Collapsed groups hide their member scene nodes.
+- External edges remain visible through visual projection to collapsed group nodes.
+- Internal edges within the same collapsed group are hidden.
+- Duplicate projected edges remain separate.
+- Edge labels continue to use the original Choice text.
+- Visual projection does not mutate `Choice.targetSceneId`.
+- Runtime, Preview, and standalone HTML playback are unaffected.
+
+## 15. Future improvements
+
+- moving whole groups with member scenes,
+- manual group resize,
+- group color editing,
+- duplicate projected edge aggregation,
+- nested groups, if ever needed,
+- export/validation polish for empty or orphaned groups.
+
+## 16. Acceptance criteria for complete epic
 
 The epic is complete when:
 
@@ -667,7 +706,7 @@ The epic is complete when:
 
 ---
 
-## 15. Implementation cautions
+## 17. Implementation cautions
 
 - Do not mutate `Choice.targetSceneId` for visual edge projection.
 - Do not treat groups as playable scenes.

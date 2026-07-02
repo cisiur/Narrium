@@ -13,7 +13,7 @@ This document defines the canonical data structures for Narrium. It is the prima
 - Project thumbnails are stored in the full `Project` and mirrored into workspace metadata for fast project listing.
 - Workspace metadata is stored separately from full project payload.
 - Characters, Resources, and Variables are project data, not separate stores.
-- React Flow is a projection of `Project.scenes`.
+- React Flow is a projection of `Project.scenes` and editor-only `Project.groups`.
 - Choice execution separates **effects** from **navigation**.
 - Resources are intended as player-facing numeric story values.
 - Variables are intended as hidden/internal numeric story-state values.
@@ -88,7 +88,7 @@ Notes:
 - `thumbnail` is part of the full project so JSON export/import can preserve it.
 - `startSceneId` is the story entry point for preview and export.
 - Current implementation allows `startSceneId` to be an empty string when the project has no scenes yet.
-- `groups` are canvas-only organizational containers in MVP.
+- `groups` are editor-only canvas organization metadata.
 - `assetLibrary` stores reusable project-level backgrounds.
 - `characters` stores project-level speaker/logic entities.
 - `resources` stores project-wide numeric values intended for player-facing state such as gold, health, or inventory-like counts.
@@ -157,6 +157,13 @@ Validation rules:
 
 ### SceneGroup
 
+Scene Groups use these Project model fields:
+
+```typescript
+Project.groups: SceneGroup[]
+Scene.groupId: string | null
+```
+
 ```typescript
 interface SceneGroup {
   id: string;
@@ -169,9 +176,16 @@ interface SceneGroup {
 ```
 
 Notes:
-- MVP uses groups as visual organizational containers on canvas.
-- `collapsed` is reserved for post-MVP group collapsing, but kept in the model now.
-- Group membership is controlled from `Scene.groupId`.
+- `Project.groups: SceneGroup[]` stores editor-only canvas organization.
+- `Scene.groupId: string | null` assigns a scene to one group; `null` means the scene is ungrouped.
+- Scene Groups do not affect runtime, Preview, standalone HTML playback, or Story Logic.
+- Group membership must not change `Choice.targetSceneId`, condition groups, conditions, effects, dialogue pages, or runtime state.
+- `collapsed` affects canvas rendering only.
+- Expanded groups render as visual frames around their member scenes.
+- Collapsed groups render as one canvas group node while member scene nodes are hidden.
+- `position` and `size` are canvas presentation metadata used for expanded group frames and collapsed group node placement.
+- Collapsed group edge projection is visual only. Projected canvas edges may render against a group node, but the underlying `Choice.targetSceneId` remains the real scene id.
+- Group membership is controlled from `Scene.groupId`; `SceneGroup` does not duplicate member scene ids.
 
 ---
 

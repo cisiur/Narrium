@@ -6,6 +6,33 @@ This changelog records milestone-level project changes. It is intentionally conc
 
 ## Unreleased / Next
 
+### Completed - Canvas Scene Groups
+
+Commits:
+- `0e50f0b` - `docs: add scene groups epic plan`
+- `8235dcb` - `feat: add scene group canvas helpers`
+- `63a7e59` - `feat: add scene group creation workflow`
+- `7679b69` - `feat: render expanded scene groups`
+- `1acd4ff` - `feat: add collapsed scene group nodes`
+- `022a764` - `feat: project edges for collapsed scene groups`
+- `c9dc75f` - `feat: polish scene group interactions`
+
+Changes:
+- Added editor-only Canvas Scene Groups.
+- Authors can multi-select scenes and group them on the canvas.
+- Groups can be renamed, collapsed, expanded, and ungrouped.
+- Expanded groups render as visual frames behind member scene nodes.
+- Collapsed groups render as a single special group node.
+- Edges to and from collapsed groups remain visible through visual projection.
+- Internal edges inside one collapsed group are hidden.
+- Duplicate projected edges remain separate.
+- Grouping is non-destructive and does not modify Story Logic or `Choice.targetSceneId`.
+- Runtime, Preview, and standalone HTML playback are unchanged by grouping.
+
+Validation:
+- `npm.cmd test` -> 128 tests passed
+- `npm.cmd run build` -> passed
+
 ### Completed - Project Variables foundation
 
 Commit:

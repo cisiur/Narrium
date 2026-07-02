@@ -92,7 +92,19 @@ Polish & Production UX     ██████░░░░  60%
 ```
 
 Current state:
-Narrium has a usable local multi-project workspace, project settings sidebar, project thumbnails, React Flow scene graph editor, Canvas-only keyboard shortcuts, Choice copy/paste, snapshot-based active-project undo/redo MVP, reusable application confirmation dialog, right-side scene editor with Project Validation, shared validation infrastructure including Story Logic reference validation, background system, asset library support, SceneNode thumbnails, ordered dialogue pages, character speaker selection, safe character deletion with dialogue speaker cleanup, choice target editing, edge-to-choice navigation, project-level Characters, Character attributes, project-level Resources with player-facing presentation metadata, project-level Variables, complete Story Logic Conditions including Variables, complete Story Logic Effects including Variables, runtime helper functions for condition/effect execution, a functional in-browser Story Player Preview with Resource HUD, JSON project export/import, standalone HTML story export with runtime parity and Resource HUD, polished standalone HTML playback, and exported standalone player save/load persistence including variable runtime values.
+Narrium has a usable local multi-project workspace, project settings sidebar, project thumbnails, React Flow scene graph editor, editor-only Canvas Scene Groups, Canvas-only keyboard shortcuts, Choice copy/paste, snapshot-based active-project undo/redo MVP, reusable application confirmation dialog, right-side scene editor with Project Validation, shared validation infrastructure including Story Logic reference validation, background system, asset library support, SceneNode thumbnails, ordered dialogue pages, character speaker selection, safe character deletion with dialogue speaker cleanup, choice target editing, edge-to-choice navigation, project-level Characters, Character attributes, project-level Resources with player-facing presentation metadata, project-level Variables, complete Story Logic Conditions including Variables, complete Story Logic Effects including Variables, runtime helper functions for condition/effect execution, a functional in-browser Story Player Preview with Resource HUD, JSON project export/import, standalone HTML story export with runtime parity and Resource HUD, polished standalone HTML playback, and exported standalone player save/load persistence including variable runtime values.
+
+Canvas Scene Groups now support:
+- selecting multiple scenes,
+- grouping selected scenes,
+- naming and renaming groups,
+- expanded group frames,
+- collapsed group nodes,
+- expand/collapse,
+- ungroup,
+- projected visual edges for collapsed groups.
+
+Scene Groups are editor-only. Grouping does not change Story Logic, and runtime, Preview, and standalone HTML playback are unchanged by grouping.
 
 Completed milestones:
 - EPIC 6 — Story Logic is complete for the MVP editor/runtime-helper layer.
@@ -111,16 +123,18 @@ Completed milestones:
 - Player-facing Resources are implemented with display name, icon, visibility, and Resource HUDs in Preview and standalone HTML.
 - Project Validation detects broken Story Logic references in Conditions and Effects.
 - Choice Copy / Paste is implemented for session-local authoring productivity.
+- EPIC 10 - Canvas Scene Groups is complete: architecture helpers, multi-selection, group creation/ungroup, expanded frames, rename, collapsed nodes, expand/collapse, visual edge projection, and UX polish.
 
 Current recommended next milestone:
 - **EPIC 9 — Polish & Production UX**
 - Recommended next task should be selected by the project owner.
 
 Good candidates:
-- `E9-08` — Empty/error states polish.
-- `E9-14` — Story Player component-level tests.
 - Export preflight using Project Validation.
-- `E9-02` future enhancements — finer-grained undo/redo UX beyond the snapshot-based MVP.
+- `E9-14` - Story Player component-level tests.
+- `E9-08` - Empty/error states polish.
+- `E9-02` future enhancements - finer-grained undo/redo UX beyond the snapshot-based MVP.
+- Documentation / UX pass for authoring workflows.
 
 ---
 
@@ -231,6 +245,17 @@ Good candidates:
   - `Ctrl+C` copies the selected Choice when focus is not in a text-editing target
   - `Ctrl+V` pastes the copied Choice into the current Scene when focus is not in a text-editing target
   - shortcuts ignore input, textarea, select, and contenteditable targets
+- Scene Groups:
+  - multi-scene selection is tracked without breaking single-scene editor navigation
+  - selected scenes can be grouped into a named `SceneGroup`
+  - groups can be renamed, collapsed, expanded, and ungrouped
+  - expanded groups render as visual frames behind their member scenes
+  - collapsed groups render as one special group node using `group:{groupId}`
+  - scenes inside collapsed groups are hidden from normal scene-node rendering
+  - canvas edges project visually to collapsed group nodes where needed
+  - internal edges within one collapsed group are hidden
+  - duplicate projected edges remain separate
+  - grouping does not mutate `Choice.targetSceneId`, Story Logic, Preview, runtime, or standalone HTML behavior
 
 ### Scene Editor
 
@@ -477,7 +502,7 @@ Standalone save/load snapshots include:
 Implemented:
 - Vitest added.
 - `npm.cmd test` runs `vitest run`.
-- Current test count after Choice Copy / Paste: **70 tests**.
+- Current test count after Scene Groups: **128 tests**.
 - `runtimeState.test.ts` covers initial RuntimeState creation, including Variables.
 - `runtimeLogic.test.ts` covers representative behavior for:
   - `applyEffects()`
@@ -527,16 +552,26 @@ Completed Resources work:
 - Resource HUD in Preview
 - Resource HUD in standalone HTML
 
+Completed Scene Groups work:
+- `SG-01` - Scene Group architecture helpers
+- `SG-02` - Multi-selection and group creation workflow
+- `SG-03` - Expanded group rendering and rename
+- `SG-04` - Collapsed Scene Group nodes
+- `SG-05` - Collapsed group edge projection
+- `SG-06` - Scene Group UX polish
+- `SG-07` - Documentation update
+
 Important:
 - Validation UI must not change runtime, Preview, JSON import/export, standalone HTML export, or the Project data model unless explicitly scoped.
 - Variables are intentionally hidden/internal.
 - Resources are player-facing numeric values when marked visible.
 
 Next recommended tasks:
-1. `E9-08` - Empty/error states polish.
+1. Export preflight using Project Validation.
 2. `E9-14` - Story Player component-level tests.
-3. Export preflight using Project Validation.
+3. `E9-08` - Empty/error states polish.
 4. `E9-02` future enhancements - finer-grained undo/redo UX beyond the snapshot-based MVP.
+5. Documentation / UX pass for authoring workflows.
 
 ---
 
@@ -556,6 +591,9 @@ src/
     canvas/
       SceneCanvas.tsx
       SceneNode.tsx
+      SceneGroupFrame.tsx
+      SceneGroupNode.tsx
+      sceneGroups.ts
 
     editor/
       SceneEditorPanel.tsx

@@ -1,6 +1,6 @@
 # Roadmap — Narrium
 
-> **Version:** v12 documentation refresh after Variables, player-facing Resources, validation, and Choice copy/paste  
+> **Version:** v13 documentation refresh after Canvas Scene Groups  
 > **Workflow:** active development happens directly on `main`. Do not use a `dev` branch unless the project owner explicitly changes this workflow.
 
 ---
@@ -36,7 +36,7 @@ Polish & Production UX     ██████░░░░  60%
 ```
 
 Current state:
-Narrium has a usable local multi-project workspace, project settings sidebar, project thumbnails, React Flow scene graph editor, Canvas-only keyboard shortcuts, Choice copy/paste, snapshot-based active-project undo/redo MVP, reusable application confirmation dialog, right-side scene editor with Project Validation, shared validation infrastructure including Story Logic reference validation, background system, asset library support, SceneNode thumbnails, ordered dialogue pages, character speaker selection, safe character deletion with dialogue speaker cleanup, choice target editing, edge-to-choice navigation, project-level Characters, Character attributes, project-level Resources with player-facing presentation metadata, project-level Variables, complete Story Logic Conditions including Variables, complete Story Logic Effects including Variables, runtime helper functions for condition/effect execution, a functional in-browser Story Player preview with Resource HUD, JSON project export/import, standalone HTML story export with runtime parity and Resource HUD, polished standalone HTML playback, and exported standalone player save/load persistence including variable runtime values.
+Narrium has a usable local multi-project workspace, project settings sidebar, project thumbnails, React Flow scene graph editor with editor-only Canvas Scene Groups, Canvas-only keyboard shortcuts, Choice copy/paste, snapshot-based active-project undo/redo MVP, reusable application confirmation dialog, right-side scene editor with Project Validation, shared validation infrastructure including Story Logic reference validation, background system, asset library support, SceneNode thumbnails, ordered dialogue pages, character speaker selection, safe character deletion with dialogue speaker cleanup, choice target editing, edge-to-choice navigation, project-level Characters, Character attributes, project-level Resources with player-facing presentation metadata, project-level Variables, complete Story Logic Conditions including Variables, complete Story Logic Effects including Variables, runtime helper functions for condition/effect execution, a functional in-browser Story Player preview with Resource HUD, JSON project export/import, standalone HTML story export with runtime parity and Resource HUD, polished standalone HTML playback, and exported standalone player save/load persistence including variable runtime values.
 
 Story Player Preview is complete:
 - preview mode can be entered from the canvas toolbar,
@@ -73,7 +73,7 @@ Runtime helper tests are present through Vitest.
 Detailed documentation for the completed EPIC 9 validation batch lives in `docs/EPIC9_VALIDATION.md`.
 
 Next major roadmap area:
-**EPIC 9 — Polish & Production UX**, continuing with targeted authoring and production-readiness improvements.
+**Post-Scene-Groups polish and production readiness**, continuing with targeted authoring and export-readiness improvements.
 
 ---
 
@@ -127,8 +127,8 @@ Deliverable status:
 | E2-06 | Edge handles moved to left/right for left-to-right story flow | [AI] | ✅ Done |
 | E2-07 | Delete edge clears corresponding `choice.targetSceneId` | [AI] | ✅ Done |
 | E2-08 | Click edge → open corresponding Choice in Scene Editor | [AI] | ✅ Done |
-| E2-09 | Scene groups: create named group container on canvas | [BOTH] | ⏳ Pending |
-| E2-10 | Group collapse into single tile | [BOTH] | Backlog |
+| E2-09 | Scene groups: create named group container on canvas | [BOTH] | Done via EPIC 10 |
+| E2-10 | Group collapse into single tile | [BOTH] | Done via EPIC 10 |
 
 Architecture note:
 - React Flow edges are not domain objects.
@@ -360,14 +360,37 @@ Validation batch details:
 
 ---
 
+## EPIC 10 - Canvas Scene Groups
+
+Status: **completed**.
+
+Completed tasks:
+- SG-01 - Scene Group architecture helpers
+- SG-02 - Multi-selection and group creation workflow
+- SG-03 - Expanded group rendering and rename
+- SG-04 - Collapsed Scene Group nodes
+- SG-05 - Collapsed group edge projection
+- SG-06 - Scene Group UX polish
+- SG-07 - Documentation update
+
+Deliverable status:
+- Authors can select multiple scenes and group them on the canvas.
+- Groups can be renamed, collapsed, expanded, and ungrouped.
+- Expanded groups render as visual frames behind member scenes.
+- Collapsed groups render as one group node while member scene nodes are hidden.
+- Canvas edges project visually to collapsed group nodes without modifying `Choice.targetSceneId`.
+- Scene Groups are editor-only and do not affect Story Logic, Preview, runtime, or standalone HTML export behavior.
+
+---
+
 ## Next Immediate Step
 
-Continue into **EPIC 9 — Polish & Production UX**.
+Continue with post-Scene-Groups polish and production-readiness work.
 
 Recommended next task should be selected by the project owner.
 
 Good candidates:
-- `E9-08` — Empty/error states polish.
-- `E9-14` — Story Player component-level tests.
-- `E9-24` — Export preflight using Project Validation.
-- `E9-02` future enhancements — finer-grained undo/redo UX beyond the snapshot-based MVP.
+- `E9-24` - Export preflight using Project Validation.
+- `E9-14` - Story Player component-level tests.
+- `E9-08` - Empty/error states polish.
+- `E9-02` future enhancements - finer-grained undo/redo UX beyond the snapshot-based MVP.

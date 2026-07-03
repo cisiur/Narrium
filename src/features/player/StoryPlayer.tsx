@@ -1,13 +1,12 @@
 import { useState } from 'react';
 import type { Choice, Project } from '../../types';
-import { advanceRuntimeForChoice } from '../story-logic/runtimeLogic';
+import { advanceRuntimeForChoice, createInitialRuntimeState } from '../../domain/runtime';
 import { DialoguePanel } from './DialoguePanel';
 import {
   createChoiceViewModels,
   resolveSceneBackgroundUrl,
   resolveSpeakerName,
 } from './playerHelpers';
-import { createInitialRuntimeState } from './runtimeState';
 import { ResourceHud } from './ResourceHud';
 import { StoryPlayerHeader } from './StoryPlayerHeader';
 

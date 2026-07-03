@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Choice, Project, RuntimeState } from '../../types';
-import { createChoiceViewModels } from '../player/playerHelpers';
+import { createChoiceViewModels } from './choiceViewModels';
 import {
   advanceRuntimeForChoice,
   applyEffects,

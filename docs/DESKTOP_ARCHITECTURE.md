@@ -11,6 +11,9 @@ Current implementation status:
 - Workspace/project persistence now goes through a synchronous `ProjectStorage` service boundary.
 - The current `BrowserProjectStorage` backend still uses `narrium_workspace` and `narrium_project_{id}` in browser localStorage.
 - Project normalization/migration code now lives in `src/domain/project/`.
+- Runtime execution helpers and runtime-state initialization now live in `src/domain/runtime/`.
+- Standalone HTML export generation now lives in `src/services/export/`.
+- Legacy JSON import accepts old `Choice.conditions` and missing `effects`, then normalizes to the current shape.
 - Services can depend on domain code, but domain code must stay independent from stores, services, UI, and Tauri APIs.
 - Local project folders, local filesystem open/save, local asset storage, and playable export packaging are still planned future work.
 
@@ -60,6 +63,12 @@ UI/features -> stores -> services -> domain -> types
 ```
 
 The important boundary for desktop work is that services must not import from stores. Domain modules should hold platform-neutral project rules such as normalization and defaults.
+
+Runtime/export boundary status:
+- Editor Preview uses reusable domain runtime helpers.
+- Standalone HTML export generation is isolated under `services/export`.
+- Future playable desktop export work can build from these boundaries later.
+- No new playable export format exists yet.
 
 Near-term desktop work should focus on:
 - introducing local filesystem project operations,
@@ -154,7 +163,7 @@ Future playable export may be a playable folder or packaged build rather than on
 - copied asset files,
 - save/load support appropriate for the target runtime.
 
-The exact export format should be designed later after the desktop project folder model is stable.
+The exact export format should be designed later after the desktop project folder model is stable. Current boundary work only separates reusable runtime helpers and standalone HTML export generation; it does not add a new desktop playable export.
 
 ---
 

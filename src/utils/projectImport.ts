@@ -13,6 +13,10 @@ function hasArrayField(value: Record<string, unknown>, field: string) {
   return Array.isArray(value[field]);
 }
 
+function hasOptionalArrayField(value: Record<string, unknown>, field: string) {
+  return value[field] === undefined || Array.isArray(value[field]);
+}
+
 function resemblesScene(value: unknown) {
   if (!isRecord(value)) {
     return false;
@@ -48,8 +52,9 @@ function resemblesChoice(value: unknown) {
   return (
     hasStringField(value, 'id') &&
     hasStringField(value, 'text') &&
-    hasArrayField(value, 'conditionGroups') &&
-    hasArrayField(value, 'effects')
+    hasOptionalArrayField(value, 'conditionGroups') &&
+    hasOptionalArrayField(value, 'conditions') &&
+    hasOptionalArrayField(value, 'effects')
   );
 }
 

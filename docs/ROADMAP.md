@@ -412,7 +412,7 @@ Architecture rule:
 |---|---|---|---|
 | E11A-01 | Storage abstraction foundation: introduce a ProjectStorage interface and browser/localStorage implementation without changing behavior | [BOTH] | Done |
 | E11A-02 | Services layer structure: organize storage, platform, assets, export, and runtime service boundaries | [BOTH] | Done |
-| E11A-03 | Runtime/export separation: make editor preview, future desktop runtime, and exported runtime boundaries explicit | [BOTH] | Planned |
+| E11A-03 | Runtime/export separation: make editor preview, future desktop runtime, and exported runtime boundaries explicit | [BOTH] | Done |
 | E11A-04 | Platform service boundary: isolate Tauri-specific calls behind a desktop platform adapter | [BOTH] | Planned |
 | E11A-05 | Architecture documentation update after service boundaries are in place | [PM] | Planned |
 
@@ -436,6 +436,13 @@ Current E11A-02 deliverable:
 - Kept `src/services/project-storage/` as the only concrete service subarea needed today.
 - Established the current dependency direction: UI/features -> stores -> services -> domain -> types.
 - Kept Tauri filesystem APIs, dialogs, project folders, export changes, asset storage changes, and Project model changes out of scope.
+
+Current E11A-03 deliverable:
+- Moved reusable runtime execution helpers and runtime-state initialization into `src/domain/runtime/`.
+- Moved standalone HTML export generation into `src/services/export/`.
+- Left compatibility wrappers for existing runtime/export import paths to avoid broad churn.
+- Updated JSON import validation so legacy choices with `conditions` and missing `effects` can be normalized instead of rejected.
+- Kept standalone HTML output behavior, Preview behavior, save/load behavior, export format, Project model, and Tauri APIs unchanged.
 
 ---
 
@@ -486,8 +493,7 @@ Full EPIC 11 deliverable intent:
 Continue with EPIC 11A architecture cleanup before implementing local project folder workflows.
 
 Recommended next task:
-- E11A-03 - Runtime/export separation.
+- E11A-04 - Platform service boundary.
 
 Later candidates:
-- E11A-03 - Runtime/export separation.
 - E11-03 - Local project folder create/open/save after service boundaries.

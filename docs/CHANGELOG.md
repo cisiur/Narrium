@@ -6,6 +6,19 @@ This changelog records milestone-level project changes. It is intentionally conc
 
 ## Unreleased / Next
 
+### Changed - Runtime and export boundaries
+
+Changes:
+- Moved reusable runtime execution helpers into `src/domain/runtime/`.
+- Moved runtime-state initialization into `src/domain/runtime/`.
+- Moved standalone HTML export generation into `src/services/export/`.
+- Added compatibility wrappers for existing runtime/export import paths.
+- Updated JSON import validation so legacy choices with `conditions` and missing `effects` are accepted and normalized.
+- Kept Preview behavior, story logic behavior, standalone HTML output, save/load behavior, export format, Project model, filesystem work, and Tauri APIs unchanged.
+
+Validation:
+- Added import tests for current choices, legacy `conditions`, missing `effects`, and invalid choice rejection.
+
 ### Changed - Domain and service boundaries
 
 Changes:

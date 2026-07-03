@@ -1,9 +1,8 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { Choice, Project } from '../../types';
-import { advanceRuntimeForChoice } from '../story-logic/runtimeLogic';
+import { advanceRuntimeForChoice, createInitialRuntimeState } from '../../domain/runtime';
 import { ResourceHud } from './ResourceHud';
-import { createInitialRuntimeState } from './runtimeState';
 
 function createProject(): Project {
   return {

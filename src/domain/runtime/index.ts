@@ -6,4 +6,6 @@ export {
   evaluateCondition,
   isChoiceAvailable,
   resolveUnavailableChoiceHint,
-} from '../../domain/runtime';
+} from './runtimeLogic';
+export { createChoiceViewModels, type ChoiceViewModel } from './choiceViewModels';
+export { createInitialRuntimeState } from './runtimeState';

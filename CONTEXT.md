@@ -90,6 +90,9 @@ Strategic status:
 - Workspace/project persistence now goes through a `ProjectStorage` service boundary.
 - The active implementation is still browser/localStorage and preserves the legacy web MVP keys/data format.
 - Project normalization/migration logic now lives in `src/domain/project/`, not `src/store/`.
+- Runtime execution helpers and runtime-state initialization now live in `src/domain/runtime/`.
+- Standalone HTML export generation now lives in `src/services/export/`.
+- JSON import accepts legacy choices with `conditions` and missing `effects`, then normalizes to the current `conditionGroups`/`effects` shape.
 - Current intended dependency direction is UI/features -> stores -> services -> domain -> types.
 - No local project folder storage, local asset file storage, or future playable export system has been implemented yet on `main`.
 
@@ -433,7 +436,7 @@ Good candidates:
 
 ### Story Logic — Runtime Helpers
 
-Implemented in `src/features/story-logic/runtimeLogic.ts`:
+Implemented in `src/domain/runtime/runtimeLogic.ts`:
 
 - `compareNumbers()`
 - `evaluateCondition()`
@@ -595,7 +598,7 @@ Important:
 - Resources are player-facing numeric values when marked visible.
 
 Next recommended tasks:
-1. Runtime/export separation.
+1. Platform service boundary.
 2. Desktop/local filesystem storage backend design.
 3. Local project folder create/open/save.
 4. Local asset file storage under project `assets/`.
@@ -637,8 +640,6 @@ src/
       EffectsEditor.tsx
       EffectCard.tsx
       referenceUsage.ts
-      runtimeLogic.ts
-      runtimeLogic.test.ts
 
     validation/
       projectValidation.ts
@@ -666,8 +667,6 @@ src/
       StoryPlayer.tsx
       DialoguePanel.tsx
       ChoiceList.tsx
-      runtimeState.ts
-      runtimeState.test.ts
       playerHelpers.ts
       StoryPlayerHeader.tsx
 
@@ -685,6 +684,13 @@ src/
       projectMigrations.ts
       projectMigrations.test.ts
       index.ts
+    runtime/
+      choiceViewModels.ts
+      runtimeLogic.ts
+      runtimeLogic.test.ts
+      runtimeState.ts
+      runtimeState.test.ts
+      index.ts
 
   services/
     project-storage/
@@ -693,11 +699,16 @@ src/
       BrowserProjectStorage.test.ts
       getProjectStorage.ts
       index.ts
+    export/
+      standaloneHtmlExport.ts
+      standaloneHtmlExport.test.ts
+      index.ts
 
   utils/
     projectExport.ts
     standaloneHtmlExport.ts
-    standaloneHtmlExport.test.ts
+    projectImport.ts
+    projectImport.test.ts
 
   types/
     index.ts

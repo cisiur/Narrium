@@ -1,14 +1,5 @@
-import type { Choice, Project, RuntimeState, Scene } from '../../types';
-import {
-  isChoiceAvailable,
-  resolveUnavailableChoiceHint,
-} from '../story-logic/runtimeLogic';
-
-export interface ChoiceViewModel {
-  choice: Choice;
-  isEnabled: boolean;
-  unavailableHint: string | null;
-}
+import type { Project, Scene } from '../../types';
+export { createChoiceViewModels, type ChoiceViewModel } from '../../domain/runtime';
 
 function resolveDirectBackgroundUrl(project: Project, scene: Scene): string | null {
   if (scene.background.mode === 'url' || scene.background.mode === 'upload') {
@@ -40,26 +31,4 @@ export function resolveSpeakerName(project: Project, speakerId: string | null): 
   }
 
   return project.characters.find((character) => character.id === speakerId)?.name ?? 'Unknown Speaker';
-}
-
-export function createChoiceViewModels(
-  choices: Choice[],
-  project: Project,
-  runtimeState: RuntimeState,
-): ChoiceViewModel[] {
-  return choices.map((choice) => {
-    const hasValidTarget = Boolean(
-      choice.targetSceneId === null ||
-        project.scenes.some((scene) => scene.id === choice.targetSceneId),
-    );
-    const isAvailable = isChoiceAvailable(choice, project, runtimeState);
-
-    return {
-      choice,
-      isEnabled: isAvailable && hasValidTarget,
-      unavailableHint: isAvailable
-        ? null
-        : resolveUnavailableChoiceHint(choice, project, runtimeState),
-    };
-  });
 }

@@ -6,6 +6,21 @@ This changelog records milestone-level project changes. It is intentionally conc
 
 ## Unreleased / Next
 
+### Added - Local project folder foundation
+
+Changes:
+- Added a desktop project-folder service for JSON-only local project folders.
+- Added Create Project Folder, Open Project Folder, Save, and Save As flows for `project.narrium.json`.
+- Added narrow Tauri dialog and command usage behind service/platform boundaries.
+- Added Rust commands for reading and writing project JSON files.
+- Added `@tauri-apps/api` and `@tauri-apps/plugin-dialog` as the minimum desktop dependencies needed for command invocation and folder selection.
+- Moved JSON import parsing into `src/domain/project/` and kept the existing `src/utils/projectImport` wrapper.
+- Preserved browser localStorage workflow, JSON import/export, standalone HTML export, preview, story logic, and the Project model.
+- Kept asset folders, image copying, local asset paths, autosave, recent projects, playable export packages, cloud sync, and Git integration out of scope.
+
+Validation:
+- Added tests for project-folder JSON serialization, invalid JSON handling, normalization on open, create-folder writing, and open-folder reading.
+
 ### Added - Platform service boundary
 
 Changes:

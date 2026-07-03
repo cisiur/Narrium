@@ -15,8 +15,9 @@ Current implementation status:
 - Standalone HTML export generation now lives in `src/services/export/`.
 - Legacy JSON import accepts old `Choice.conditions` and missing `effects`, then normalizes to the current shape.
 - Platform identity now goes through `src/services/platform/`.
+- A JSON-only local project folder foundation exists for desktop builds: create/open/save/save-as writes `project.narrium.json`.
 - Services can depend on domain code, but domain code must stay independent from stores, services, UI, and Tauri APIs.
-- Local project folders, local filesystem open/save, local asset storage, and playable export packaging are still planned future work.
+- Local asset storage, asset migration, recent projects, autosave, and playable export packaging are still planned future work.
 
 ---
 
@@ -72,16 +73,25 @@ Runtime/export boundary status:
 - No new playable export format exists yet.
 
 Platform boundary status:
-- `PlatformService` exposes only platform identity: browser vs desktop.
+- `PlatformService` exposes platform identity and the narrow project-file operations required by the current desktop folder workflow.
 - `BrowserPlatformService` reports the browser runtime.
 - `DesktopPlatformService` reports the Tauri desktop runtime.
 - `getPlatformService()` owns Tauri runtime detection using injected Tauri globals.
 - Future Tauri APIs must be introduced behind `services/platform/`; React components and Zustand stores must not import Tauri directly.
-- No filesystem, dialogs, clipboard, shell, notifications, drag-and-drop, asset loading, project folders, or storage APIs are implemented.
+- Current Tauri usage is limited to folder selection and reading/writing `project.narrium.json` through service boundaries.
+- No asset loading, image copying, clipboard, shell, notifications, drag-and-drop, autosave, recent projects, or playable package APIs are implemented.
+
+Project folder status:
+- `src/services/project-folder/` owns desktop project-folder orchestration.
+- Desktop projects currently use a folder containing `project.narrium.json`.
+- The saved file contains the normalized current `Project` JSON.
+- The browser workflow still uses the `ProjectStorage` localStorage backend and legacy keys.
+- The workspace store carries transitional current-folder metadata only while a desktop project is open.
+- The long-term workspace direction remains app preferences and recent projects, not the primary project database.
 
 Near-term desktop work should focus on:
-- introducing local filesystem project operations,
-- replacing long-term localStorage persistence with project-folder persistence,
+- adding local asset file storage under project folders,
+- replacing remaining long-term localStorage assumptions with project-folder persistence,
 - keeping the validated domain model recognizable.
 
 ---
@@ -93,14 +103,27 @@ Future Narrium desktop projects should be folders:
 ```text
 MyStory/
   project.narrium.json
+```
+
+`project.narrium.json` should store the Narrium `Project` data: scenes, choices, characters, resources, variables, groups, settings, and asset metadata.
+
+Current implementation:
+- creates or opens a folder selected by the author,
+- reads or writes `project.narrium.json`,
+- normalizes opened project JSON,
+- does not create an `assets/` folder yet.
+
+Future asset-enabled folders should add:
+
+```text
+MyStory/
+  project.narrium.json
   assets/
     backgrounds/
     characters/
     audio/
     ui/
 ```
-
-`project.narrium.json` should store the Narrium `Project` data: scenes, choices, characters, resources, variables, groups, settings, and asset metadata.
 
 Asset references in the JSON should use relative paths:
 
@@ -176,14 +199,13 @@ The exact export format should be designed later after the desktop project folde
 
 ---
 
-## Non-goals for this documentation task
+## Non-goals for the current project-folder foundation
 
-This documentation update does not implement:
-- local filesystem project create/open/save,
-- storage refactoring,
+The current project-folder foundation does not implement:
+- asset folder creation,
+- image file copying,
+- local asset path migration,
 - asset extraction,
-- migration tooling,
-- desktop preview changes,
+- recent projects,
+- autosave,
 - a new playable export format.
-
-No application code or dependencies should change as part of this task.

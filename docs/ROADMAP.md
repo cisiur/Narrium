@@ -24,7 +24,8 @@ Status note:
 - The browser-based MVP is validated and archived on `MVP_web_legacy`.
 - Completed MVP epics remain the product foundation and reference implementation.
 - A minimal Tauri v2 desktop shell foundation exists on `main`.
-- Local project folder system, local asset file storage, and new playable export format have not been implemented yet.
+- A JSON-only local project folder foundation exists on `main` for `project.narrium.json`.
+- Local asset file storage and a new playable export format have not been implemented yet.
 
 ```text
 Workspace Management       ██████████ 100%
@@ -41,7 +42,7 @@ Post-Audit Stabilization   ██████████ 100%
 Story Player Preview       ██████████ 100%
 Save / Export              ██████████ 100%
 Polish & Production UX     ██████░░░░  60%
-Desktop Shell Foundation   ██░░░░░░░░  20%
+Desktop Shell Foundation   ████░░░░░░  40%
 ```
 
 Validated web MVP state:
@@ -394,7 +395,7 @@ Deliverable status:
 
 ## EPIC 11A - Architecture Cleanup & Service Boundaries
 
-Status: **in progress**.
+Status: **complete**.
 
 Purpose:
 - Prepare the validated MVP codebase for durable desktop development before adding filesystem-heavy features.
@@ -414,7 +415,7 @@ Architecture rule:
 | E11A-02 | Services layer structure: organize storage, platform, assets, export, and runtime service boundaries | [BOTH] | Done |
 | E11A-03 | Runtime/export separation: make editor preview, future desktop runtime, and exported runtime boundaries explicit | [BOTH] | Done |
 | E11A-04 | Platform service boundary: isolate Tauri-specific calls behind a desktop platform adapter | [BOTH] | Done |
-| E11A-05 | Architecture documentation update after service boundaries are in place | [PM] | Planned |
+| E11A-05 | Architecture documentation update after service boundaries are in place | [PM] | Done via E11A documentation updates |
 
 Deliverable intent:
 - The current app still behaves like the validated MVP.
@@ -451,6 +452,11 @@ Current E11A-04 deliverable:
 - Kept filesystem, dialogs, clipboard, shell, notifications, drag-and-drop, asset loading, storage, and project folders out of scope.
 - Future desktop APIs must be introduced behind `src/services/platform/`, not directly in React components or Zustand stores.
 
+E11A completion note:
+- E11A is complete.
+- E11A-05 was satisfied through architecture documentation updates made across E11A-01 through E11A-04.
+- Future desktop implementation work should continue in EPIC 11.
+
 ---
 
 ## EPIC 11 - Desktop Pivot & Local Project System
@@ -467,8 +473,9 @@ Purpose:
 |---|---|---|---|
 | E11-01 | Documentation and architecture pivot | [PM] | Done |
 | E11-02 | Desktop shell foundation using Tauri v2 around the existing Vite/React UI | [BOTH] | Done |
-| E11-03 | Local project folder create/open/save workflow after E11A service boundaries | [BOTH] | Planned |
-| E11-04 | `project.narrium.json` storage format using the validated `Project` domain model | [BOTH] | Planned |
+| E11-03A | Local project folder foundation: create/open/save/save-as `project.narrium.json` only | [BOTH] | Done |
+| E11-03B | Local project workflow hardening: recent projects, unsaved state, project-folder UX refinements | [BOTH] | Planned |
+| E11-04 | `project.narrium.json` storage format using the validated `Project` domain model | [BOTH] | Done for JSON-only project folders |
 | E11-05 | Local asset file storage under project `assets/` folders | [BOTH] | Planned |
 | E11-06 | Relative asset paths in project JSON | [BOTH] | Planned |
 | E11-07 | Migration/import from legacy web MVP JSON | [BOTH] | Planned |
@@ -482,10 +489,16 @@ Current E11-02 deliverable:
 - The desktop shell loads the existing Vite/React UI.
 - Browser development, test, and web build scripts remain unchanged.
 - Workspace/project persistence now goes through a `ProjectStorage` service boundary.
-- The active storage implementation still uses the legacy web MVP localStorage keys and data format until future E11A/E11 tasks.
+- The browser storage implementation still uses the legacy web MVP localStorage keys and data format.
 
-E11A dependency:
-- E11A should run before E11-03 so local filesystem project operations are introduced through service boundaries rather than directly in UI or stores.
+Current E11-03A deliverable:
+- Desktop builds can create a selected project folder and write `project.narrium.json`.
+- Desktop builds can open a selected project folder containing `project.narrium.json`.
+- Desktop builds can save the active project back to its known folder.
+- Desktop builds can Save As to another selected folder.
+- `project.narrium.json` contains normalized current `Project` JSON.
+- Browser/Vite project creation, localStorage loading, JSON import/export, standalone HTML export, preview, story logic, and undo/redo remain supported.
+- No asset folder creation, image copying, local asset paths, autosave, recent projects, cloud sync, Git integration, or playable package export exists yet.
 
 Full EPIC 11 deliverable intent:
 - A desktop app can create, open, save, and preview Narrium projects from local folders.
@@ -497,10 +510,11 @@ Full EPIC 11 deliverable intent:
 
 ## Next Immediate Step
 
-Continue with EPIC 11A architecture cleanup before implementing local project folder workflows.
+Continue EPIC 11 desktop project system work after the JSON-only folder foundation.
 
 Recommended next task:
-- E11A-05 - Architecture documentation update after service boundaries are in place.
+- E11-05 - Local asset file storage under project `assets/` folders, or E11-03B if project-folder UX hardening is preferred first.
 
 Later candidates:
-- E11-03 - Local project folder create/open/save after service boundaries.
+- E11-03B - Recent projects, unsaved state, and project-folder UX hardening.
+- E11-07/E11-08 - Legacy web MVP JSON migration and Data URL extraction.

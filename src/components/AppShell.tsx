@@ -19,6 +19,8 @@ interface AppShellProps {
   onUngroupSelectedScenes?: () => void;
   onUngroupSelectedGroup?: () => void;
   onBackToProjects?: () => void;
+  onSaveProject?: () => void;
+  onSaveProjectAs?: () => void;
   onExportHtml?: () => void;
   onExportProject?: () => void;
   onEnterPreview?: () => void;
@@ -38,6 +40,8 @@ export function AppShell({
   onUngroupSelectedScenes,
   onUngroupSelectedGroup,
   onBackToProjects,
+  onSaveProject,
+  onSaveProjectAs,
   onExportHtml,
   onExportProject,
   onEnterPreview,
@@ -152,6 +156,24 @@ export function AppShell({
               >
                 Preview
               </button>
+              {onSaveProject ? (
+                <button
+                  type="button"
+                  onClick={onSaveProject}
+                  className="rounded bg-gray-700 px-2 py-1 text-xs font-medium text-gray-100 hover:bg-gray-600"
+                >
+                  Save
+                </button>
+              ) : null}
+              {onSaveProjectAs ? (
+                <button
+                  type="button"
+                  onClick={onSaveProjectAs}
+                  className="rounded bg-gray-700 px-2 py-1 text-xs font-medium text-gray-100 hover:bg-gray-600"
+                >
+                  Save As
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={onExportProject}

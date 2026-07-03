@@ -35,6 +35,9 @@ export function App() {
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const activeProject = useWorkspaceStore((state) => state.activeProject);
   const closeProject = useWorkspaceStore((state) => state.closeProject);
+  const canUseProjectFolders = useWorkspaceStore((state) => state.canUseProjectFolders);
+  const saveActiveProjectToFolder = useWorkspaceStore((state) => state.saveActiveProjectToFolder);
+  const saveActiveProjectAsFolder = useWorkspaceStore((state) => state.saveActiveProjectAsFolder);
   const addScene = useCanvasStore((state) => state.addScene);
   const groupSelectedScenes = useCanvasStore((state) => state.groupSelectedScenes);
   const assignSelectedScenesToGroup = useCanvasStore((state) => state.assignSelectedScenesToGroup);
@@ -181,6 +184,8 @@ export function App() {
         }
         onUngroupSelectedGroup={isCanvasView && selectedGroupId ? ungroupSelectedGroup : undefined}
         onBackToProjects={closeProject}
+        onSaveProject={canUseProjectFolders ? () => void saveActiveProjectToFolder() : undefined}
+        onSaveProjectAs={canUseProjectFolders ? () => void saveActiveProjectAsFolder() : undefined}
         onExportHtml={() => exportProjectAsStandaloneHtml(activeProject)}
         onExportProject={() => exportProjectAsJson(activeProject)}
         onEnterPreview={() => setIsPreviewMode(true)}

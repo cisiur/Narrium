@@ -250,8 +250,12 @@ function ProjectSettingsSidebar({
 export function MyProjectsScreen() {
   const projects = useWorkspaceStore((state) => state.projects);
   const createProject = useWorkspaceStore((state) => state.createProject);
+  const createProjectFolder = useWorkspaceStore((state) => state.createProjectFolder);
   const importProject = useWorkspaceStore((state) => state.importProject);
+  const openProjectFolder = useWorkspaceStore((state) => state.openProjectFolder);
   const openProject = useWorkspaceStore((state) => state.openProject);
+  const canUseProjectFolders = useWorkspaceStore((state) => state.canUseProjectFolders);
+  const projectFolderError = useWorkspaceStore((state) => state.projectFolderError);
   const renameProject = useWorkspaceStore((state) => state.renameProject);
   const updateProjectThumbnail = useWorkspaceStore((state) => state.updateProjectThumbnail);
   const deleteProject = useWorkspaceStore((state) => state.deleteProject);
@@ -293,6 +297,9 @@ export function MyProjectsScreen() {
           {importError ? (
             <p className="mt-2 text-sm font-medium text-red-700">{importError}</p>
           ) : null}
+          {projectFolderError ? (
+            <p className="mt-2 text-sm font-medium text-red-700">{projectFolderError}</p>
+          ) : null}
         </div>
         <div className="flex items-center gap-2">
           <input
@@ -312,6 +319,24 @@ export function MyProjectsScreen() {
           >
             Import JSON
           </button>
+          {canUseProjectFolders ? (
+            <>
+              <button
+                type="button"
+                onClick={() => void openProjectFolder()}
+                className="rounded-md border border-ink-950/10 bg-white px-4 py-2 text-sm font-semibold text-ink-800 shadow-sm transition hover:border-accent-500/40 hover:text-ink-950"
+              >
+                Open Project Folder
+              </button>
+              <button
+                type="button"
+                onClick={() => void createProjectFolder()}
+                className="rounded-md bg-accent-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-accent-600"
+              >
+                Create Project Folder
+              </button>
+            </>
+          ) : null}
           <button
             type="button"
             data-testid="create-project-button"

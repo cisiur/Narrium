@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { getProjectFolderService } from '../services/project-folder';
 import { getProjectStorage } from '../services/project-storage';
 import { normalizeProject } from '../domain/project';
 import type { Project, WorkspaceProjectMeta, WorkspaceState } from '../types';
@@ -11,14 +12,23 @@ import {
 } from './projectHistory';
 
 const projectStorage = getProjectStorage();
+const projectFolderService = getProjectFolderService();
 
 interface WorkspaceStore extends WorkspaceState {
   activeProject: Project | null;
   projectHistory: ProjectHistoryState;
+  activeProjectFolderPath: string | null;
+  activeProjectFilePath: string | null;
+  projectFolderError: string | null;
+  canUseProjectFolders: boolean;
   createProject: () => WorkspaceProjectMeta;
+  createProjectFolder: () => Promise<void>;
   importProject: (project: Project) => WorkspaceProjectMeta;
+  openProjectFolder: () => Promise<void>;
   openProject: (projectId: string) => void;
   closeProject: () => void;
+  saveActiveProjectToFolder: () => Promise<void>;
+  saveActiveProjectAsFolder: () => Promise<void>;
   renameProject: (projectId: string, newName: string) => void;
   updateProjectThumbnail: (projectId: string, thumbnail: string | null) => void;
   deleteProject: (projectId: string) => void;
@@ -37,6 +47,16 @@ function createProjectMeta(): WorkspaceProjectMeta {
     createdAt: now,
     updatedAt: now,
     thumbnailDataUrl: null,
+  };
+}
+
+function createProjectMetaFromProject(project: Project): WorkspaceProjectMeta {
+  return {
+    id: project.id,
+    name: project.name,
+    createdAt: project.createdAt,
+    updatedAt: project.updatedAt,
+    thumbnailDataUrl: project.thumbnail,
   };
 }
 
@@ -89,6 +109,10 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
   ...initialWorkspace,
   activeProject: projectStorage.loadProject(initialWorkspace.activeProjectId),
   projectHistory: createEmptyProjectHistory(initialWorkspace.activeProjectId),
+  activeProjectFolderPath: null,
+  activeProjectFilePath: null,
+  projectFolderError: null,
+  canUseProjectFolders: projectFolderService.canUseProjectFolders(),
   createProject: () => {
     const projectMeta = createProjectMeta();
     const project = createEmptyProject(projectMeta);
@@ -106,10 +130,52 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
         ...nextWorkspace,
         activeProject: project,
         projectHistory: createEmptyProjectHistory(project.id),
+        activeProjectFolderPath: null,
+        activeProjectFilePath: null,
+        projectFolderError: null,
       };
     });
 
     return projectMeta;
+  },
+  createProjectFolder: async () => {
+    const projectMeta = createProjectMeta();
+    const project = createEmptyProject(projectMeta);
+
+    try {
+      const projectFolder = await projectFolderService.createProjectFolder(project);
+
+      if (!projectFolder) {
+        return;
+      }
+
+      projectStorage.saveProject(projectFolder.project);
+
+      set((state) => {
+        const nextWorkspace = {
+          projects: [
+            ...state.projects.filter((existingProject) => existingProject.id !== projectFolder.project.id),
+            createProjectMetaFromProject(projectFolder.project),
+          ],
+          activeProjectId: projectFolder.project.id,
+        };
+
+        projectStorage.saveWorkspace(nextWorkspace);
+
+        return {
+          ...nextWorkspace,
+          activeProject: projectFolder.project,
+          projectHistory: createEmptyProjectHistory(projectFolder.project.id),
+          activeProjectFolderPath: projectFolder.folderPath,
+          activeProjectFilePath: projectFolder.filePath,
+          projectFolderError: null,
+        };
+      });
+    } catch (error) {
+      set({
+        projectFolderError: error instanceof Error ? error.message : 'Could not create project folder.',
+      });
+    }
   },
   importProject: (project) => {
     const normalizedProject = normalizeProject(project).project;
@@ -143,10 +209,49 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
         ...nextWorkspace,
         activeProject: importedProject,
         projectHistory: createEmptyProjectHistory(importedProject.id),
+        activeProjectFolderPath: null,
+        activeProjectFilePath: null,
+        projectFolderError: null,
       };
     });
 
     return projectMeta;
+  },
+  openProjectFolder: async () => {
+    try {
+      const projectFolder = await projectFolderService.openProjectFolder();
+
+      if (!projectFolder) {
+        return;
+      }
+
+      projectStorage.saveProject(projectFolder.project);
+
+      set((state) => {
+        const nextWorkspace = {
+          projects: [
+            ...state.projects.filter((project) => project.id !== projectFolder.project.id),
+            createProjectMetaFromProject(projectFolder.project),
+          ],
+          activeProjectId: projectFolder.project.id,
+        };
+
+        projectStorage.saveWorkspace(nextWorkspace);
+
+        return {
+          ...nextWorkspace,
+          activeProject: projectFolder.project,
+          projectHistory: createEmptyProjectHistory(projectFolder.project.id),
+          activeProjectFolderPath: projectFolder.folderPath,
+          activeProjectFilePath: projectFolder.filePath,
+          projectFolderError: null,
+        };
+      });
+    } catch (error) {
+      set({
+        projectFolderError: error instanceof Error ? error.message : 'Could not open project folder.',
+      });
+    }
   },
   openProject: (projectId) => {
     const project = projectStorage.loadProject(projectId);
@@ -167,6 +272,9 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
         ...nextWorkspace,
         activeProject: project,
         projectHistory: createEmptyProjectHistory(project.id),
+        activeProjectFolderPath: null,
+        activeProjectFilePath: null,
+        projectFolderError: null,
       };
     });
   },
@@ -183,8 +291,82 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
         ...nextWorkspace,
         activeProject: null,
         projectHistory: createEmptyProjectHistory(),
+        activeProjectFolderPath: null,
+        activeProjectFilePath: null,
+        projectFolderError: null,
       };
     });
+  },
+  saveActiveProjectToFolder: async () => {
+    const { activeProject, activeProjectFolderPath } = useWorkspaceStore.getState();
+
+    if (!activeProject) {
+      return;
+    }
+
+    if (!activeProjectFolderPath) {
+      await useWorkspaceStore.getState().saveActiveProjectAsFolder();
+      return;
+    }
+
+    try {
+      const projectFolder = await projectFolderService.saveProject(activeProject, activeProjectFolderPath);
+
+      projectStorage.saveProject(projectFolder.project);
+
+      set((state) => {
+        const nextWorkspace = createWorkspaceForProject(state, projectFolder.project);
+
+        projectStorage.saveWorkspace(nextWorkspace);
+
+        return {
+          ...nextWorkspace,
+          activeProject: projectFolder.project,
+          activeProjectFolderPath: projectFolder.folderPath,
+          activeProjectFilePath: projectFolder.filePath,
+          projectFolderError: null,
+        };
+      });
+    } catch (error) {
+      set({
+        projectFolderError: error instanceof Error ? error.message : 'Could not save project.',
+      });
+    }
+  },
+  saveActiveProjectAsFolder: async () => {
+    const { activeProject } = useWorkspaceStore.getState();
+
+    if (!activeProject) {
+      return;
+    }
+
+    try {
+      const projectFolder = await projectFolderService.saveProjectAs(activeProject);
+
+      if (!projectFolder) {
+        return;
+      }
+
+      projectStorage.saveProject(projectFolder.project);
+
+      set((state) => {
+        const nextWorkspace = createWorkspaceForProject(state, projectFolder.project);
+
+        projectStorage.saveWorkspace(nextWorkspace);
+
+        return {
+          ...nextWorkspace,
+          activeProject: projectFolder.project,
+          activeProjectFolderPath: projectFolder.folderPath,
+          activeProjectFilePath: projectFolder.filePath,
+          projectFolderError: null,
+        };
+      });
+    } catch (error) {
+      set({
+        projectFolderError: error instanceof Error ? error.message : 'Could not save project as.',
+      });
+    }
   },
   renameProject: (projectId, newName) => {
     set((state) => {

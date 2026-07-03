@@ -105,7 +105,21 @@ Notes:
 
 The current MVP `Project` object remains the validated domain model for scenes, choices, story logic, characters, resources, variables, groups, settings, and runtime initialization.
 
-For production desktop storage, the saved project should evolve from browser/localStorage payloads toward a local project folder:
+The first desktop project artifact is now a local project folder containing `project.narrium.json`:
+
+```text
+MyStory/
+  project.narrium.json
+```
+
+Current implementation rules:
+- `project.narrium.json` stores the normalized JSON-compatible `Project` data.
+- Create Project Folder, Open Project Folder, Save, and Save As operate on this file in desktop builds.
+- Browser/Vite workflow still uses the existing localStorage-backed workspace for compatibility.
+- Assets are not copied into folders yet.
+- Uploaded images and asset-library uploads may still be Data URLs in the saved JSON until a later asset-storage task.
+
+For production desktop storage, the saved project should continue evolving toward a fuller local project folder:
 
 ```text
 MyStory/
@@ -123,7 +137,7 @@ Intended storage rules:
 - Imported or uploaded files should be copied into the local project folder.
 - Large uploaded image Data URLs should not be stored inside the long-term saved project file.
 - The project folder should be portable as a folder/package, not as one bloated JSON blob.
-- The exact desktop shell and file dialog implementation are not part of the data model and are not implemented yet.
+- The exact local asset file layout remains future work.
 
 Compatibility:
 - Current web MVP exports may still contain embedded Data URLs in `Project.thumbnail`, `SceneBackground.url`, or `AssetLibraryItem.url`.

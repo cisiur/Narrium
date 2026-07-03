@@ -71,8 +71,8 @@ Workflow:
 | State management | Zustand |
 | Styling | Tailwind CSS v3 |
 | Desktop shell | Tauri v2 foundation |
-| Storage | `ProjectStorage` service boundary with current browser/localStorage implementation |
-| Project format | JSON-compatible `Project` object; future desktop project file should be `project.narrium.json` |
+| Storage | `ProjectStorage` service boundary for browser/localStorage plus desktop project-folder service for `project.narrium.json` |
+| Project format | JSON-compatible `Project` object; desktop project folders now save `project.narrium.json` |
 | Runtime player | Embedded React Preview player |
 | Exported player | Standalone HTML file for archived web MVP; future playable export format TBD |
 | Tests | Vitest |
@@ -94,8 +94,10 @@ Strategic status:
 - Standalone HTML export generation now lives in `src/services/export/`.
 - JSON import accepts legacy choices with `conditions` and missing `effects`, then normalizes to the current `conditionGroups`/`effects` shape.
 - Platform identity now goes through `src/services/platform/`; future desktop APIs must be added behind that service boundary.
+- Desktop builds now have a JSON-only local project folder foundation for Create Project Folder, Open Project Folder, Save, and Save As.
+- Desktop project folders currently contain `project.narrium.json` only.
 - Current intended dependency direction is UI/features -> stores -> services -> domain -> types.
-- No local project folder storage, local asset file storage, or future playable export system has been implemented yet on `main`.
+- Local asset file storage, asset folder creation, asset migration, autosave, recent projects, and future playable export packaging have not been implemented yet on `main`.
 
 ```text
 Workspace Management       ██████████ 100%
@@ -211,8 +213,27 @@ Good candidates:
   - My Projects
   - Add Scene
   - Preview
+  - Save / Save As in desktop project-folder capable builds
   - Export JSON
   - Export HTML
+
+### Desktop Project Folders
+
+- Desktop project-folder workflow exists for JSON-only projects.
+- Supported desktop actions:
+  - Create Project Folder
+  - Open Project Folder
+  - Save
+  - Save As
+- Required folder shape for the current implementation:
+  - `My Story/project.narrium.json`
+- `project.narrium.json` contains the normalized current `Project` JSON.
+- Opening a project folder reads and normalizes `project.narrium.json`.
+- Invalid project folder JSON shows a project-folder error in the My Projects screen.
+- Browser/Vite workflow still uses `narrium_workspace` and `narrium_project_{id}` in localStorage.
+- The workspace store currently keeps transitional active project folder/file paths while a desktop folder project is open.
+- Workspace/localStorage remains a compatibility layer, not the long-term desktop project database.
+- No `assets/` folder, image copying, local asset paths, autosave, recent projects, or playable export package exists yet.
 
 ### Shared UI
 
@@ -699,6 +720,11 @@ src/
       BrowserProjectStorage.ts
       BrowserProjectStorage.test.ts
       getProjectStorage.ts
+      index.ts
+    project-folder/
+      ProjectFolderService.ts
+      ProjectFolderService.test.ts
+      getProjectFolderService.ts
       index.ts
     platform/
       PlatformService.ts

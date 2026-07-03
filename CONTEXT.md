@@ -71,7 +71,7 @@ Workflow:
 | State management | Zustand |
 | Styling | Tailwind CSS v3 |
 | Desktop shell | Tauri v2 foundation |
-| Storage | localStorage for archived web MVP; future desktop storage should use local project folders |
+| Storage | `ProjectStorage` service boundary with current browser/localStorage implementation |
 | Project format | JSON-compatible `Project` object; future desktop project file should be `project.narrium.json` |
 | Runtime player | Embedded React Preview player |
 | Exported player | Standalone HTML file for archived web MVP; future playable export format TBD |
@@ -87,7 +87,8 @@ Strategic status:
 - Active development on `main` now targets a desktop-first editor.
 - The existing React/TypeScript editor, canonical `Project` model, story logic runtime, preview, validation, JSON import/export, and standalone HTML export remain the validated MVP foundation.
 - A minimal Tauri v2 desktop shell foundation exists on `main` and loads the existing Vite/React UI.
-- Storage is still the legacy web MVP localStorage flow until future E11 local project folder work.
+- Workspace/project persistence now goes through a `ProjectStorage` service boundary.
+- The active implementation is still browser/localStorage and preserves the legacy web MVP keys/data format.
 - No local project folder storage, local asset file storage, or future playable export system has been implemented yet on `main`.
 
 ```text
@@ -149,6 +150,7 @@ Current recommended next milestone:
 - Recommended next task should be selected by the project owner.
 
 Good candidates:
+- Desktop/local filesystem storage backend design.
 - Local project folder create/open/save.
 - Local `assets/` folder storage for imported files.
 - Import/migration path from legacy web MVP JSON, including future extraction of embedded Data URLs.
@@ -591,11 +593,11 @@ Important:
 - Resources are player-facing numeric values when marked visible.
 
 Next recommended tasks:
-1. Local project folder create/open/save.
-2. Local asset file storage under project `assets/`.
-3. Migration/import from legacy web MVP JSON.
-4. Desktop preview parity.
-5. Future playable export foundation.
+1. Desktop/local filesystem storage backend design.
+2. Local project folder create/open/save.
+3. Local asset file storage under project `assets/`.
+4. Migration/import from legacy web MVP JSON.
+5. Desktop preview parity and future playable export foundation.
 
 ---
 
@@ -676,6 +678,14 @@ src/
     useCanvasStore.ts
     useCanvasStore.test.ts
     useProjectViewStore.ts
+
+  services/
+    project-storage/
+      ProjectStorage.ts
+      BrowserProjectStorage.ts
+      BrowserProjectStorage.test.ts
+      getProjectStorage.ts
+      index.ts
 
   utils/
     projectExport.ts

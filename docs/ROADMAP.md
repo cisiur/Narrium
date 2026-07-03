@@ -394,7 +394,7 @@ Deliverable status:
 
 ## EPIC 11A - Architecture Cleanup & Service Boundaries
 
-Status: **planned**.
+Status: **in progress**.
 
 Purpose:
 - Prepare the validated MVP codebase for durable desktop development before adding filesystem-heavy features.
@@ -410,7 +410,7 @@ Architecture rule:
 
 | ID | Task | Who | Status |
 |---|---|---|---|
-| E11A-01 | Storage abstraction foundation: introduce a ProjectStorage interface and browser/localStorage implementation without changing behavior | [BOTH] | Planned |
+| E11A-01 | Storage abstraction foundation: introduce a ProjectStorage interface and browser/localStorage implementation without changing behavior | [BOTH] | Done |
 | E11A-02 | Services layer structure: organize storage, platform, assets, export, and runtime service boundaries | [BOTH] | Planned |
 | E11A-03 | Runtime/export separation: make editor preview, future desktop runtime, and exported runtime boundaries explicit | [BOTH] | Planned |
 | E11A-04 | Platform service boundary: isolate Tauri-specific calls behind a desktop platform adapter | [BOTH] | Planned |
@@ -421,6 +421,14 @@ Deliverable intent:
 - Browser `npm run dev`, tests, and web build remain supported.
 - Existing localStorage persistence remains functional through a browser storage adapter.
 - Future desktop filesystem features can be added without importing Tauri directly into UI, stores, story runtime, validation, or export code.
+
+Current E11A-01 deliverable:
+- Added `ProjectStorage` as a synchronous persistence interface.
+- Added `BrowserProjectStorage` as the current localStorage-backed implementation.
+- Added `getProjectStorage()` as the default resolver.
+- Refactored `useWorkspaceStore` to call the storage service instead of `window.localStorage` directly.
+- Preserved `narrium_workspace` and `narrium_project_{id}` keys and the current saved data format.
+- Desktop filesystem storage remains future work.
 
 ---
 
@@ -452,7 +460,8 @@ Current E11-02 deliverable:
 - Desktop scripts exist for dev/build entry points.
 - The desktop shell loads the existing Vite/React UI.
 - Browser development, test, and web build scripts remain unchanged.
-- Storage still uses the legacy web MVP localStorage path until future E11A/E11 tasks.
+- Workspace/project persistence now goes through a `ProjectStorage` service boundary.
+- The active storage implementation still uses the legacy web MVP localStorage keys and data format until future E11A/E11 tasks.
 
 E11A dependency:
 - E11A should run before E11-03 so local filesystem project operations are introduced through service boundaries rather than directly in UI or stores.
@@ -470,7 +479,7 @@ Full EPIC 11 deliverable intent:
 Continue with EPIC 11A architecture cleanup before implementing local project folder workflows.
 
 Recommended next task:
-- E11A-01 - Storage abstraction foundation.
+- E11A-02 - Services layer structure.
 
 Later candidates:
 - E11A-02 - Services layer structure.

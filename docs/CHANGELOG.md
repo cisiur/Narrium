@@ -6,6 +6,19 @@ This changelog records milestone-level project changes. It is intentionally conc
 
 ## Unreleased / Next
 
+### Changed - Project storage abstraction foundation
+
+Changes:
+- Added a synchronous `ProjectStorage` interface for workspace/project persistence.
+- Added `BrowserProjectStorage` as the current localStorage-backed implementation.
+- Added `getProjectStorage()` as the default resolver for future backend substitution.
+- Refactored `useWorkspaceStore` so workspace/project persistence goes through the storage service instead of direct `window.localStorage` calls.
+- Preserved the existing `narrium_workspace` and `narrium_project_{id}` keys and data format.
+- Kept local project folders, Tauri filesystem APIs, asset storage refactors, and Project data model changes out of scope.
+
+Validation:
+- Added storage service tests for workspace/project round trips, delete behavior, key compatibility, corrupt data handling, and normalization save-back.
+
 ### Added - Desktop shell foundation
 
 Changes:

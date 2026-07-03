@@ -8,6 +8,8 @@ Current implementation status:
 - A minimal Tauri v2 desktop shell foundation exists under `src-tauri/`.
 - The shell loads the existing Vite/React UI in development and points at the Vite `dist` output for desktop builds.
 - Browser development remains available through the existing Vite workflow.
+- Workspace/project persistence now goes through a synchronous `ProjectStorage` service boundary.
+- The current `BrowserProjectStorage` backend still uses `narrium_workspace` and `narrium_project_{id}` in browser localStorage.
 - Local project folders, local filesystem open/save, local asset storage, and playable export packaging are still planned future work.
 
 ---
@@ -43,6 +45,11 @@ The current Tauri foundation is intentionally minimal:
 - it does not introduce filesystem project storage,
 - it does not expose local asset import APIs,
 - it does not change the `Project` model.
+
+The current storage abstraction is also intentionally minimal:
+- it preserves the existing localStorage data format,
+- it keeps persistence synchronous for compatibility with the current Zustand store,
+- it creates a future backend seam without implementing Tauri filesystem or dialog APIs.
 
 Near-term desktop work should focus on:
 - introducing local filesystem project operations,

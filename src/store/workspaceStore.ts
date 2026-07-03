@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { getProjectStorage } from '../services/project-storage';
 import type { Project, WorkspaceProjectMeta, WorkspaceState } from '../types';
 import {
   createEmptyProjectHistory,
@@ -9,8 +10,7 @@ import {
 } from './projectHistory';
 import { normalizeProject } from './projectMigrations';
 
-const WORKSPACE_STORAGE_KEY = 'narrium_workspace';
-const PROJECT_STORAGE_PREFIX = 'narrium_project_';
+const projectStorage = getProjectStorage();
 
 interface WorkspaceStore extends WorkspaceState {
   activeProject: Project | null;
@@ -60,87 +60,6 @@ export function createEmptyProject(meta: WorkspaceProjectMeta): Project {
   };
 }
 
-function loadWorkspace(): WorkspaceState {
-  if (typeof window === 'undefined') {
-    return { projects: [], activeProjectId: null };
-  }
-
-  const rawWorkspace = window.localStorage.getItem(WORKSPACE_STORAGE_KEY);
-
-  if (!rawWorkspace) {
-    return { projects: [], activeProjectId: null };
-  }
-
-  try {
-    const parsedWorkspace = JSON.parse(rawWorkspace) as WorkspaceState;
-
-    return {
-      projects: Array.isArray(parsedWorkspace.projects)
-        ? parsedWorkspace.projects.map((project) => ({
-            ...project,
-            thumbnailDataUrl: project.thumbnailDataUrl ?? null,
-          }))
-        : [],
-      activeProjectId: parsedWorkspace.activeProjectId ?? null,
-    };
-  } catch {
-    return { projects: [], activeProjectId: null };
-  }
-}
-
-function saveWorkspace(workspace: WorkspaceState) {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  window.localStorage.setItem(WORKSPACE_STORAGE_KEY, JSON.stringify(workspace));
-}
-
-function getProjectStorageKey(projectId: string) {
-  return `${PROJECT_STORAGE_PREFIX}${projectId}`;
-}
-
-function loadProject(projectId: string | null): Project | null {
-  if (typeof window === 'undefined' || !projectId) {
-    return null;
-  }
-
-  const rawProject = window.localStorage.getItem(getProjectStorageKey(projectId));
-
-  if (!rawProject) {
-    return null;
-  }
-
-  try {
-    const parsedProject = JSON.parse(rawProject) as Project;
-    const normalizedProject = normalizeProject(parsedProject);
-
-    if (normalizedProject.changed) {
-      saveProject(normalizedProject.project);
-    }
-
-    return normalizedProject.project;
-  } catch {
-    return null;
-  }
-}
-
-function saveProject(project: Project) {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  window.localStorage.setItem(getProjectStorageKey(project.id), JSON.stringify(project));
-}
-
-function deleteStoredProject(projectId: string) {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  window.localStorage.removeItem(getProjectStorageKey(projectId));
-}
-
 function stampProjectUpdatedAt(project: Project): Project {
   return {
     ...project,
@@ -164,16 +83,16 @@ function createWorkspaceForProject(state: WorkspaceStore, project: Project) {
   };
 }
 
-const initialWorkspace = loadWorkspace();
+const initialWorkspace = projectStorage.loadWorkspace();
 
 export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
   ...initialWorkspace,
-  activeProject: loadProject(initialWorkspace.activeProjectId),
+  activeProject: projectStorage.loadProject(initialWorkspace.activeProjectId),
   projectHistory: createEmptyProjectHistory(initialWorkspace.activeProjectId),
   createProject: () => {
     const projectMeta = createProjectMeta();
     const project = createEmptyProject(projectMeta);
-    saveProject(project);
+    projectStorage.saveProject(project);
 
     set((state) => {
       const nextWorkspace = {
@@ -181,7 +100,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
         activeProjectId: projectMeta.id,
       };
 
-      saveWorkspace(nextWorkspace);
+      projectStorage.saveWorkspace(nextWorkspace);
 
       return {
         ...nextWorkspace,
@@ -210,7 +129,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
       thumbnailDataUrl: importedProject.thumbnail,
     };
 
-    saveProject(importedProject);
+    projectStorage.saveProject(importedProject);
 
     set((state) => {
       const nextWorkspace = {
@@ -218,7 +137,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
         activeProjectId: id,
       };
 
-      saveWorkspace(nextWorkspace);
+      projectStorage.saveWorkspace(nextWorkspace);
 
       return {
         ...nextWorkspace,
@@ -230,7 +149,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
     return projectMeta;
   },
   openProject: (projectId) => {
-    const project = loadProject(projectId);
+    const project = projectStorage.loadProject(projectId);
 
     if (!project) {
       return;
@@ -242,7 +161,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
         activeProjectId: projectId,
       };
 
-      saveWorkspace(nextWorkspace);
+      projectStorage.saveWorkspace(nextWorkspace);
 
       return {
         ...nextWorkspace,
@@ -258,7 +177,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
         activeProjectId: null,
       };
 
-      saveWorkspace(nextWorkspace);
+      projectStorage.saveWorkspace(nextWorkspace);
 
       return {
         ...nextWorkspace,
@@ -269,7 +188,8 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
   },
   renameProject: (projectId, newName) => {
     set((state) => {
-      const project = loadProject(projectId) ?? (state.activeProject?.id === projectId ? state.activeProject : null);
+      const project =
+        projectStorage.loadProject(projectId) ?? (state.activeProject?.id === projectId ? state.activeProject : null);
 
       if (!project) {
         return state;
@@ -295,8 +215,8 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
         activeProjectId: state.activeProjectId,
       };
 
-      saveProject(nextProject);
-      saveWorkspace(nextWorkspace);
+      projectStorage.saveProject(nextProject);
+      projectStorage.saveWorkspace(nextWorkspace);
 
       return {
         ...nextWorkspace,
@@ -306,7 +226,8 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
   },
   updateProjectThumbnail: (projectId, thumbnail) => {
     set((state) => {
-      const project = loadProject(projectId) ?? (state.activeProject?.id === projectId ? state.activeProject : null);
+      const project =
+        projectStorage.loadProject(projectId) ?? (state.activeProject?.id === projectId ? state.activeProject : null);
 
       if (!project) {
         return state;
@@ -331,8 +252,8 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
         activeProjectId: state.activeProjectId,
       };
 
-      saveProject(nextProject);
-      saveWorkspace(nextWorkspace);
+      projectStorage.saveProject(nextProject);
+      projectStorage.saveWorkspace(nextWorkspace);
 
       return {
         ...nextWorkspace,
@@ -342,14 +263,14 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
   },
   deleteProject: (projectId) => {
     set((state) => {
-      deleteStoredProject(projectId);
+      projectStorage.deleteProject(projectId);
 
       const nextWorkspace = {
         projects: state.projects.filter((project) => project.id !== projectId),
         activeProjectId: state.activeProjectId === projectId ? null : state.activeProjectId,
       };
 
-      saveWorkspace(nextWorkspace);
+      projectStorage.saveWorkspace(nextWorkspace);
 
       return {
         ...nextWorkspace,
@@ -369,8 +290,8 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
       const nextProject = stampProjectUpdatedAt(updatedProject);
       const nextWorkspace = createWorkspaceForProject(state, nextProject);
 
-      saveProject(nextProject);
-      saveWorkspace(nextWorkspace);
+      projectStorage.saveProject(nextProject);
+      projectStorage.saveWorkspace(nextWorkspace);
 
       return {
         ...nextWorkspace,
@@ -394,8 +315,8 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
       const nextProject = stampProjectUpdatedAt(result.project);
       const nextWorkspace = createWorkspaceForProject(state, nextProject);
 
-      saveProject(nextProject);
-      saveWorkspace(nextWorkspace);
+      projectStorage.saveProject(nextProject);
+      projectStorage.saveWorkspace(nextWorkspace);
 
       return {
         ...nextWorkspace,
@@ -421,8 +342,8 @@ export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
       const nextProject = stampProjectUpdatedAt(result.project);
       const nextWorkspace = createWorkspaceForProject(state, nextProject);
 
-      saveProject(nextProject);
-      saveWorkspace(nextWorkspace);
+      projectStorage.saveProject(nextProject);
+      projectStorage.saveWorkspace(nextWorkspace);
 
       return {
         ...nextWorkspace,

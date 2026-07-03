@@ -72,7 +72,7 @@ Workflow:
 | Styling | Tailwind CSS v3 |
 | Desktop shell | Tauri v2 foundation |
 | Storage | `ProjectStorage` service boundary for browser/localStorage plus desktop project-folder service for `project.narrium.json` |
-| Project format | JSON-compatible `Project` object; desktop project folders now save `project.narrium.json` |
+| Project format | JSON-compatible `Project` object; desktop project folders now save `project.narrium.json` and may contain background files under `assets/backgrounds/` |
 | Runtime player | Embedded React Preview player |
 | Exported player | Standalone HTML file for archived web MVP; future playable export format TBD |
 | Tests | Vitest |
@@ -96,9 +96,12 @@ Strategic status:
 - Platform identity now goes through `src/services/platform/`; future desktop APIs must be added behind that service boundary.
 - Desktop builds now have a JSON-only local project folder foundation for Create Project Folder, Open Project Folder, Save, and Save As.
 - Desktop project workflow hardening is implemented: dirty state, guarded Open/Create/Exit, recent project folders, last-opened offer, platform-owned path joining, folder path display, and dirty `*` indicator.
-- Desktop project folders currently contain `project.narrium.json` only.
+- Desktop project folders contain `project.narrium.json` and may contain imported background images under `assets/backgrounds/`.
+- Desktop background imports copy selected image files into the active project folder and store project-relative paths in `Project` JSON.
+- Editor thumbnails and Preview resolve those relative background paths through the asset service at render time.
 - Current intended dependency direction is UI/features -> stores -> services -> domain -> types.
-- Local asset file storage, asset folder creation, asset migration, autosave, and future playable export packaging have not been implemented yet on `main`.
+- Local asset file storage is currently limited to background images only.
+- Character assets, audio assets, UI assets, legacy Data URL extraction, autosave, and future playable export packaging have not been implemented yet on `main`.
 
 ```text
 Workspace Management       ██████████ 100%
@@ -240,7 +243,8 @@ Good candidates:
 - The project header shows the current folder path and appends `*` to dirty project names.
 - Save is disabled until a desktop project has a known folder; Save As remains available.
 - Workspace/localStorage remains a compatibility layer, not the long-term desktop project database.
-- No `assets/` folder, image copying, local asset paths, autosave, or playable export package exists yet.
+- Desktop background imports can create `assets/backgrounds/` and store relative background paths.
+- Character/audio/UI asset folders, legacy Data URL migration, autosave, and playable export packages remain future work.
 
 ### Shared UI
 
@@ -627,7 +631,7 @@ Important:
 - Resources are player-facing numeric values when marked visible.
 
 Next recommended tasks:
-1. Local asset file storage under project `assets/`.
+1. Expand local asset storage beyond background images.
 2. Migration/import from legacy web MVP JSON.
 3. Future extraction of embedded Data URLs into local asset files.
 4. Desktop preview parity with the validated web MVP preview.

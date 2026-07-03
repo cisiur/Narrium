@@ -6,6 +6,19 @@ This changelog records milestone-level project changes. It is intentionally conc
 
 ## Unreleased / Next
 
+### Added - Local background asset storage
+
+Changes:
+- Added desktop-only background image import for active local project folders.
+- Copied imported background images into `assets/backgrounds/` inside the active project folder.
+- Stored desktop background references as project-relative paths such as `assets/backgrounds/forest.png` instead of Data URLs.
+- Added render URL resolution for local background paths in the asset library, scene thumbnails, editor background preview, and story preview.
+- Preserved browser uploads, URL backgrounds, legacy Data URLs, JSON import/export, and standalone HTML export behavior.
+- Kept character assets, audio assets, UI assets, drag-and-drop import, asset cleanup, legacy Data URL extraction, and playable export changes out of scope.
+
+Validation:
+- Added tests for allowed background extensions, safe unique filenames, project-relative path helpers, desktop import metadata, canceled import behavior, and render URL resolution.
+
 ### Added - Desktop project workflow hardening
 
 Changes:

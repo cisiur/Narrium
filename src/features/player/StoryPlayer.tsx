@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Choice, Project } from '../../types';
 import { advanceRuntimeForChoice, createInitialRuntimeState } from '../../domain/runtime';
+import type { ProjectAssetUrlMap } from '../../services/assets';
 import { DialoguePanel } from './DialoguePanel';
 import {
   createChoiceViewModels,
@@ -12,15 +13,16 @@ import { StoryPlayerHeader } from './StoryPlayerHeader';
 
 interface StoryPlayerProps {
   project: Project;
+  assetUrls?: ProjectAssetUrlMap;
   onExitPreview: () => void;
 }
 
-export function StoryPlayer({ project, onExitPreview }: StoryPlayerProps) {
+export function StoryPlayer({ project, assetUrls = {}, onExitPreview }: StoryPlayerProps) {
   const [runtimeState, setRuntimeState] = useState(() => createInitialRuntimeState(project));
   const currentScene =
     project.scenes.find((scene) => scene.id === runtimeState.currentSceneId) ?? null;
   const currentPage = currentScene?.dialoguePages[runtimeState.currentPageIndex] ?? null;
-  const backgroundUrl = currentScene ? resolveSceneBackgroundUrl(project, currentScene) : null;
+  const backgroundUrl = currentScene ? resolveSceneBackgroundUrl(project, currentScene, assetUrls) : null;
   const speakerName = currentPage ? resolveSpeakerName(project, currentPage.speakerId) : null;
   const hasNextPage = currentScene
     ? runtimeState.currentPageIndex < currentScene.dialoguePages.length - 1

@@ -25,7 +25,8 @@ Status note:
 - Completed MVP epics remain the product foundation and reference implementation.
 - A minimal Tauri v2 desktop shell foundation exists on `main`.
 - A JSON-only local project folder foundation exists on `main` for `project.narrium.json`.
-- Local asset file storage and a new playable export format have not been implemented yet.
+- Local background asset file storage exists on `main` for desktop project folders.
+- Character assets, audio assets, UI assets, legacy Data URL migration, and a new playable export format have not been implemented yet.
 
 ```text
 Workspace Management       ██████████ 100%
@@ -476,8 +477,9 @@ Purpose:
 | E11-03A | Local project folder foundation: create/open/save/save-as `project.narrium.json` only | [BOTH] | Done |
 | E11-03B | Local project workflow hardening: recent projects, unsaved state, project-folder UX refinements | [BOTH] | Done |
 | E11-04 | `project.narrium.json` storage format using the validated `Project` domain model | [BOTH] | Done for JSON-only project folders |
-| E11-05 | Local asset file storage under project `assets/` folders | [BOTH] | Planned |
-| E11-06 | Relative asset paths in project JSON | [BOTH] | Planned |
+| E11-05A | Local background asset storage under `assets/backgrounds/` | [BOTH] | Done |
+| E11-05B | Local character/audio/UI asset storage under project `assets/` folders | [BOTH] | Planned |
+| E11-06 | Broader relative asset path coverage in project JSON | [BOTH] | Planned |
 | E11-07 | Migration/import from legacy web MVP JSON | [BOTH] | Planned |
 | E11-08 | Extract legacy embedded Data URLs into local asset files during migration where practical | [BOTH] | Planned |
 | E11-09 | Desktop preview parity with validated web MVP preview behavior | [BOTH] | Planned |
@@ -498,7 +500,7 @@ Current E11-03A deliverable:
 - Desktop builds can Save As to another selected folder.
 - `project.narrium.json` contains normalized current `Project` JSON.
 - Browser/Vite project creation, localStorage loading, JSON import/export, standalone HTML export, preview, story logic, and undo/redo remain supported.
-- No asset folder creation, image copying, local asset paths, autosave, cloud sync, Git integration, or playable package export exists yet.
+- At E11-03A completion, asset folder creation, image copying, local asset paths, autosave, cloud sync, Git integration, and playable package export were still future work.
 
 Current E11-03B deliverable:
 - Project file reads and writes now delegate path joining to the platform/Rust layer.
@@ -509,7 +511,14 @@ Current E11-03B deliverable:
 - The project header shows the current folder path and a `*` dirty indicator.
 - Save is disabled until the active desktop project has a known folder; Save As remains available.
 - Browser/Vite workflow remains compatible.
-- Asset folders, image copying, local asset paths, autosave, Git integration, cloud sync, and playable export changes remain planned future work.
+- Background image imports are covered by E11-05A; autosave, Git integration, cloud sync, and playable export changes remain planned future work.
+
+Current E11-05A deliverable:
+- Desktop projects can copy imported background images into `assets/backgrounds/` under the active project folder.
+- Desktop project JSON stores those imported backgrounds as relative paths such as `assets/backgrounds/forest.png`.
+- Local background paths render in the asset library, scene thumbnails, editor background preview, and story preview through service-level URL resolution.
+- Browser uploads and legacy Data URL/URL behavior remain supported.
+- Character assets, audio assets, UI assets, drag-and-drop import, asset cleanup, legacy Data URL extraction, and playable export changes remain future work.
 
 Full EPIC 11 deliverable intent:
 - A desktop app can create, open, save, and preview Narrium projects from local folders.
@@ -524,7 +533,7 @@ Full EPIC 11 deliverable intent:
 Continue EPIC 11 desktop project system work after the hardened JSON-only folder workflow.
 
 Recommended next task:
-- E11-05 - Local asset file storage under project `assets/` folders.
+- E11-05B - Expand local asset storage beyond background images.
 
 Later candidates:
 - E11-07/E11-08 - Legacy web MVP JSON migration and Data URL extraction.

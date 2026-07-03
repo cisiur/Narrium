@@ -18,6 +18,7 @@ import {
   projectSceneEdge,
   shouldRenderSceneNode,
 } from '../features/canvas/sceneGroups';
+import type { ProjectAssetUrlMap } from '../services/assets';
 import type { AssetLibraryItem, Choice, DialoguePage, Scene, SceneBackground, SceneGroup } from '../types';
 import type { Project } from '../types';
 import { useWorkspaceStore } from './workspaceStore';
@@ -28,6 +29,7 @@ export interface SceneNodeData {
   scene: Scene;
   scenes: Scene[];
   assetLibrary: AssetLibraryItem[];
+  assetUrls: ProjectAssetUrlMap;
 }
 
 export interface SceneGroupFrameData {
@@ -179,6 +181,7 @@ function buildNodes(
   scenes: Scene[],
   groups: SceneGroup[],
   assetLibrary: AssetLibraryItem[],
+  assetUrls: ProjectAssetUrlMap,
   selectedSceneIds: string[],
   selectedGroupId: string | null,
 ): Node<CanvasNodeData>[] {
@@ -230,6 +233,7 @@ function buildNodes(
         scene,
         scenes,
         assetLibrary,
+        assetUrls,
       },
     }));
 
@@ -830,6 +834,7 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
   },
   syncFromProject: () => {
     const activeProject = useWorkspaceStore.getState().activeProject;
+    const projectAssetUrls = useWorkspaceStore.getState().projectAssetUrls;
     const selectedSceneId = get().selectedSceneId;
     const selectedSceneIds =
       selectedSceneId && get().selectedSceneIds.length === 0
@@ -874,6 +879,7 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
         activeProject.scenes,
         activeProject.groups,
         activeProject.assetLibrary,
+        projectAssetUrls,
         nextSelectedSceneIds,
         nextSelectedGroupId,
       ),

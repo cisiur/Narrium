@@ -145,8 +145,10 @@ Current implementation rules:
 - Create Project Folder, Open Project Folder, Save, and Save As operate on this file in desktop builds.
 - Dirty state and recent project folders are desktop app state, not fields inside `Project`.
 - Browser/Vite workflow still uses the existing localStorage-backed workspace for compatibility.
-- Assets are not copied into folders yet.
-- Uploaded images and asset-library uploads may still be Data URLs in the saved JSON until a later asset-storage task.
+- Desktop background image imports are copied into `assets/backgrounds/` when a local project folder is active.
+- Desktop background image references are stored as relative paths such as `assets/backgrounds/forest.png`.
+- Browser uploads and legacy web MVP asset-library uploads may still be Data URLs in saved JSON until a later migration task.
+- Character, audio, and UI asset folders are not implemented yet.
 
 For production desktop storage, the saved project should continue evolving toward a fuller local project folder:
 
@@ -166,7 +168,7 @@ Intended storage rules:
 - Imported or uploaded files should be copied into the local project folder.
 - Large uploaded image Data URLs should not be stored inside the long-term saved project file.
 - The project folder should be portable as a folder/package, not as one bloated JSON blob.
-- The exact local asset file layout remains future work.
+- The exact non-background local asset file layout remains future work.
 
 Compatibility:
 - Current web MVP exports may still contain embedded Data URLs in `Project.thumbnail`, `SceneBackground.url`, or `AssetLibraryItem.url`.
@@ -530,10 +532,11 @@ Notes:
 - Standalone HTML export embeds the full Project, so uploaded asset Data URLs remain available in the exported player.
 
 Future desktop direction:
-- `AssetLibraryItem` should evolve to represent imported local files through project-relative paths.
-- A future item may keep `sourceType: 'upload'` for compatibility while storing `url` or a successor field as a relative path such as `assets/backgrounds/forest.png`.
+- `AssetLibraryItem` can now represent imported desktop background files through project-relative paths.
+- For compatibility, local background assets currently keep `sourceType: 'upload'` while storing `url` as a relative path such as `assets/backgrounds/forest.png`.
 - Metadata such as original filename, media type, file size, dimensions, or checksum can be added when needed.
 - Long-term desktop project files should avoid large image Data URLs except when importing legacy web MVP JSON before migration.
+- Character, audio, and UI asset models are still future work.
 
 ---
 

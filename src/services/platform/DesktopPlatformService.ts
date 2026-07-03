@@ -1,16 +1,18 @@
-import { invoke } from '@tauri-apps/api/core';
+import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { confirm, open } from '@tauri-apps/plugin-dialog';
 import type {
   PlatformName,
+  PlatformBackgroundAsset,
   PlatformProjectFile,
+  PlatformProjectAssetApi,
   PlatformProjectFileApi,
   ProjectFolderSelectionOptions,
   PlatformService,
   UnsavedChangesAction,
 } from './PlatformService';
 
-export class DesktopPlatformService implements PlatformService, PlatformProjectFileApi {
+export class DesktopPlatformService implements PlatformService, PlatformProjectFileApi, PlatformProjectAssetApi {
   isBrowser(): boolean {
     return false;
   }
@@ -44,6 +46,44 @@ export class DesktopPlatformService implements PlatformService, PlatformProjectF
 
   writeProjectFile(folderPath: string, fileName: string, contents: string): Promise<string> {
     return invoke('write_project_file', { folderPath, fileName, contents });
+  }
+
+  async selectBackgroundImageFile(): Promise<string | null> {
+    const selectedPath = await open({
+      directory: false,
+      multiple: false,
+      title: 'Import Background Image',
+      filters: [
+        {
+          name: 'Images',
+          extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'],
+        },
+      ],
+    });
+
+    return typeof selectedPath === 'string' ? selectedPath : null;
+  }
+
+  async copyBackgroundImageToProject(
+    folderPath: string,
+    sourceFilePath: string,
+  ): Promise<PlatformBackgroundAsset> {
+    const [relativePath, filePath, fileName] = await invoke<[string, string, string]>(
+      'copy_background_image_to_project',
+      { folderPath, sourceFilePath },
+    );
+
+    return {
+      relativePath,
+      renderUrl: convertFileSrc(filePath),
+      fileName,
+    };
+  }
+
+  async resolveProjectAssetUrl(folderPath: string, relativePath: string): Promise<string> {
+    const filePath = await invoke<string>('resolve_project_asset_path', { folderPath, relativePath });
+
+    return convertFileSrc(filePath);
   }
 
   async confirmUnsavedChanges(projectName: string): Promise<UnsavedChangesAction> {

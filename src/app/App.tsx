@@ -36,12 +36,14 @@ export function App() {
   const activeProject = useWorkspaceStore((state) => state.activeProject);
   const activeProjectFolderPath = useWorkspaceStore((state) => state.activeProjectFolderPath);
   const activeProjectDirty = useWorkspaceStore((state) => state.activeProjectDirty);
+  const projectAssetUrls = useWorkspaceStore((state) => state.projectAssetUrls);
   const closeProject = useWorkspaceStore((state) => state.closeProject);
   const canUseProjectFolders = useWorkspaceStore((state) => state.canUseProjectFolders);
   const saveActiveProjectToFolder = useWorkspaceStore((state) => state.saveActiveProjectToFolder);
   const saveActiveProjectAsFolder = useWorkspaceStore((state) => state.saveActiveProjectAsFolder);
   const initializeDesktopLifecycle = useWorkspaceStore((state) => state.initializeDesktopLifecycle);
   const addScene = useCanvasStore((state) => state.addScene);
+  const syncCanvasFromProject = useCanvasStore((state) => state.syncFromProject);
   const groupSelectedScenes = useCanvasStore((state) => state.groupSelectedScenes);
   const assignSelectedScenesToGroup = useCanvasStore((state) => state.assignSelectedScenesToGroup);
   const ungroupSelectedScenes = useCanvasStore((state) => state.ungroupSelectedScenes);
@@ -62,6 +64,10 @@ export function App() {
 
     setIsPreviewMode(false);
   }, [activeProject?.id, setActiveProjectView]);
+
+  useEffect(() => {
+    syncCanvasFromProject();
+  }, [projectAssetUrls, syncCanvasFromProject]);
 
   useEffect(() => {
     if (!activeProject || isPreviewMode) {
@@ -153,7 +159,13 @@ export function App() {
 
   if (activeProject) {
     if (isPreviewMode) {
-      return <StoryPlayer project={activeProject} onExitPreview={() => setIsPreviewMode(false)} />;
+      return (
+        <StoryPlayer
+          project={activeProject}
+          assetUrls={projectAssetUrls}
+          onExitPreview={() => setIsPreviewMode(false)}
+        />
+      );
     }
 
     const isCanvasView = activeProjectView === 'canvas';

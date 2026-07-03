@@ -1,4 +1,5 @@
 import { Handle, Position, type NodeProps } from 'reactflow';
+import { resolveAssetUrl } from '../../services/assets';
 import { useCanvasStore, type SceneNodeData } from '../../store/useCanvasStore';
 import type { Scene } from '../../types';
 
@@ -10,7 +11,7 @@ interface ThumbnailResult {
 function resolveDirectSceneImage(scene: Scene, data: SceneNodeData): ThumbnailResult {
   if (scene.background.mode === 'url' || scene.background.mode === 'upload') {
     return {
-      imageUrl: scene.background.url || null,
+      imageUrl: scene.background.url ? resolveAssetUrl(scene.background.url, data.assetUrls) : null,
       placeholder: 'No Background',
     };
   }
@@ -26,7 +27,7 @@ function resolveDirectSceneImage(scene: Scene, data: SceneNodeData): ThumbnailRe
     const asset = data.assetLibrary.find((item) => item.id === scene.background.assetId);
 
     return {
-      imageUrl: asset?.url ?? null,
+      imageUrl: asset?.url ? resolveAssetUrl(asset.url, data.assetUrls) : null,
       placeholder: asset ? 'No Background' : 'Missing Asset',
     };
   }

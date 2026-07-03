@@ -17,8 +17,10 @@ Current implementation status:
 - Platform identity now goes through `src/services/platform/`.
 - A JSON-only local project folder foundation exists for desktop builds: create/open/save/save-as writes `project.narrium.json`.
 - Desktop project workflow hardening exists for dirty state, guarded Open/Create/Exit, recent projects, and last-opened project offers.
+- Local background asset storage exists for desktop project folders: imported background files are copied into `assets/backgrounds/` and stored as relative paths in project JSON.
+- Local background paths resolve for editor thumbnails, editor background previews, and Story Player Preview.
 - Services can depend on domain code, but domain code must stay independent from stores, services, UI, and Tauri APIs.
-- Local asset storage, asset migration, autosave, and playable export packaging are still planned future work.
+- Character assets, audio assets, UI assets, asset migration, autosave, and playable export packaging are still planned future work.
 
 ---
 
@@ -81,7 +83,8 @@ Platform boundary status:
 - Future Tauri APIs must be introduced behind `services/platform/`; React components and Zustand stores must not import Tauri directly.
 - Current Tauri usage is limited to folder selection, unsaved-change confirmation, close-request interception, and reading/writing `project.narrium.json` through service boundaries.
 - Project file path joining for both reads and writes happens inside the platform/Rust layer.
-- No asset loading, image copying, clipboard, shell, notifications, drag-and-drop, autosave, or playable package APIs are implemented.
+- Current Tauri usage also includes the narrow background-image asset import commands needed to copy files into `assets/backgrounds/` and resolve them for rendering.
+- No character asset loading, audio asset loading, clipboard, shell, notifications, drag-and-drop, autosave, or playable package APIs are implemented.
 
 Project folder status:
 - `src/services/project-folder/` owns desktop project-folder orchestration.
@@ -120,9 +123,19 @@ Current implementation:
 - creates or opens a folder selected by the author,
 - reads or writes `project.narrium.json`,
 - normalizes opened project JSON,
-- does not create an `assets/` folder yet.
+- creates `assets/backgrounds/` only when a desktop background image is imported.
 
-Future asset-enabled folders should add:
+Current background-asset folders may look like:
+
+```text
+MyStory/
+  project.narrium.json
+  assets/
+    backgrounds/
+      forest.png
+```
+
+Future asset-enabled folders should add more asset categories:
 
 ```text
 MyStory/
@@ -155,8 +168,12 @@ The exact field name can evolve, but the important rule is that the project file
 
 When an author imports or uploads a file, the desktop editor should copy it into the project folder.
 
-Recommended behavior:
+Implemented behavior:
 - background images go under `assets/backgrounds/`,
+- imported desktop background references are stored as relative paths in `Project` JSON,
+- browser uploads and legacy web MVP projects may still use Data URLs.
+
+Future behavior:
 - character art can later go under `assets/characters/`,
 - audio can later go under `assets/audio/`,
 - future UI/theme assets can later go under `assets/ui/`.
@@ -210,10 +227,10 @@ The exact export format should be designed later after the desktop project folde
 
 ## Non-goals for the current project-folder foundation
 
-The current project-folder foundation does not implement:
-- asset folder creation,
-- image file copying,
+The current background-asset foundation does not implement:
+- character, audio, or UI asset folders,
 - local asset path migration,
 - asset extraction,
+- asset deletion cleanup,
 - autosave,
 - a new playable export format.

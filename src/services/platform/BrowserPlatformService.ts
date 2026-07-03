@@ -1,12 +1,14 @@
 import type {
+  PlatformBackgroundAsset,
   PlatformName,
   PlatformProjectFile,
+  PlatformProjectAssetApi,
   PlatformProjectFileApi,
   PlatformService,
   UnsavedChangesAction,
 } from './PlatformService';
 
-export class BrowserPlatformService implements PlatformService, PlatformProjectFileApi {
+export class BrowserPlatformService implements PlatformService, PlatformProjectFileApi, PlatformProjectAssetApi {
   isBrowser(): boolean {
     return true;
   }
@@ -29,6 +31,18 @@ export class BrowserPlatformService implements PlatformService, PlatformProjectF
 
   writeProjectFile(): Promise<string> {
     return Promise.reject(new Error('Project folders are only available in the desktop app.'));
+  }
+
+  selectBackgroundImageFile(): Promise<string | null> {
+    return Promise.resolve(null);
+  }
+
+  copyBackgroundImageToProject(): Promise<PlatformBackgroundAsset> {
+    return Promise.reject(new Error('Local project assets are only available in the desktop app.'));
+  }
+
+  resolveProjectAssetUrl(): Promise<string> {
+    return Promise.reject(new Error('Local project assets are only available in the desktop app.'));
   }
 
   confirmUnsavedChanges(projectName: string): Promise<UnsavedChangesAction> {

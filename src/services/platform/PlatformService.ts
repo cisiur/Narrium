@@ -9,6 +9,12 @@ export interface PlatformProjectFile {
   contents: string;
 }
 
+export interface PlatformBackgroundAsset {
+  relativePath: string;
+  renderUrl: string;
+  fileName: string;
+}
+
 export type UnsavedChangesAction = 'save' | 'discard' | 'cancel';
 
 export interface PlatformProjectFileApi {
@@ -17,7 +23,13 @@ export interface PlatformProjectFileApi {
   writeProjectFile(folderPath: string, fileName: string, contents: string): Promise<string>;
 }
 
-export interface PlatformService extends PlatformProjectFileApi {
+export interface PlatformProjectAssetApi {
+  selectBackgroundImageFile(): Promise<string | null>;
+  copyBackgroundImageToProject(folderPath: string, sourceFilePath: string): Promise<PlatformBackgroundAsset>;
+  resolveProjectAssetUrl(folderPath: string, relativePath: string): Promise<string>;
+}
+
+export interface PlatformService extends PlatformProjectFileApi, PlatformProjectAssetApi {
   isBrowser(): boolean;
   isDesktop(): boolean;
   platformName(): PlatformName;

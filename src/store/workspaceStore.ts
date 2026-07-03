@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { getAppPreferencesService, type RecentProject } from '../services/app-preferences';
+import { getProjectAssetService, type ProjectAssetUrlMap } from '../services/assets';
 import { getPlatformService, type UnsavedChangesAction } from '../services/platform';
 import { getProjectFolderService } from '../services/project-folder';
 import { getProjectStorage } from '../services/project-storage';
@@ -15,6 +16,7 @@ import {
 
 const projectStorage = getProjectStorage();
 const projectFolderService = getProjectFolderService();
+const projectAssetService = getProjectAssetService();
 const appPreferencesService = getAppPreferencesService();
 const platformService = getPlatformService();
 const initialAppPreferences = appPreferencesService.loadPreferences();
@@ -26,6 +28,7 @@ interface WorkspaceStore extends WorkspaceState {
   activeProjectFolderPath: string | null;
   activeProjectFilePath: string | null;
   activeProjectDirty: boolean;
+  projectAssetUrls: ProjectAssetUrlMap;
   projectFolderError: string | null;
   canUseProjectFolders: boolean;
   recentProjects: RecentProject[];
@@ -41,6 +44,7 @@ interface WorkspaceStore extends WorkspaceState {
   closeProject: () => void;
   saveActiveProjectToFolder: () => Promise<boolean>;
   saveActiveProjectAsFolder: () => Promise<boolean>;
+  importBackgroundImageToProject: () => Promise<{ name: string; url: string } | null>;
   initializeDesktopLifecycle: () => Promise<void>;
   ensureCanLeaveActiveProject: () => Promise<boolean>;
   renameProject: (projectId: string, newName: string) => void;
@@ -141,6 +145,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
   activeProjectFolderPath: null,
   activeProjectFilePath: null,
   activeProjectDirty: false,
+  projectAssetUrls: {},
   projectFolderError: null,
   canUseProjectFolders: projectFolderService.canUseProjectFolders(),
   recentProjects: initialAppPreferences.recentProjects,
@@ -168,6 +173,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
         activeProjectFolderPath: null,
         activeProjectFilePath: null,
         activeProjectDirty: false,
+        projectAssetUrls: {},
         projectFolderError: null,
       };
     });
@@ -198,6 +204,10 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
 
       projectStorage.saveProject(projectFolder.project);
       const preferences = recordOpenedProject(projectFolder.project, projectFolder.folderPath);
+      const projectAssetUrls = await projectAssetService.resolveProjectAssetUrls(
+        projectFolder.project,
+        projectFolder.folderPath,
+      );
 
       set((state) => {
         const nextWorkspace = {
@@ -217,6 +227,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
           activeProjectFolderPath: projectFolder.folderPath,
           activeProjectFilePath: projectFolder.filePath,
           activeProjectDirty: false,
+          projectAssetUrls,
           projectFolderError: null,
           recentProjects: preferences.recentProjects,
           lastOpenedProject: getLastOpenedProject(
@@ -266,6 +277,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
         activeProjectFolderPath: null,
         activeProjectFilePath: null,
         activeProjectDirty: false,
+        projectAssetUrls: {},
         projectFolderError: null,
       };
     });
@@ -286,6 +298,10 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
 
       projectStorage.saveProject(projectFolder.project);
       const preferences = recordOpenedProject(projectFolder.project, projectFolder.folderPath);
+      const projectAssetUrls = await projectAssetService.resolveProjectAssetUrls(
+        projectFolder.project,
+        projectFolder.folderPath,
+      );
 
       set((state) => {
         const nextWorkspace = {
@@ -305,6 +321,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
           activeProjectFolderPath: projectFolder.folderPath,
           activeProjectFilePath: projectFolder.filePath,
           activeProjectDirty: false,
+          projectAssetUrls,
           projectFolderError: null,
           recentProjects: preferences.recentProjects,
           lastOpenedProject: getLastOpenedProject(
@@ -329,6 +346,10 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
 
       projectStorage.saveProject(projectFolder.project);
       const preferences = recordOpenedProject(projectFolder.project, projectFolder.folderPath);
+      const projectAssetUrls = await projectAssetService.resolveProjectAssetUrls(
+        projectFolder.project,
+        projectFolder.folderPath,
+      );
 
       set((state) => {
         const nextWorkspace = {
@@ -348,6 +369,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
           activeProjectFolderPath: projectFolder.folderPath,
           activeProjectFilePath: projectFolder.filePath,
           activeProjectDirty: false,
+          projectAssetUrls,
           projectFolderError: null,
           recentProjects: preferences.recentProjects,
           lastOpenedProject: getLastOpenedProject(
@@ -388,6 +410,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
         activeProjectFolderPath: null,
         activeProjectFilePath: null,
         activeProjectDirty: false,
+        projectAssetUrls: {},
         projectFolderError: null,
       };
     });
@@ -415,6 +438,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
         activeProjectFolderPath: null,
         activeProjectFilePath: null,
         activeProjectDirty: false,
+        projectAssetUrls: {},
         projectFolderError: null,
       };
     });
@@ -435,6 +459,10 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
 
       projectStorage.saveProject(projectFolder.project);
       const preferences = recordOpenedProject(projectFolder.project, projectFolder.folderPath);
+      const projectAssetUrls = await projectAssetService.resolveProjectAssetUrls(
+        projectFolder.project,
+        projectFolder.folderPath,
+      );
 
       set((state) => {
         const nextWorkspace = createWorkspaceForProject(state, projectFolder.project);
@@ -447,6 +475,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
           activeProjectFolderPath: projectFolder.folderPath,
           activeProjectFilePath: projectFolder.filePath,
           activeProjectDirty: false,
+          projectAssetUrls,
           projectFolderError: null,
           recentProjects: preferences.recentProjects,
           lastOpenedProject: getLastOpenedProject(
@@ -481,6 +510,10 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
 
       projectStorage.saveProject(projectFolder.project);
       const preferences = recordOpenedProject(projectFolder.project, projectFolder.folderPath);
+      const projectAssetUrls = await projectAssetService.resolveProjectAssetUrls(
+        projectFolder.project,
+        projectFolder.folderPath,
+      );
 
       set((state) => {
         const nextWorkspace = createWorkspaceForProject(state, projectFolder.project);
@@ -493,6 +526,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
           activeProjectFolderPath: projectFolder.folderPath,
           activeProjectFilePath: projectFolder.filePath,
           activeProjectDirty: false,
+          projectAssetUrls,
           projectFolderError: null,
           recentProjects: preferences.recentProjects,
           lastOpenedProject: getLastOpenedProject(
@@ -509,6 +543,41 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
       });
 
       return false;
+    }
+  },
+  importBackgroundImageToProject: async () => {
+    const { activeProjectFolderPath } = get();
+
+    if (!activeProjectFolderPath || !projectAssetService.canImportLocalBackgrounds()) {
+      return null;
+    }
+
+    try {
+      const backgroundAsset = await projectAssetService.importBackgroundImage(activeProjectFolderPath);
+
+      if (!backgroundAsset) {
+        return null;
+      }
+
+      set((state) => ({
+        projectAssetUrls: {
+          ...state.projectAssetUrls,
+          [backgroundAsset.relativePath]: backgroundAsset.renderUrl,
+        },
+        projectFolderError: null,
+      }));
+
+      return {
+        name: backgroundAsset.fileName,
+        url: backgroundAsset.relativePath,
+      };
+    } catch (error) {
+      set({
+        projectFolderError:
+          error instanceof Error ? error.message : 'Could not import background image.',
+      });
+
+      return null;
     }
   },
   initializeDesktopLifecycle: async () => {

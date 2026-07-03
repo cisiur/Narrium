@@ -3,6 +3,8 @@ export { DesktopPlatformService } from './DesktopPlatformService';
 export { getPlatformService } from './getPlatformService';
 export type {
   PlatformName,
+  PlatformBackgroundAsset,
+  PlatformProjectAssetApi,
   PlatformProjectFile,
   PlatformProjectFileApi,
   PlatformService,

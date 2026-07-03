@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { resolveAssetUrl } from '../../services/assets';
 import { useCanvasStore } from '../../store/useCanvasStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { ConditionGroupsEditor } from '../story-logic/ConditionGroupsEditor';
@@ -100,6 +101,11 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
   const updateSceneBackground = useCanvasStore((state) => state.updateSceneBackground);
   const addBackgroundAsset = useCanvasStore((state) => state.addBackgroundAsset);
   const deleteBackgroundAsset = useCanvasStore((state) => state.deleteBackgroundAsset);
+  const activeProjectFolderPath = useWorkspaceStore((state) => state.activeProjectFolderPath);
+  const projectAssetUrls = useWorkspaceStore((state) => state.projectAssetUrls);
+  const importBackgroundImageToProject = useWorkspaceStore(
+    (state) => state.importBackgroundImageToProject,
+  );
   const availableReferenceScenes = scenes.filter((candidate) => candidate.id !== scene.id);
   const referencedScene =
     availableReferenceScenes.find((candidate) => candidate.id === scene.background.sourceSceneId) ?? null;
@@ -109,6 +115,7 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
   const [urlAssetName, setUrlAssetName] = useState('');
   const [urlAssetUrl, setUrlAssetUrl] = useState('');
   const [uploadAssetName, setUploadAssetName] = useState('');
+  const canImportLocalBackground = Boolean(activeProjectFolderPath);
 
   const updateBackground = (background: SceneBackground) => {
     updateSceneBackground(scene.id, background);
@@ -216,6 +223,21 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
     reader.readAsDataURL(file);
   };
 
+  const importLocalSceneBackground = async () => {
+    const importedBackground = await importBackgroundImageToProject();
+
+    if (!importedBackground) {
+      return;
+    }
+
+    updateBackground({
+      mode: 'upload',
+      assetId: null,
+      sourceSceneId: null,
+      url: importedBackground.url,
+    });
+  };
+
   const useAsset = (assetId: string) => {
     updateBackground({
       mode: 'asset',
@@ -258,6 +280,21 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
     reader.readAsDataURL(file);
   };
 
+  const addLocalBackgroundAsset = async () => {
+    const importedBackground = await importBackgroundImageToProject();
+
+    if (!importedBackground) {
+      return;
+    }
+
+    addBackgroundAsset({
+      name: uploadAssetName || importedBackground.name || 'Uploaded Background',
+      sourceType: 'upload',
+      url: importedBackground.url,
+    });
+    setUploadAssetName('');
+  };
+
   return (
     <div className="space-y-4">
       <div>
@@ -298,15 +335,25 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
       ) : null}
 
       {scene.background.mode === 'upload' ? (
-        <label className="block text-xs font-semibold text-gray-300">
-          Upload Image
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(event) => handleUpload(event.target.files?.[0])}
-            className="mt-2 block w-full text-xs text-gray-300 file:mr-3 file:rounded file:border-0 file:bg-gray-700 file:px-2 file:py-1 file:text-xs file:font-medium file:text-gray-100 hover:file:bg-gray-600"
-          />
-        </label>
+        canImportLocalBackground ? (
+          <button
+            type="button"
+            onClick={() => void importLocalSceneBackground()}
+            className="rounded bg-gray-700 px-2 py-1 text-xs font-medium text-gray-100 hover:bg-gray-600"
+          >
+            Import Background Image
+          </button>
+        ) : (
+          <label className="block text-xs font-semibold text-gray-300">
+            Upload Image
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(event) => handleUpload(event.target.files?.[0])}
+              className="mt-2 block w-full text-xs text-gray-300 file:mr-3 file:rounded file:border-0 file:bg-gray-700 file:px-2 file:py-1 file:text-xs file:font-medium file:text-gray-100 hover:file:bg-gray-600"
+            />
+          </label>
+        )
       ) : null}
 
       {scene.background.mode === 'scene_reference' ? (
@@ -369,15 +416,25 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
               className="w-full rounded bg-gray-950 px-2 py-1.5 text-xs text-gray-100 outline-none ring-1 ring-gray-700 focus:ring-blue-500"
               placeholder="Asset name"
             />
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(event) => {
-                addUploadedAsset(event.target.files?.[0]);
-                event.currentTarget.value = '';
-              }}
-              className="block w-full text-xs text-gray-300 file:mr-3 file:rounded file:border-0 file:bg-gray-700 file:px-2 file:py-1 file:text-xs file:font-medium file:text-gray-100 hover:file:bg-gray-600"
-            />
+            {canImportLocalBackground ? (
+              <button
+                type="button"
+                onClick={() => void addLocalBackgroundAsset()}
+                className="rounded bg-gray-700 px-2 py-1 text-xs font-medium text-gray-100 hover:bg-gray-600"
+              >
+                Import Background Image
+              </button>
+            ) : (
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(event) => {
+                  addUploadedAsset(event.target.files?.[0]);
+                  event.currentTarget.value = '';
+                }}
+                className="block w-full text-xs text-gray-300 file:mr-3 file:rounded file:border-0 file:bg-gray-700 file:px-2 file:py-1 file:text-xs file:font-medium file:text-gray-100 hover:file:bg-gray-600"
+              />
+            )}
           </div>
         </div>
 
@@ -393,7 +450,11 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
                 key={asset.id}
                 className="grid grid-cols-[3rem_1fr_auto] items-center gap-2 rounded-md border border-gray-700 bg-gray-900 p-2"
               >
-                <img src={asset.url} alt="" className="h-10 w-12 rounded bg-gray-950 object-cover" />
+                <img
+                  src={resolveAssetUrl(asset.url, projectAssetUrls)}
+                  alt=""
+                  className="h-10 w-12 rounded bg-gray-950 object-cover"
+                />
                 <div className="min-w-0">
                   <div className="truncate text-xs font-semibold text-gray-100">{asset.name}</div>
                   <div className="text-[11px] text-gray-500">
@@ -433,7 +494,7 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
         {scene.background.mode === 'url' ? (
           scene.background.url ? (
             <img
-              src={scene.background.url}
+              src={resolveAssetUrl(scene.background.url, projectAssetUrls)}
               alt="Background preview"
               className="h-32 w-full object-cover"
             />
@@ -447,7 +508,7 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
         {scene.background.mode === 'upload' ? (
           scene.background.url ? (
             <img
-              src={scene.background.url}
+              src={resolveAssetUrl(scene.background.url, projectAssetUrls)}
               alt="Uploaded background preview"
               className="h-32 w-full object-cover"
             />
@@ -467,7 +528,7 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
         {scene.background.mode === 'asset' ? (
           selectedAsset ? (
             <img
-              src={selectedAsset.url}
+              src={resolveAssetUrl(selectedAsset.url, projectAssetUrls)}
               alt="Asset background preview"
               className="h-32 w-full object-cover"
             />

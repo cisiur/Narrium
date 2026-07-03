@@ -1,6 +1,6 @@
 # Roadmap — Narrium
 
-> **Version:** v13 documentation refresh after Canvas Scene Groups  
+> **Version:** v14 desktop architecture preparation  
 > **Workflow:** active development happens directly on `main`. Do not use a `dev` branch unless the project owner explicitly changes this workflow.
 
 > **Strategic pivot:** the completed browser MVP is archived on branch `MVP_web_legacy`. Active development on `main` now targets a desktop-first Narrium editor with local project folders, local asset files, and future playable exports.
@@ -23,7 +23,8 @@
 Status note:
 - The browser-based MVP is validated and archived on `MVP_web_legacy`.
 - Completed MVP epics remain the product foundation and reference implementation.
-- No desktop shell, local project folder system, local asset file storage, or new playable export format has been implemented yet.
+- A minimal Tauri v2 desktop shell foundation exists on `main`.
+- Local project folder system, local asset file storage, and new playable export format have not been implemented yet.
 
 ```text
 Workspace Management       ██████████ 100%
@@ -40,6 +41,7 @@ Post-Audit Stabilization   ██████████ 100%
 Story Player Preview       ██████████ 100%
 Save / Export              ██████████ 100%
 Polish & Production UX     ██████░░░░  60%
+Desktop Shell Foundation   ██░░░░░░░░  20%
 ```
 
 Validated web MVP state:
@@ -80,7 +82,7 @@ Runtime helper tests are present through Vitest.
 Detailed documentation for the completed EPIC 9 validation batch lives in `docs/EPIC9_VALIDATION.md`.
 
 Next major roadmap area:
-**EPIC 11 - Desktop Pivot & Local Project System**, moving the validated MVP foundation toward a desktop-first editor.
+**EPIC 11A - Architecture Cleanup & Service Boundaries**, preparing the validated MVP codebase for durable desktop project storage.
 
 ---
 
@@ -209,8 +211,8 @@ Deliverable status:
 Deliverable status:
 - Project has complete Characters, Resources, and Variables data needed by Story Logic, Story Player, and standalone export.
 - Character attributes are implemented as per-character numeric keyed values.
-- Resources are implemented as project-wide numeric keyed values intended for player-facing state, with presentation metadata for display name, icon, and HUD visibility.
-- Variables are implemented as project-wide numeric keyed values intended for hidden/internal state.
+- Resources are implemented as project-wide numeric values intended for player-facing state, with presentation metadata for display name, icon, and HUD visibility.
+- Variables are implemented as project-wide numeric values intended for hidden/internal state.
 - Deletion warnings protect existing Story Logic references where implemented.
 
 ---
@@ -390,6 +392,38 @@ Deliverable status:
 
 ---
 
+## EPIC 11A - Architecture Cleanup & Service Boundaries
+
+Status: **planned**.
+
+Purpose:
+- Prepare the validated MVP codebase for durable desktop development before adding filesystem-heavy features.
+- Introduce service boundaries so UI, Zustand stores, story runtime, and export code do not directly depend on Tauri APIs.
+- Make storage and platform behavior replaceable while preserving the current browser workflow.
+- Avoid a large rewrite by extracting seams around existing behavior first, then implementing desktop-specific behavior behind those seams.
+
+Architecture rule:
+- React components must not import Tauri APIs directly.
+- Zustand stores must not import Tauri APIs directly.
+- Story runtime and validation code must stay platform-agnostic.
+- Desktop APIs should be isolated behind a thin `services/platform` or equivalent platform layer.
+
+| ID | Task | Who | Status |
+|---|---|---|---|
+| E11A-01 | Storage abstraction foundation: introduce a ProjectStorage interface and browser/localStorage implementation without changing behavior | [BOTH] | Planned |
+| E11A-02 | Services layer structure: organize storage, platform, assets, export, and runtime service boundaries | [BOTH] | Planned |
+| E11A-03 | Runtime/export separation: make editor preview, future desktop runtime, and exported runtime boundaries explicit | [BOTH] | Planned |
+| E11A-04 | Platform service boundary: isolate Tauri-specific calls behind a desktop platform adapter | [BOTH] | Planned |
+| E11A-05 | Architecture documentation update after service boundaries are in place | [PM] | Planned |
+
+Deliverable intent:
+- The current app still behaves like the validated MVP.
+- Browser `npm run dev`, tests, and web build remain supported.
+- Existing localStorage persistence remains functional through a browser storage adapter.
+- Future desktop filesystem features can be added without importing Tauri directly into UI, stores, story runtime, validation, or export code.
+
+---
+
 ## EPIC 11 - Desktop Pivot & Local Project System
 
 Status: **in progress**.
@@ -404,7 +438,7 @@ Purpose:
 |---|---|---|---|
 | E11-01 | Documentation and architecture pivot | [PM] | Done |
 | E11-02 | Desktop shell foundation using Tauri v2 around the existing Vite/React UI | [BOTH] | Done |
-| E11-03 | Local project folder create/open/save workflow | [BOTH] | Planned |
+| E11-03 | Local project folder create/open/save workflow after E11A service boundaries | [BOTH] | Planned |
 | E11-04 | `project.narrium.json` storage format using the validated `Project` domain model | [BOTH] | Planned |
 | E11-05 | Local asset file storage under project `assets/` folders | [BOTH] | Planned |
 | E11-06 | Relative asset paths in project JSON | [BOTH] | Planned |
@@ -418,7 +452,10 @@ Current E11-02 deliverable:
 - Desktop scripts exist for dev/build entry points.
 - The desktop shell loads the existing Vite/React UI.
 - Browser development, test, and web build scripts remain unchanged.
-- Storage still uses the legacy web MVP localStorage path until future E11 tasks.
+- Storage still uses the legacy web MVP localStorage path until future E11A/E11 tasks.
+
+E11A dependency:
+- E11A should run before E11-03 so local filesystem project operations are introduced through service boundaries rather than directly in UI or stores.
 
 Full EPIC 11 deliverable intent:
 - A desktop app can create, open, save, and preview Narrium projects from local folders.
@@ -430,12 +467,12 @@ Full EPIC 11 deliverable intent:
 
 ## Next Immediate Step
 
-Continue with EPIC 11 desktop pivot planning and implementation.
+Continue with EPIC 11A architecture cleanup before implementing local project folder workflows.
 
-Recommended next task should be selected by the project owner.
+Recommended next task:
+- E11A-01 - Storage abstraction foundation.
 
-Good candidates:
-- Local project folder create/open/save.
-- Local asset file storage.
-- Migration/import from legacy web MVP JSON.
-- Desktop preview parity.
+Later candidates:
+- E11A-02 - Services layer structure.
+- E11A-03 - Runtime/export separation.
+- E11-03 - Local project folder create/open/save after service boundaries.

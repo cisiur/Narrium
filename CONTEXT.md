@@ -93,6 +93,7 @@ Strategic status:
 - Runtime execution helpers and runtime-state initialization now live in `src/domain/runtime/`.
 - Standalone HTML export generation now lives in `src/services/export/`.
 - JSON import accepts legacy choices with `conditions` and missing `effects`, then normalizes to the current `conditionGroups`/`effects` shape.
+- Platform identity now goes through `src/services/platform/`; future desktop APIs must be added behind that service boundary.
 - Current intended dependency direction is UI/features -> stores -> services -> domain -> types.
 - No local project folder storage, local asset file storage, or future playable export system has been implemented yet on `main`.
 
@@ -598,7 +599,7 @@ Important:
 - Resources are player-facing numeric values when marked visible.
 
 Next recommended tasks:
-1. Platform service boundary.
+1. Architecture documentation update after service boundaries are in place.
 2. Desktop/local filesystem storage backend design.
 3. Local project folder create/open/save.
 4. Local asset file storage under project `assets/`.
@@ -698,6 +699,13 @@ src/
       BrowserProjectStorage.ts
       BrowserProjectStorage.test.ts
       getProjectStorage.ts
+      index.ts
+    platform/
+      PlatformService.ts
+      BrowserPlatformService.ts
+      DesktopPlatformService.ts
+      getPlatformService.ts
+      getPlatformService.test.ts
       index.ts
     export/
       standaloneHtmlExport.ts

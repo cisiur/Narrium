@@ -14,6 +14,7 @@ Current implementation status:
 - Runtime execution helpers and runtime-state initialization now live in `src/domain/runtime/`.
 - Standalone HTML export generation now lives in `src/services/export/`.
 - Legacy JSON import accepts old `Choice.conditions` and missing `effects`, then normalizes to the current shape.
+- Platform identity now goes through `src/services/platform/`.
 - Services can depend on domain code, but domain code must stay independent from stores, services, UI, and Tauri APIs.
 - Local project folders, local filesystem open/save, local asset storage, and playable export packaging are still planned future work.
 
@@ -69,6 +70,14 @@ Runtime/export boundary status:
 - Standalone HTML export generation is isolated under `services/export`.
 - Future playable desktop export work can build from these boundaries later.
 - No new playable export format exists yet.
+
+Platform boundary status:
+- `PlatformService` exposes only platform identity: browser vs desktop.
+- `BrowserPlatformService` reports the browser runtime.
+- `DesktopPlatformService` reports the Tauri desktop runtime.
+- `getPlatformService()` owns Tauri runtime detection using injected Tauri globals.
+- Future Tauri APIs must be introduced behind `services/platform/`; React components and Zustand stores must not import Tauri directly.
+- No filesystem, dialogs, clipboard, shell, notifications, drag-and-drop, asset loading, project folders, or storage APIs are implemented.
 
 Near-term desktop work should focus on:
 - introducing local filesystem project operations,

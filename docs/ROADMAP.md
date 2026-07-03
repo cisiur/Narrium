@@ -413,7 +413,7 @@ Architecture rule:
 | E11A-01 | Storage abstraction foundation: introduce a ProjectStorage interface and browser/localStorage implementation without changing behavior | [BOTH] | Done |
 | E11A-02 | Services layer structure: organize storage, platform, assets, export, and runtime service boundaries | [BOTH] | Done |
 | E11A-03 | Runtime/export separation: make editor preview, future desktop runtime, and exported runtime boundaries explicit | [BOTH] | Done |
-| E11A-04 | Platform service boundary: isolate Tauri-specific calls behind a desktop platform adapter | [BOTH] | Planned |
+| E11A-04 | Platform service boundary: isolate Tauri-specific calls behind a desktop platform adapter | [BOTH] | Done |
 | E11A-05 | Architecture documentation update after service boundaries are in place | [PM] | Planned |
 
 Deliverable intent:
@@ -443,6 +443,13 @@ Current E11A-03 deliverable:
 - Left compatibility wrappers for existing runtime/export import paths to avoid broad churn.
 - Updated JSON import validation so legacy choices with `conditions` and missing `effects` can be normalized instead of rejected.
 - Kept standalone HTML output behavior, Preview behavior, save/load behavior, export format, Project model, and Tauri APIs unchanged.
+
+Current E11A-04 deliverable:
+- Added `PlatformService` as a narrow platform identity interface.
+- Added `BrowserPlatformService` and `DesktopPlatformService`.
+- Added `getPlatformService()` as the only place that detects Tauri runtime identity.
+- Kept filesystem, dialogs, clipboard, shell, notifications, drag-and-drop, asset loading, storage, and project folders out of scope.
+- Future desktop APIs must be introduced behind `src/services/platform/`, not directly in React components or Zustand stores.
 
 ---
 
@@ -493,7 +500,7 @@ Full EPIC 11 deliverable intent:
 Continue with EPIC 11A architecture cleanup before implementing local project folder workflows.
 
 Recommended next task:
-- E11A-04 - Platform service boundary.
+- E11A-05 - Architecture documentation update after service boundaries are in place.
 
 Later candidates:
 - E11-03 - Local project folder create/open/save after service boundaries.

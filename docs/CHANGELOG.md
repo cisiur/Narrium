@@ -6,6 +6,18 @@ This changelog records milestone-level project changes. It is intentionally conc
 
 ## Unreleased / Next
 
+### Added - Platform service boundary
+
+Changes:
+- Added `src/services/platform/` as the boundary for future platform-specific APIs.
+- Added `PlatformService` with platform identity methods only.
+- Added browser and desktop platform service implementations.
+- Added `getPlatformService()` as the resolver and only Tauri runtime detection point.
+- Kept filesystem, dialogs, clipboard, shell, notifications, drag-and-drop, asset loading, project folders, storage, and Project model changes out of scope.
+
+Validation:
+- Added tests for browser/desktop platform identity and resolver behavior.
+
 ### Changed - Runtime and export boundaries
 
 Changes:

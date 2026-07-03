@@ -70,6 +70,7 @@ Workflow:
 | Canvas / graph | React Flow (`reactflow` ^11) |
 | State management | Zustand |
 | Styling | Tailwind CSS v3 |
+| Desktop shell | Tauri v2 foundation |
 | Storage | localStorage for archived web MVP; future desktop storage should use local project folders |
 | Project format | JSON-compatible `Project` object; future desktop project file should be `project.narrium.json` |
 | Runtime player | Embedded React Preview player |
@@ -85,7 +86,9 @@ Strategic status:
 - The browser-based web MVP is complete, validated, and archived on branch `MVP_web_legacy`.
 - Active development on `main` now targets a desktop-first editor.
 - The existing React/TypeScript editor, canonical `Project` model, story logic runtime, preview, validation, JSON import/export, and standalone HTML export remain the validated MVP foundation.
-- No desktop shell, local project folder storage, local asset file storage, or future playable export system has been implemented yet on `main`.
+- A minimal Tauri v2 desktop shell foundation exists on `main` and loads the existing Vite/React UI.
+- Storage is still the legacy web MVP localStorage flow until future E11 local project folder work.
+- No local project folder storage, local asset file storage, or future playable export system has been implemented yet on `main`.
 
 ```text
 Workspace Management       ██████████ 100%
@@ -146,7 +149,6 @@ Current recommended next milestone:
 - Recommended next task should be selected by the project owner.
 
 Good candidates:
-- Desktop app shell foundation.
 - Local project folder create/open/save.
 - Local `assets/` folder storage for imported files.
 - Import/migration path from legacy web MVP JSON, including future extraction of embedded Data URLs.
@@ -589,11 +591,11 @@ Important:
 - Resources are player-facing numeric values when marked visible.
 
 Next recommended tasks:
-1. Desktop app shell foundation.
-2. Local project folder create/open/save.
-3. Local asset file storage under project `assets/`.
-4. Migration/import from legacy web MVP JSON.
-5. Desktop preview parity and future playable export foundation.
+1. Local project folder create/open/save.
+2. Local asset file storage under project `assets/`.
+3. Migration/import from legacy web MVP JSON.
+4. Desktop preview parity.
+5. Future playable export foundation.
 
 ---
 
@@ -682,4 +684,14 @@ src/
 
   types/
     index.ts
+
+src-tauri/
+  tauri.conf.json
+  Cargo.toml
+  build.rs
+  src/
+    main.rs
+    lib.rs
+  capabilities/
+    default.json
 ```

@@ -4,6 +4,12 @@ This document describes the intended desktop-first direction for Narrium after c
 
 The browser MVP remains archived on branch `MVP_web_legacy` as a validated prototype and reference implementation. Active development on `main` should now move toward a desktop-first visual novel editor with local project folders, local asset files, and future playable exports.
 
+Current implementation status:
+- A minimal Tauri v2 desktop shell foundation exists under `src-tauri/`.
+- The shell loads the existing Vite/React UI in development and points at the Vite `dist` output for desktop builds.
+- Browser development remains available through the existing Vite workflow.
+- Local project folders, local filesystem open/save, local asset storage, and playable export packaging are still planned future work.
+
 ---
 
 ## Product direction
@@ -30,10 +36,15 @@ Those MVP systems should be treated as foundation and migration reference, not a
 
 The existing React/TypeScript UI should be preserved where practical. The current editor surface, stores, validation, story logic helpers, and preview runtime represent useful implementation work that should not be discarded casually.
 
-A desktop shell such as Tauri is the likely target because it can wrap the existing web UI while providing local filesystem access. This is a recommended direction, not an implemented decision. Framework choice should remain open until the first desktop shell foundation task confirms project constraints, packaging needs, filesystem APIs, and build workflow.
+Tauri v2 is now the desktop shell foundation. It wraps the existing web UI while preserving the browser development workflow.
+
+The current Tauri foundation is intentionally minimal:
+- it does not add desktop-specific application behavior,
+- it does not introduce filesystem project storage,
+- it does not expose local asset import APIs,
+- it does not change the `Project` model.
 
 Near-term desktop work should focus on:
-- shelling the existing editor into a desktop app,
 - introducing local filesystem project operations,
 - replacing long-term localStorage persistence with project-folder persistence,
 - keeping the validated domain model recognizable.
@@ -133,8 +144,6 @@ The exact export format should be designed later after the desktop project folde
 ## Non-goals for this documentation task
 
 This documentation update does not implement:
-- a desktop shell,
-- Tauri or any other desktop framework,
 - local filesystem project create/open/save,
 - storage refactoring,
 - asset extraction,

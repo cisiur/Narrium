@@ -1,0 +1,16 @@
+[package]
+name = "narrium"
+version = "0.1.0"
+description = "Narrium desktop shell"
+authors = ["Narrium"]
+edition = "2021"
+
+[lib]
+name = "narrium_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }

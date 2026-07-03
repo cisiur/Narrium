@@ -392,7 +392,7 @@ Deliverable status:
 
 ## EPIC 11 - Desktop Pivot & Local Project System
 
-Status: **planned**.
+Status: **in progress**.
 
 Purpose:
 - Pivot `main` from browser-only MVP continuation to the future desktop-first Narrium editor.
@@ -403,7 +403,7 @@ Purpose:
 | ID | Task | Who | Status |
 |---|---|---|---|
 | E11-01 | Documentation and architecture pivot | [PM] | Done |
-| E11-02 | Desktop shell foundation, likely Tauri unless product/technical review chooses otherwise | [BOTH] | Planned |
+| E11-02 | Desktop shell foundation using Tauri v2 around the existing Vite/React UI | [BOTH] | Done |
 | E11-03 | Local project folder create/open/save workflow | [BOTH] | Planned |
 | E11-04 | `project.narrium.json` storage format using the validated `Project` domain model | [BOTH] | Planned |
 | E11-05 | Local asset file storage under project `assets/` folders | [BOTH] | Planned |
@@ -413,7 +413,14 @@ Purpose:
 | E11-09 | Desktop preview parity with validated web MVP preview behavior | [BOTH] | Planned |
 | E11-10 | Playable export foundation for folder/package-based exports | [BOTH] | Planned |
 
-Deliverable intent:
+Current E11-02 deliverable:
+- Tauri v2 shell scaffold exists under `src-tauri/`.
+- Desktop scripts exist for dev/build entry points.
+- The desktop shell loads the existing Vite/React UI.
+- Browser development, test, and web build scripts remain unchanged.
+- Storage still uses the legacy web MVP localStorage path until future E11 tasks.
+
+Full EPIC 11 deliverable intent:
 - A desktop app can create, open, save, and preview Narrium projects from local folders.
 - Imported assets are copied into the project folder instead of being stored as large Data URLs in the long-term project file.
 - Legacy web MVP JSON remains importable as a migration path.
@@ -428,7 +435,6 @@ Continue with EPIC 11 desktop pivot planning and implementation.
 Recommended next task should be selected by the project owner.
 
 Good candidates:
-- Desktop shell foundation.
 - Local project folder create/open/save.
 - Local asset file storage.
 - Migration/import from legacy web MVP JSON.

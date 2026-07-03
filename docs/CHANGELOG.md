@@ -6,6 +6,18 @@ This changelog records milestone-level project changes. It is intentionally conc
 
 ## Unreleased / Next
 
+### Added - Desktop shell foundation
+
+Changes:
+- Added a minimal Tauri v2 desktop shell under `src-tauri/`.
+- Added desktop scripts: `tauri`, `desktop:dev`, and `desktop:build`.
+- Configured the desktop app metadata with product name `Narrium`, window title `Narrium`, and a 1400x900 default editor window.
+- Kept the existing Vite/browser entry point and web scripts intact.
+- Kept storage, project data, asset handling, preview behavior, story logic, and standalone HTML export unchanged.
+
+Validation:
+- Desktop native build requires Rust/Cargo and Visual Studio Build Tools in the local environment.
+
 ### Documentation - Desktop-first pivot
 
 Changes:

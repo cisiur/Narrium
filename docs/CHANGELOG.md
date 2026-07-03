@@ -6,6 +6,19 @@ This changelog records milestone-level project changes. It is intentionally conc
 
 ## Unreleased / Next
 
+### Changed - Domain and service boundaries
+
+Changes:
+- Added `src/domain/project/` as the initial neutral project domain area.
+- Moved project normalization/migration logic out of `src/store/`.
+- Removed the service-to-store dependency from `BrowserProjectStorage`.
+- Kept `src/services/project-storage/` as the concrete service subarea currently justified by the codebase.
+- Documented the dependency direction: UI/features -> stores -> services -> domain -> types.
+- Kept local filesystem, Tauri APIs, project folders, dialogs, asset storage, export behavior, and Project model changes out of scope.
+
+Validation:
+- No user-visible behavior changes intended.
+
 ### Changed - Project storage abstraction foundation
 
 Changes:

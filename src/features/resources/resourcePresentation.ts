@@ -1,4 +1,6 @@
-export const DEFAULT_RESOURCE_ICON = 'circle';
+import { DEFAULT_RESOURCE_ICON } from '../../domain/project';
+
+export { DEFAULT_RESOURCE_ICON };
 
 export const RESOURCE_ICONS = [
   'circle',

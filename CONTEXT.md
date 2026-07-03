@@ -89,6 +89,8 @@ Strategic status:
 - A minimal Tauri v2 desktop shell foundation exists on `main` and loads the existing Vite/React UI.
 - Workspace/project persistence now goes through a `ProjectStorage` service boundary.
 - The active implementation is still browser/localStorage and preserves the legacy web MVP keys/data format.
+- Project normalization/migration logic now lives in `src/domain/project/`, not `src/store/`.
+- Current intended dependency direction is UI/features -> stores -> services -> domain -> types.
 - No local project folder storage, local asset file storage, or future playable export system has been implemented yet on `main`.
 
 ```text
@@ -593,11 +595,11 @@ Important:
 - Resources are player-facing numeric values when marked visible.
 
 Next recommended tasks:
-1. Desktop/local filesystem storage backend design.
-2. Local project folder create/open/save.
-3. Local asset file storage under project `assets/`.
-4. Migration/import from legacy web MVP JSON.
-5. Desktop preview parity and future playable export foundation.
+1. Runtime/export separation.
+2. Desktop/local filesystem storage backend design.
+3. Local project folder create/open/save.
+4. Local asset file storage under project `assets/`.
+5. Migration/import from legacy web MVP JSON.
 
 ---
 
@@ -672,12 +674,17 @@ src/
   store/
     projectHistory.ts
     projectHistory.test.ts
-    projectMigrations.ts
-    projectMigrations.test.ts
     workspaceStore.ts
     useCanvasStore.ts
     useCanvasStore.test.ts
     useProjectViewStore.ts
+
+  domain/
+    project/
+      projectDefaults.ts
+      projectMigrations.ts
+      projectMigrations.test.ts
+      index.ts
 
   services/
     project-storage/

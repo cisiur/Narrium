@@ -10,6 +10,8 @@ Current implementation status:
 - Browser development remains available through the existing Vite workflow.
 - Workspace/project persistence now goes through a synchronous `ProjectStorage` service boundary.
 - The current `BrowserProjectStorage` backend still uses `narrium_workspace` and `narrium_project_{id}` in browser localStorage.
+- Project normalization/migration code now lives in `src/domain/project/`.
+- Services can depend on domain code, but domain code must stay independent from stores, services, UI, and Tauri APIs.
 - Local project folders, local filesystem open/save, local asset storage, and playable export packaging are still planned future work.
 
 ---
@@ -50,6 +52,14 @@ The current storage abstraction is also intentionally minimal:
 - it preserves the existing localStorage data format,
 - it keeps persistence synchronous for compatibility with the current Zustand store,
 - it creates a future backend seam without implementing Tauri filesystem or dialog APIs.
+
+Current dependency direction:
+
+```text
+UI/features -> stores -> services -> domain -> types
+```
+
+The important boundary for desktop work is that services must not import from stores. Domain modules should hold platform-neutral project rules such as normalization and defaults.
 
 Near-term desktop work should focus on:
 - introducing local filesystem project operations,

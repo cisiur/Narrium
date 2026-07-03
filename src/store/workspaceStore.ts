@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { getProjectStorage } from '../services/project-storage';
+import { normalizeProject } from '../domain/project';
 import type { Project, WorkspaceProjectMeta, WorkspaceState } from '../types';
 import {
   createEmptyProjectHistory,
@@ -8,7 +9,6 @@ import {
   undoProjectHistory,
   type ProjectHistoryState,
 } from './projectHistory';
-import { normalizeProject } from './projectMigrations';
 
 const projectStorage = getProjectStorage();
 

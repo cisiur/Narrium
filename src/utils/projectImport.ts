@@ -1,5 +1,5 @@
 import type { Project } from '../types';
-import { normalizeProject } from '../store/projectMigrations';
+import { normalizeProject } from '../domain/project';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);

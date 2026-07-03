@@ -411,7 +411,7 @@ Architecture rule:
 | ID | Task | Who | Status |
 |---|---|---|---|
 | E11A-01 | Storage abstraction foundation: introduce a ProjectStorage interface and browser/localStorage implementation without changing behavior | [BOTH] | Done |
-| E11A-02 | Services layer structure: organize storage, platform, assets, export, and runtime service boundaries | [BOTH] | Planned |
+| E11A-02 | Services layer structure: organize storage, platform, assets, export, and runtime service boundaries | [BOTH] | Done |
 | E11A-03 | Runtime/export separation: make editor preview, future desktop runtime, and exported runtime boundaries explicit | [BOTH] | Planned |
 | E11A-04 | Platform service boundary: isolate Tauri-specific calls behind a desktop platform adapter | [BOTH] | Planned |
 | E11A-05 | Architecture documentation update after service boundaries are in place | [PM] | Planned |
@@ -429,6 +429,13 @@ Current E11A-01 deliverable:
 - Refactored `useWorkspaceStore` to call the storage service instead of `window.localStorage` directly.
 - Preserved `narrium_workspace` and `narrium_project_{id}` keys and the current saved data format.
 - Desktop filesystem storage remains future work.
+
+Current E11A-02 deliverable:
+- Added an initial `src/domain/project/` area for project normalization and domain defaults.
+- Moved `normalizeProject()` out of `src/store/` so services no longer depend on stores.
+- Kept `src/services/project-storage/` as the only concrete service subarea needed today.
+- Established the current dependency direction: UI/features -> stores -> services -> domain -> types.
+- Kept Tauri filesystem APIs, dialogs, project folders, export changes, asset storage changes, and Project model changes out of scope.
 
 ---
 
@@ -479,9 +486,8 @@ Full EPIC 11 deliverable intent:
 Continue with EPIC 11A architecture cleanup before implementing local project folder workflows.
 
 Recommended next task:
-- E11A-02 - Services layer structure.
+- E11A-03 - Runtime/export separation.
 
 Later candidates:
-- E11A-02 - Services layer structure.
 - E11A-03 - Runtime/export separation.
 - E11-03 - Local project folder create/open/save after service boundaries.

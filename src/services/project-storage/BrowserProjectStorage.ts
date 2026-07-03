@@ -1,5 +1,5 @@
 import type { Project, WorkspaceState } from '../../types';
-import { normalizeProject } from '../../store/projectMigrations';
+import { normalizeProject } from '../../domain/project';
 import type { ProjectStorage } from './ProjectStorage';
 
 export const WORKSPACE_STORAGE_KEY = 'narrium_workspace';

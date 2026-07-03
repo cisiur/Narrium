@@ -8,8 +8,8 @@ import type {
   Resource,
   Scene,
   SceneBackground,
-} from '../types';
-import { DEFAULT_RESOURCE_ICON } from '../features/resources/resourcePresentation';
+} from '../../types';
+import { DEFAULT_RESOURCE_ICON } from './projectDefaults';
 
 type LegacyProject = Omit<Partial<Project>, 'scenes' | 'settings'> & {
   scenes?: LegacyScene[];

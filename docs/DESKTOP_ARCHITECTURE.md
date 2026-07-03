@@ -16,8 +16,9 @@ Current implementation status:
 - Legacy JSON import accepts old `Choice.conditions` and missing `effects`, then normalizes to the current shape.
 - Platform identity now goes through `src/services/platform/`.
 - A JSON-only local project folder foundation exists for desktop builds: create/open/save/save-as writes `project.narrium.json`.
+- Desktop project workflow hardening exists for dirty state, guarded Open/Create/Exit, recent projects, and last-opened project offers.
 - Services can depend on domain code, but domain code must stay independent from stores, services, UI, and Tauri APIs.
-- Local asset storage, asset migration, recent projects, autosave, and playable export packaging are still planned future work.
+- Local asset storage, asset migration, autosave, and playable export packaging are still planned future work.
 
 ---
 
@@ -78,8 +79,9 @@ Platform boundary status:
 - `DesktopPlatformService` reports the Tauri desktop runtime.
 - `getPlatformService()` owns Tauri runtime detection using injected Tauri globals.
 - Future Tauri APIs must be introduced behind `services/platform/`; React components and Zustand stores must not import Tauri directly.
-- Current Tauri usage is limited to folder selection and reading/writing `project.narrium.json` through service boundaries.
-- No asset loading, image copying, clipboard, shell, notifications, drag-and-drop, autosave, recent projects, or playable package APIs are implemented.
+- Current Tauri usage is limited to folder selection, unsaved-change confirmation, close-request interception, and reading/writing `project.narrium.json` through service boundaries.
+- Project file path joining for both reads and writes happens inside the platform/Rust layer.
+- No asset loading, image copying, clipboard, shell, notifications, drag-and-drop, autosave, or playable package APIs are implemented.
 
 Project folder status:
 - `src/services/project-folder/` owns desktop project-folder orchestration.
@@ -87,6 +89,13 @@ Project folder status:
 - The saved file contains the normalized current `Project` JSON.
 - The browser workflow still uses the `ProjectStorage` localStorage backend and legacy keys.
 - The workspace store carries transitional current-folder metadata only while a desktop project is open.
+- The workspace store tracks dirty state for active projects.
+- Dirty desktop projects prompt before Open Project Folder, Create Project Folder, and app exit.
+- Successful Save and Save As mark the project clean.
+- The project header displays the current folder path and dirty `*` indicator.
+- `src/services/app-preferences/` stores recent project folders and the last opened project as app preferences.
+- Recent projects are capped at 10 entries and are not workspace project records.
+- The last opened project is offered on launch, not reopened automatically.
 - The long-term workspace direction remains app preferences and recent projects, not the primary project database.
 
 Near-term desktop work should focus on:
@@ -206,6 +215,5 @@ The current project-folder foundation does not implement:
 - image file copying,
 - local asset path migration,
 - asset extraction,
-- recent projects,
 - autosave,
 - a new playable export format.

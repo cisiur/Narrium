@@ -14,6 +14,7 @@ export interface ProjectFolderService {
   canUseProjectFolders(): boolean;
   createProjectFolder(project: Project): Promise<LocalProjectFolder | null>;
   openProjectFolder(): Promise<LocalProjectFolder | null>;
+  openProjectFolderAt(folderPath: string): Promise<LocalProjectFolder>;
   saveProject(project: Project, folderPath: string): Promise<LocalProjectFolder>;
   saveProjectAs(project: Project): Promise<LocalProjectFolder | null>;
 }
@@ -54,8 +55,12 @@ export class DesktopProjectFolderService implements ProjectFolderService {
       return null;
     }
 
-    const filePath = `${folderPath.replace(/[\\/]+$/, '')}/${PROJECT_FOLDER_FILE_NAME}`;
-    const project = parseProjectFolderJson(await this.platformProjectFiles.readTextFile(filePath));
+    return this.openProjectFolderAt(folderPath);
+  }
+
+  async openProjectFolderAt(folderPath: string): Promise<LocalProjectFolder> {
+    const projectFile = await this.platformProjectFiles.readProjectFile(folderPath, PROJECT_FOLDER_FILE_NAME);
+    const project = parseProjectFolderJson(projectFile.contents);
 
     if (!project) {
       throw new Error(`Selected folder does not contain a valid ${PROJECT_FOLDER_FILE_NAME}.`);
@@ -63,7 +68,7 @@ export class DesktopProjectFolderService implements ProjectFolderService {
 
     return {
       folderPath,
-      filePath,
+      filePath: projectFile.filePath,
       project,
     };
   }
@@ -107,6 +112,10 @@ export class BrowserProjectFolderService implements ProjectFolderService {
 
   openProjectFolder(): Promise<LocalProjectFolder | null> {
     return Promise.resolve(null);
+  }
+
+  openProjectFolderAt(): Promise<LocalProjectFolder> {
+    return Promise.reject(new Error('Project folders are only available in the desktop app.'));
   }
 
   saveProject(): Promise<LocalProjectFolder> {

@@ -34,10 +34,13 @@ export function getAssignableSceneGroupOptions(project: Project, selectedSceneId
 export function App() {
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const activeProject = useWorkspaceStore((state) => state.activeProject);
+  const activeProjectFolderPath = useWorkspaceStore((state) => state.activeProjectFolderPath);
+  const activeProjectDirty = useWorkspaceStore((state) => state.activeProjectDirty);
   const closeProject = useWorkspaceStore((state) => state.closeProject);
   const canUseProjectFolders = useWorkspaceStore((state) => state.canUseProjectFolders);
   const saveActiveProjectToFolder = useWorkspaceStore((state) => state.saveActiveProjectToFolder);
   const saveActiveProjectAsFolder = useWorkspaceStore((state) => state.saveActiveProjectAsFolder);
+  const initializeDesktopLifecycle = useWorkspaceStore((state) => state.initializeDesktopLifecycle);
   const addScene = useCanvasStore((state) => state.addScene);
   const groupSelectedScenes = useCanvasStore((state) => state.groupSelectedScenes);
   const assignSelectedScenesToGroup = useCanvasStore((state) => state.assignSelectedScenesToGroup);
@@ -47,6 +50,10 @@ export function App() {
   const selectedGroupId = useCanvasStore((state) => state.selectedGroupId);
   const activeProjectView = useProjectViewStore((state) => state.activeProjectView);
   const setActiveProjectView = useProjectViewStore((state) => state.setActiveProjectView);
+
+  useEffect(() => {
+    void initializeDesktopLifecycle();
+  }, [initializeDesktopLifecycle]);
 
   useEffect(() => {
     if (activeProject) {
@@ -168,6 +175,8 @@ export function App() {
       <AppShell
         isProjectOpen
         projectName={activeProject.name}
+        projectFolderPath={activeProjectFolderPath}
+        projectDirty={activeProjectDirty}
         activeProjectView={activeProjectView}
         onAddScene={isCanvasView ? () => addScene('New Scene') : undefined}
         onGroupSelectedScenes={
@@ -185,6 +194,7 @@ export function App() {
         onUngroupSelectedGroup={isCanvasView && selectedGroupId ? ungroupSelectedGroup : undefined}
         onBackToProjects={closeProject}
         onSaveProject={canUseProjectFolders ? () => void saveActiveProjectToFolder() : undefined}
+        canSaveProject={Boolean(activeProjectFolderPath)}
         onSaveProjectAs={canUseProjectFolders ? () => void saveActiveProjectAsFolder() : undefined}
         onExportHtml={() => exportProjectAsStandaloneHtml(activeProject)}
         onExportProject={() => exportProjectAsJson(activeProject)}

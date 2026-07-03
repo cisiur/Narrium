@@ -95,9 +95,10 @@ Strategic status:
 - JSON import accepts legacy choices with `conditions` and missing `effects`, then normalizes to the current `conditionGroups`/`effects` shape.
 - Platform identity now goes through `src/services/platform/`; future desktop APIs must be added behind that service boundary.
 - Desktop builds now have a JSON-only local project folder foundation for Create Project Folder, Open Project Folder, Save, and Save As.
+- Desktop project workflow hardening is implemented: dirty state, guarded Open/Create/Exit, recent project folders, last-opened offer, platform-owned path joining, folder path display, and dirty `*` indicator.
 - Desktop project folders currently contain `project.narrium.json` only.
 - Current intended dependency direction is UI/features -> stores -> services -> domain -> types.
-- Local asset file storage, asset folder creation, asset migration, autosave, recent projects, and future playable export packaging have not been implemented yet on `main`.
+- Local asset file storage, asset folder creation, asset migration, autosave, and future playable export packaging have not been implemented yet on `main`.
 
 ```text
 Workspace Management       ██████████ 100%
@@ -158,8 +159,6 @@ Current recommended next milestone:
 - Recommended next task should be selected by the project owner.
 
 Good candidates:
-- Desktop/local filesystem storage backend design.
-- Local project folder create/open/save.
 - Local `assets/` folder storage for imported files.
 - Import/migration path from legacy web MVP JSON, including future extraction of embedded Data URLs.
 - Desktop preview parity with the validated web MVP preview.
@@ -232,8 +231,16 @@ Good candidates:
 - Invalid project folder JSON shows a project-folder error in the My Projects screen.
 - Browser/Vite workflow still uses `narrium_workspace` and `narrium_project_{id}` in localStorage.
 - The workspace store currently keeps transitional active project folder/file paths while a desktop folder project is open.
+- Desktop folder projects become dirty after edits and clean after successful Save or Save As.
+- Desktop Open Project Folder, Create Project Folder, and desktop app exit prompt before discarding dirty changes.
+- Recent project folders are stored as app preferences, not as workspace project data.
+- The recent project list stores project name, folder path, and last opened timestamp.
+- The recent project list is capped at 10 entries.
+- The last opened desktop project is offered on launch but is not reopened automatically.
+- The project header shows the current folder path and appends `*` to dirty project names.
+- Save is disabled until a desktop project has a known folder; Save As remains available.
 - Workspace/localStorage remains a compatibility layer, not the long-term desktop project database.
-- No `assets/` folder, image copying, local asset paths, autosave, recent projects, or playable export package exists yet.
+- No `assets/` folder, image copying, local asset paths, autosave, or playable export package exists yet.
 
 ### Shared UI
 
@@ -620,11 +627,11 @@ Important:
 - Resources are player-facing numeric values when marked visible.
 
 Next recommended tasks:
-1. Architecture documentation update after service boundaries are in place.
-2. Desktop/local filesystem storage backend design.
-3. Local project folder create/open/save.
-4. Local asset file storage under project `assets/`.
-5. Migration/import from legacy web MVP JSON.
+1. Local asset file storage under project `assets/`.
+2. Migration/import from legacy web MVP JSON.
+3. Future extraction of embedded Data URLs into local asset files.
+4. Desktop preview parity with the validated web MVP preview.
+5. Future playable export foundation.
 
 ---
 
@@ -715,6 +722,11 @@ src/
       index.ts
 
   services/
+    app-preferences/
+      AppPreferencesService.ts
+      AppPreferencesService.test.ts
+      getAppPreferencesService.ts
+      index.ts
     project-storage/
       ProjectStorage.ts
       BrowserProjectStorage.ts

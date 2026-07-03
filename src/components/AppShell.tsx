@@ -10,6 +10,8 @@ interface AppShellProps {
   children: ReactNode;
   isProjectOpen?: boolean;
   projectName?: string;
+  projectFolderPath?: string | null;
+  projectDirty?: boolean;
   activeProjectView?: ProjectView;
   rightPanel?: ReactNode;
   onAddScene?: () => void;
@@ -20,6 +22,7 @@ interface AppShellProps {
   onUngroupSelectedGroup?: () => void;
   onBackToProjects?: () => void;
   onSaveProject?: () => void;
+  canSaveProject?: boolean;
   onSaveProjectAs?: () => void;
   onExportHtml?: () => void;
   onExportProject?: () => void;
@@ -31,6 +34,8 @@ export function AppShell({
   children,
   isProjectOpen = false,
   projectName,
+  projectFolderPath = null,
+  projectDirty = false,
   activeProjectView = 'canvas',
   rightPanel,
   onAddScene,
@@ -41,6 +46,7 @@ export function AppShell({
   onUngroupSelectedGroup,
   onBackToProjects,
   onSaveProject,
+  canSaveProject = true,
   onSaveProjectAs,
   onExportHtml,
   onExportProject,
@@ -75,10 +81,18 @@ export function AppShell({
             {isProjectOpen && projectName ? (
               <>
                 <span className="mx-2 text-gray-600">/</span>
-                <span className="normal-case tracking-normal text-gray-300">{projectName}</span>
+                <span className="normal-case tracking-normal text-gray-300">
+                  {projectName}
+                  {projectDirty ? '*' : ''}
+                </span>
               </>
             ) : null}
           </p>
+          {isProjectOpen && projectFolderPath ? (
+            <p className="mt-0.5 max-w-xl truncate text-xs normal-case tracking-normal text-gray-500">
+              {projectFolderPath}
+            </p>
+          ) : null}
         </div>
         <div className="flex items-center gap-2">
           {isProjectOpen ? (
@@ -160,7 +174,8 @@ export function AppShell({
                 <button
                   type="button"
                   onClick={onSaveProject}
-                  className="rounded bg-gray-700 px-2 py-1 text-xs font-medium text-gray-100 hover:bg-gray-600"
+                  disabled={!canSaveProject}
+                  className="rounded bg-gray-700 px-2 py-1 text-xs font-medium text-gray-100 hover:bg-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Save
                 </button>

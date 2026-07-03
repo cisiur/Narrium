@@ -474,7 +474,7 @@ Purpose:
 | E11-01 | Documentation and architecture pivot | [PM] | Done |
 | E11-02 | Desktop shell foundation using Tauri v2 around the existing Vite/React UI | [BOTH] | Done |
 | E11-03A | Local project folder foundation: create/open/save/save-as `project.narrium.json` only | [BOTH] | Done |
-| E11-03B | Local project workflow hardening: recent projects, unsaved state, project-folder UX refinements | [BOTH] | Planned |
+| E11-03B | Local project workflow hardening: recent projects, unsaved state, project-folder UX refinements | [BOTH] | Done |
 | E11-04 | `project.narrium.json` storage format using the validated `Project` domain model | [BOTH] | Done for JSON-only project folders |
 | E11-05 | Local asset file storage under project `assets/` folders | [BOTH] | Planned |
 | E11-06 | Relative asset paths in project JSON | [BOTH] | Planned |
@@ -498,7 +498,18 @@ Current E11-03A deliverable:
 - Desktop builds can Save As to another selected folder.
 - `project.narrium.json` contains normalized current `Project` JSON.
 - Browser/Vite project creation, localStorage loading, JSON import/export, standalone HTML export, preview, story logic, and undo/redo remain supported.
-- No asset folder creation, image copying, local asset paths, autosave, recent projects, cloud sync, Git integration, or playable package export exists yet.
+- No asset folder creation, image copying, local asset paths, autosave, cloud sync, Git integration, or playable package export exists yet.
+
+Current E11-03B deliverable:
+- Project file reads and writes now delegate path joining to the platform/Rust layer.
+- Desktop projects track dirty state after edits and return clean after successful Save or Save As.
+- Desktop Open/Create/Exit flows prompt before discarding dirty changes.
+- Desktop app preferences now keep up to 10 recent project folders and the last opened project.
+- The My Projects screen offers to reopen the last project instead of reopening it automatically.
+- The project header shows the current folder path and a `*` dirty indicator.
+- Save is disabled until the active desktop project has a known folder; Save As remains available.
+- Browser/Vite workflow remains compatible.
+- Asset folders, image copying, local asset paths, autosave, Git integration, cloud sync, and playable export changes remain planned future work.
 
 Full EPIC 11 deliverable intent:
 - A desktop app can create, open, save, and preview Narrium projects from local folders.
@@ -510,11 +521,10 @@ Full EPIC 11 deliverable intent:
 
 ## Next Immediate Step
 
-Continue EPIC 11 desktop project system work after the JSON-only folder foundation.
+Continue EPIC 11 desktop project system work after the hardened JSON-only folder workflow.
 
 Recommended next task:
-- E11-05 - Local asset file storage under project `assets/` folders, or E11-03B if project-folder UX hardening is preferred first.
+- E11-05 - Local asset file storage under project `assets/` folders.
 
 Later candidates:
-- E11-03B - Recent projects, unsaved state, and project-folder UX hardening.
 - E11-07/E11-08 - Legacy web MVP JSON migration and Data URL extraction.

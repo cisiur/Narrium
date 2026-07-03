@@ -249,13 +249,16 @@ function ProjectSettingsSidebar({
 
 export function MyProjectsScreen() {
   const projects = useWorkspaceStore((state) => state.projects);
-  const createProject = useWorkspaceStore((state) => state.createProject);
+  const createProjectWithUnsavedCheck = useWorkspaceStore((state) => state.createProjectWithUnsavedCheck);
   const createProjectFolder = useWorkspaceStore((state) => state.createProjectFolder);
   const importProject = useWorkspaceStore((state) => state.importProject);
   const openProjectFolder = useWorkspaceStore((state) => state.openProjectFolder);
-  const openProject = useWorkspaceStore((state) => state.openProject);
+  const openRecentProject = useWorkspaceStore((state) => state.openRecentProject);
+  const openProjectWithUnsavedCheck = useWorkspaceStore((state) => state.openProjectWithUnsavedCheck);
   const canUseProjectFolders = useWorkspaceStore((state) => state.canUseProjectFolders);
   const projectFolderError = useWorkspaceStore((state) => state.projectFolderError);
+  const recentProjects = useWorkspaceStore((state) => state.recentProjects);
+  const lastOpenedProject = useWorkspaceStore((state) => state.lastOpenedProject);
   const renameProject = useWorkspaceStore((state) => state.renameProject);
   const updateProjectThumbnail = useWorkspaceStore((state) => state.updateProjectThumbnail);
   const deleteProject = useWorkspaceStore((state) => state.deleteProject);
@@ -340,13 +343,52 @@ export function MyProjectsScreen() {
           <button
             type="button"
             data-testid="create-project-button"
-            onClick={() => createProject()}
+            onClick={() => void createProjectWithUnsavedCheck()}
             className="rounded-md bg-accent-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-accent-600"
           >
             Create Project
           </button>
         </div>
       </div>
+
+      {canUseProjectFolders && lastOpenedProject ? (
+        <section className="mb-6 rounded-md border border-accent-500/30 bg-white p-4 shadow-sm">
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold text-ink-950">Reopen last project</h2>
+              <p className="mt-1 truncate text-sm text-ink-600">
+                {lastOpenedProject.name} - {lastOpenedProject.folderPath}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void openRecentProject(lastOpenedProject.folderPath)}
+              className="shrink-0 rounded-md bg-accent-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-accent-600"
+            >
+              Reopen
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      {canUseProjectFolders && recentProjects.length > 0 ? (
+        <section className="mb-8">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-600">Recent Project Folders</h2>
+          <div className="mt-3 divide-y divide-ink-950/10 rounded-md border border-ink-950/10 bg-white">
+            {recentProjects.map((project) => (
+              <button
+                key={project.folderPath}
+                type="button"
+                onClick={() => void openRecentProject(project.folderPath)}
+                className="block w-full px-4 py-3 text-left hover:bg-parchment-100"
+              >
+                <span className="block truncate text-sm font-semibold text-ink-950">{project.name}</span>
+                <span className="mt-1 block truncate text-xs text-ink-600">{project.folderPath}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {projects.length === 0 ? (
         <div className="flex min-h-80 flex-col items-center justify-center rounded-md border border-dashed border-ink-950/20 bg-white p-8 text-center">
@@ -357,7 +399,7 @@ export function MyProjectsScreen() {
           <button
             type="button"
             data-testid="empty-create-project-button"
-            onClick={() => createProject()}
+            onClick={() => void createProjectWithUnsavedCheck()}
             className="mt-6 rounded-md bg-accent-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-accent-600"
           >
             Create Project
@@ -369,7 +411,7 @@ export function MyProjectsScreen() {
             <ProjectCard
               key={project.id}
               project={project}
-              onOpen={() => openProject(project.id)}
+              onOpen={() => void openProjectWithUnsavedCheck(project.id)}
               onOpenSettings={() => setSettingsProjectId(project.id)}
             />
           ))}

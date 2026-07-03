@@ -32,7 +32,12 @@ function createProject(overrides: Partial<Project> = {}): Project {
 function createPlatformFileApi(overrides: Partial<PlatformProjectFileApi> = {}): PlatformProjectFileApi {
   return {
     selectProjectFolder: vi.fn((_options: ProjectFolderSelectionOptions) => Promise.resolve('C:/Stories/My Story')),
-    readTextFile: vi.fn(() => Promise.resolve(JSON.stringify(createProject()))),
+    readProjectFile: vi.fn((_folderPath: string, fileName: string) =>
+      Promise.resolve({
+        filePath: `C:/Stories/My Story/${fileName}`,
+        contents: JSON.stringify(createProject()),
+      }),
+    ),
     writeProjectFile: vi.fn((_folderPath: string, fileName: string) =>
       Promise.resolve(`C:/Stories/My Story/${fileName}`),
     ),
@@ -110,19 +115,52 @@ describe('DesktopProjectFolderService', () => {
       startSceneId: 'scene-1',
     });
     const platformFileApi = createPlatformFileApi({
-      readTextFile: vi.fn(() => Promise.resolve(JSON.stringify(project))),
+      readProjectFile: vi.fn((_folderPath: string, fileName: string) =>
+        Promise.resolve({
+          filePath: `C:/Stories/My Story/${fileName}`,
+          contents: JSON.stringify(project),
+        }),
+      ),
     });
     const service = new DesktopProjectFolderService(platformFileApi);
 
     const result = await service.openProjectFolder();
 
-    expect(platformFileApi.readTextFile).toHaveBeenCalledWith('C:/Stories/My Story/project.narrium.json');
+    expect(platformFileApi.readProjectFile).toHaveBeenCalledWith(
+      'C:/Stories/My Story',
+      'project.narrium.json',
+    );
     expect(result?.project).toEqual(project);
+  });
+
+  it('delegates project file path joining to the platform layer', async () => {
+    const platformFileApi = createPlatformFileApi({
+      readProjectFile: vi.fn((_folderPath: string, fileName: string) =>
+        Promise.resolve({
+          filePath: `platform-joined:${fileName}`,
+          contents: JSON.stringify(createProject()),
+        }),
+      ),
+    });
+    const service = new DesktopProjectFolderService(platformFileApi);
+
+    const result = await service.openProjectFolderAt('C:/Stories/My Story');
+
+    expect(platformFileApi.readProjectFile).toHaveBeenCalledWith(
+      'C:/Stories/My Story',
+      PROJECT_FOLDER_FILE_NAME,
+    );
+    expect(result.filePath).toBe('platform-joined:project.narrium.json');
   });
 
   it('rejects invalid project.narrium.json from an opened folder', async () => {
     const platformFileApi = createPlatformFileApi({
-      readTextFile: vi.fn(() => Promise.resolve('{"invalid":true}')),
+      readProjectFile: vi.fn((_folderPath: string, fileName: string) =>
+        Promise.resolve({
+          filePath: `C:/Stories/My Story/${fileName}`,
+          contents: '{"invalid":true}',
+        }),
+      ),
     });
     const service = new DesktopProjectFolderService(platformFileApi);
 

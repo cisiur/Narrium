@@ -6,6 +6,22 @@ This changelog records milestone-level project changes. It is intentionally conc
 
 ## Unreleased / Next
 
+### Added - Desktop project workflow hardening
+
+Changes:
+- Added dirty-state tracking for desktop project edits.
+- Added guarded desktop Open/Create/Exit workflows for dirty projects with Save, Don't Save, and Cancel paths.
+- Added lightweight desktop app preferences for up to 10 recent project folders and the last opened project.
+- Added a My Projects offer to reopen the last project without automatically reopening it.
+- Added current folder display and `*` dirty indicator in the project header.
+- Disabled Save until a desktop project has a known folder while keeping Save As available.
+- Moved project-file read path joining into the platform/Rust layer to match project-file writes.
+- Preserved browser/localStorage compatibility, Project data, asset handling, Preview, JSON export/import, and standalone HTML export.
+- Kept asset folders, image copying, local image references, autosave, Git integration, cloud sync, and playable export changes out of scope.
+
+Validation:
+- Added tests for dirty-state transitions, recent-project ordering and maximum count, and platform-owned project-file path handling.
+
 ### Added - Local project folder foundation
 
 Changes:

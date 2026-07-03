@@ -59,6 +59,34 @@ Notes:
 - Stored under `narrium_workspace` in localStorage.
 - `activeProjectId` indicates the currently opened project in the editor.
 - Only one project can be active at a time.
+- In desktop-first development, workspace remains a compatibility/app-state concept and should not become the long-term project database.
+
+---
+
+### Desktop App Preferences
+
+Desktop-only app preferences are separate from `WorkspaceState` and `Project`.
+
+Current preference data:
+
+```typescript
+interface RecentProject {
+  name: string;
+  folderPath: string;
+  lastOpenedAt: string;
+}
+
+interface AppPreferences {
+  recentProjects: RecentProject[];
+  lastOpenedProjectFolderPath: string | null;
+}
+```
+
+Notes:
+- Recent projects are application preferences, not story data.
+- Recent projects are capped at 10 entries.
+- `lastOpenedProjectFolderPath` is used to offer reopening the last project; Narrium does not automatically reopen it.
+- These preferences do not change the canonical `Project` model or `project.narrium.json`.
 
 ---
 
@@ -115,6 +143,7 @@ MyStory/
 Current implementation rules:
 - `project.narrium.json` stores the normalized JSON-compatible `Project` data.
 - Create Project Folder, Open Project Folder, Save, and Save As operate on this file in desktop builds.
+- Dirty state and recent project folders are desktop app state, not fields inside `Project`.
 - Browser/Vite workflow still uses the existing localStorage-backed workspace for compatibility.
 - Assets are not copied into folders yet.
 - Uploaded images and asset-library uploads may still be Data URLs in the saved JSON until a later asset-storage task.

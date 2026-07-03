@@ -106,6 +106,20 @@ describe('ProjectAssetService', () => {
     await expect(service.importBackgroundImage('C:/Stories/My Story')).resolves.toBeNull();
   });
 
+  it('surfaces desktop background copy failures to the caller', async () => {
+    const service = new DesktopProjectAssetService(
+      createPlatformAssetApi({
+        copyBackgroundImageToProject: vi.fn(() =>
+          Promise.reject(new Error('Could not copy background image.')),
+        ),
+      }),
+    );
+
+    await expect(service.importBackgroundImage('C:/Stories/My Story')).rejects.toThrow(
+      'Could not copy background image.',
+    );
+  });
+
   it('collects only project-relative background asset paths', () => {
     const project = createProject({
       assetLibrary: [

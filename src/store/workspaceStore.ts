@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { getAppPreferencesService, type RecentProject } from '../services/app-preferences';
 import { getProjectAssetService, type ProjectAssetUrlMap } from '../services/assets';
-import { getPlatformService, type UnsavedChangesAction } from '../services/platform';
+import { getPlatformService } from '../services/platform';
 import { getProjectFolderService } from '../services/project-folder';
 import { getProjectStorage } from '../services/project-storage';
 import { normalizeProject } from '../domain/project';
@@ -13,6 +13,7 @@ import {
   undoProjectHistory,
   type ProjectHistoryState,
 } from './projectHistory';
+import { ensureCanLeaveProject } from './unsavedChanges';
 
 const projectStorage = getProjectStorage();
 const projectFolderService = getProjectFolderService();
@@ -766,21 +767,12 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
   ensureCanLeaveActiveProject: async () => {
     const { activeProject, activeProjectDirty } = get();
 
-    if (!activeProject || !activeProjectDirty) {
-      return true;
-    }
-
-    const action: UnsavedChangesAction = await platformService.confirmUnsavedChanges(activeProject.name);
-
-    if (action === 'cancel') {
-      return false;
-    }
-
-    if (action === 'discard') {
-      set({ activeProjectDirty: false });
-      return true;
-    }
-
-    return get().saveActiveProjectToFolder();
+    return ensureCanLeaveProject({
+      activeProject,
+      activeProjectDirty,
+      confirmUnsavedChanges: (projectName) => platformService.confirmUnsavedChanges(projectName),
+      saveActiveProject: () => get().saveActiveProjectToFolder(),
+      markProjectClean: () => set({ activeProjectDirty: false }),
+    });
   },
 }));

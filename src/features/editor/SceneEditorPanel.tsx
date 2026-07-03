@@ -4,6 +4,7 @@ import { useCanvasStore } from '../../store/useCanvasStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { ConditionGroupsEditor } from '../story-logic/ConditionGroupsEditor';
 import { EffectsEditor } from '../story-logic/EffectsEditor';
+import { clearFileInputValue } from './fileInputHelpers';
 import { VALIDATION_CODES, validateProject } from '../validation/projectValidation';
 import {
   ProjectValidationPanel,
@@ -103,6 +104,7 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
   const deleteBackgroundAsset = useCanvasStore((state) => state.deleteBackgroundAsset);
   const activeProjectFolderPath = useWorkspaceStore((state) => state.activeProjectFolderPath);
   const projectAssetUrls = useWorkspaceStore((state) => state.projectAssetUrls);
+  const projectFolderError = useWorkspaceStore((state) => state.projectFolderError);
   const importBackgroundImageToProject = useWorkspaceStore(
     (state) => state.importBackgroundImageToProject,
   );
@@ -349,7 +351,10 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
             <input
               type="file"
               accept="image/*"
-              onChange={(event) => handleUpload(event.target.files?.[0])}
+              onChange={(event) => {
+                handleUpload(event.currentTarget.files?.[0]);
+                clearFileInputValue(event.currentTarget);
+              }}
               className="mt-2 block w-full text-xs text-gray-300 file:mr-3 file:rounded file:border-0 file:bg-gray-700 file:px-2 file:py-1 file:text-xs file:font-medium file:text-gray-100 hover:file:bg-gray-600"
             />
           </label>
@@ -429,8 +434,8 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
                 type="file"
                 accept="image/*"
                 onChange={(event) => {
-                  addUploadedAsset(event.target.files?.[0]);
-                  event.currentTarget.value = '';
+                  addUploadedAsset(event.currentTarget.files?.[0]);
+                  clearFileInputValue(event.currentTarget);
                 }}
                 className="block w-full text-xs text-gray-300 file:mr-3 file:rounded file:border-0 file:bg-gray-700 file:px-2 file:py-1 file:text-xs file:font-medium file:text-gray-100 hover:file:bg-gray-600"
               />
@@ -483,6 +488,12 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
           )}
         </div>
       </div>
+
+      {projectFolderError ? (
+        <p className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs leading-5 text-red-200">
+          {projectFolderError}
+        </p>
+      ) : null}
 
       <div className="overflow-hidden rounded-md border border-gray-700 bg-gray-950">
         {scene.background.mode === 'none' ? (

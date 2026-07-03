@@ -12,6 +12,24 @@ import type {
   UnsavedChangesAction,
 } from './PlatformService';
 
+export interface DesktopCloseRequestEvent {
+  preventDefault(): void;
+}
+
+export async function handleDesktopCloseRequest(
+  event: DesktopCloseRequestEvent,
+  handler: () => Promise<boolean>,
+  closeWindow: () => Promise<void>,
+): Promise<void> {
+  event.preventDefault();
+
+  const shouldClose = await handler();
+
+  if (shouldClose) {
+    await closeWindow();
+  }
+}
+
 export class DesktopPlatformService implements PlatformService, PlatformProjectFileApi, PlatformProjectAssetApi {
   isBrowser(): boolean {
     return false;
@@ -108,13 +126,11 @@ export class DesktopPlatformService implements PlatformService, PlatformProjectF
     return shouldDiscard ? 'discard' : 'cancel';
   }
 
-  onCloseRequested(handler: () => Promise<boolean>): Promise<() => void> {
-    return getCurrentWindow().onCloseRequested(async (event) => {
-      const shouldClose = await handler();
+  async onCloseRequested(handler: () => Promise<boolean>): Promise<() => void> {
+    const appWindow = getCurrentWindow();
 
-      if (!shouldClose) {
-        event.preventDefault();
-      }
+    return appWindow.onCloseRequested(async (event) => {
+      await handleDesktopCloseRequest(event, handler, () => appWindow.destroy());
     });
   }
 }

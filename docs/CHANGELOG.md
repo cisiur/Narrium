@@ -6,6 +6,17 @@ This changelog records milestone-level project changes. It is intentionally conc
 
 ## Unreleased / Next
 
+### Fixed - Desktop background import stabilization
+
+Changes:
+- Cleared background file inputs after every browser fallback upload so selecting the same file repeatedly triggers another upload.
+- Added visible background import/project-folder errors in the scene editor background panel.
+- Stabilized desktop window close handling by preventing the native close immediately and closing the Tauri window only after unsaved-change handling allows it.
+- Kept E11-05A scoped to background assets only.
+
+Validation:
+- Added tests for file input clearing, desktop close handling, unsaved-change close outcomes, and background import failure propagation.
+
 ### Added - Local background asset storage
 
 Changes:

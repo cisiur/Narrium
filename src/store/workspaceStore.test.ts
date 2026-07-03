@@ -54,4 +54,15 @@ describe('workspace dirty state', () => {
     useWorkspaceStore.getState().createProject();
     expect(useWorkspaceStore.getState().activeProjectDirty).toBe(false);
   });
+
+  it('does not try to import a desktop background without an active project folder', async () => {
+    useWorkspaceStore.getState().createProject();
+    useWorkspaceStore.setState({
+      activeProjectFolderPath: null,
+      projectFolderError: null,
+    });
+
+    await expect(useWorkspaceStore.getState().importBackgroundImageToProject()).resolves.toBeNull();
+    expect(useWorkspaceStore.getState().projectFolderError).toBeNull();
+  });
 });

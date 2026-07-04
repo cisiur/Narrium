@@ -24,6 +24,16 @@ describe('platform services', () => {
     expect(service.platformName()).toBe('desktop');
   });
 
+  it('does not intercept native desktop close requests', async () => {
+    const service = new DesktopPlatformService();
+    const handler = vi.fn().mockResolvedValue(false);
+
+    const dispose = await service.onCloseRequested(handler);
+    dispose();
+
+    expect(handler).not.toHaveBeenCalled();
+  });
+
   it('resolves to browser when Tauri globals are unavailable', () => {
     vi.stubGlobal('window', {});
 

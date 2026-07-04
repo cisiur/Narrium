@@ -95,7 +95,8 @@ Strategic status:
 - JSON import accepts legacy choices with `conditions` and missing `effects`, then normalizes to the current `conditionGroups`/`effects` shape.
 - Platform identity now goes through `src/services/platform/`; future desktop APIs must be added behind that service boundary.
 - Desktop builds now have a JSON-only local project folder foundation for Create Project Folder, Open Project Folder, Save, and Save As.
-- Desktop project workflow hardening is implemented: dirty state, guarded Open/Create/Exit, recent project folders, last-opened offer, platform-owned path joining, folder path display, and dirty `*` indicator.
+- Desktop project workflow hardening is implemented: dirty state, guarded Open/Create, recent project folders, last-opened offer, platform-owned path joining, folder path display, and dirty `*` indicator.
+- Native window X close guard is temporarily disabled so the desktop app always closes; explicit Open/Create dirty checks remain active.
 - Desktop project folders currently contain `project.narrium.json` only.
 - Current intended dependency direction is UI/features -> stores -> services -> domain -> types.
 - Local asset file storage, asset folder creation, asset migration, autosave, and future playable export packaging have not been implemented yet on `main`.
@@ -232,7 +233,8 @@ Good candidates:
 - Browser/Vite workflow still uses `narrium_workspace` and `narrium_project_{id}` in localStorage.
 - The workspace store currently keeps transitional active project folder/file paths while a desktop folder project is open.
 - Desktop folder projects become dirty after edits and clean after successful Save or Save As.
-- Desktop Open Project Folder, Create Project Folder, and desktop app exit prompt before discarding dirty changes.
+- Desktop Open Project Folder and Create Project Folder prompt before discarding dirty changes.
+- Native window X close does not prompt for unsaved changes for now; a future dedicated task should redesign native-close unsaved-changes protection.
 - Recent project folders are stored as app preferences, not as workspace project data.
 - The recent project list stores project name, folder path, and last opened timestamp.
 - The recent project list is capped at 10 entries.

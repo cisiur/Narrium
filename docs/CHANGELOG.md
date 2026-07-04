@@ -6,11 +6,22 @@ This changelog records milestone-level project changes. It is intentionally conc
 
 ## Unreleased / Next
 
+### Fixed - Native desktop window close
+
+Changes:
+- Disabled native desktop close interception so clicking the window X always closes the app.
+- Kept explicit dirty checks for Open Project Folder and Create Project Folder.
+- Kept dirty state, Save, Save As, recent projects, and project-folder behavior intact.
+- Documented that native close dirty protection needs a dedicated redesign before it is restored.
+
+Validation:
+- Added a platform test covering that desktop lifecycle close handling no longer invokes or blocks through the native close guard.
+
 ### Added - Desktop project workflow hardening
 
 Changes:
 - Added dirty-state tracking for desktop project edits.
-- Added guarded desktop Open/Create/Exit workflows for dirty projects with Save, Don't Save, and Cancel paths.
+- Added guarded desktop Open/Create workflows for dirty projects with Save, Don't Save, and Cancel paths.
 - Added lightweight desktop app preferences for up to 10 recent project folders and the last opened project.
 - Added a My Projects offer to reopen the last project without automatically reopening it.
 - Added current folder display and `*` dirty indicator in the project header.

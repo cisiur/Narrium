@@ -503,7 +503,8 @@ Current E11-03A deliverable:
 Current E11-03B deliverable:
 - Project file reads and writes now delegate path joining to the platform/Rust layer.
 - Desktop projects track dirty state after edits and return clean after successful Save or Save As.
-- Desktop Open/Create/Exit flows prompt before discarding dirty changes.
+- Desktop Open/Create flows prompt before discarding dirty changes.
+- Native window X close guard is temporarily disabled so the desktop app always closes; unsaved-change protection for native close should be redesigned in a future dedicated task.
 - Desktop app preferences now keep up to 10 recent project folders and the last opened project.
 - The My Projects screen offers to reopen the last project instead of reopening it automatically.
 - The project header shows the current folder path and a `*` dirty indicator.

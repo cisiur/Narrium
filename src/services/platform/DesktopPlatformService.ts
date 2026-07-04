@@ -1,5 +1,4 @@
 import { invoke } from '@tauri-apps/api/core';
-import { getCurrentWindow } from '@tauri-apps/api/window';
 import { confirm, open } from '@tauri-apps/plugin-dialog';
 import type {
   PlatformName,
@@ -68,13 +67,9 @@ export class DesktopPlatformService implements PlatformService, PlatformProjectF
     return shouldDiscard ? 'discard' : 'cancel';
   }
 
-  onCloseRequested(handler: () => Promise<boolean>): Promise<() => void> {
-    return getCurrentWindow().onCloseRequested(async (event) => {
-      const shouldClose = await handler();
-
-      if (!shouldClose) {
-        event.preventDefault();
-      }
-    });
+  onCloseRequested(_handler: () => Promise<boolean>): Promise<() => void> {
+    // TODO: Redesign native-close dirty protection. The previous async close guard
+    // could trap the app, so native window close must pass through for now.
+    return Promise.resolve(() => undefined);
   }
 }

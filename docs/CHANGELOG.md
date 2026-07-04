@@ -6,6 +6,18 @@ This changelog records milestone-level project changes. It is intentionally conc
 
 ## Unreleased / Next
 
+### Fixed - Desktop local background rendering
+
+Changes:
+- Enabled Tauri's asset protocol support required by local media handling.
+- Switched desktop local background rendering to a narrow project-relative asset read command that returns browser Blob URLs.
+- Kept `project.narrium.json` storing relative paths only.
+- Added a background-panel diagnostic when a local background asset cannot be resolved or rendered.
+- Reworked desktop window close handling to allow the programmatic close request through without recursive prompts.
+
+Validation:
+- Added tests for Tauri asset-protocol config and the programmatic close bypass path.
+
 ### Fixed - Desktop background import stabilization
 
 Changes:

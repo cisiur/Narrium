@@ -6,7 +6,8 @@ pub fn run() {
             read_project_file,
             write_project_file,
             copy_background_image_to_project,
-            resolve_project_asset_path
+            resolve_project_asset_path,
+            read_project_asset_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running Narrium desktop shell");
@@ -42,6 +43,16 @@ fn is_allowed_background_extension(extension: &str) -> bool {
         extension.to_ascii_lowercase().as_str(),
         "png" | "jpg" | "jpeg" | "webp" | "gif"
     )
+}
+
+fn background_mime_type(extension: &str) -> Result<&'static str, String> {
+    match extension.to_ascii_lowercase().as_str() {
+        "png" => Ok("image/png"),
+        "jpg" | "jpeg" => Ok("image/jpeg"),
+        "webp" => Ok("image/webp"),
+        "gif" => Ok("image/gif"),
+        _ => Err("Selected file is not a supported background image.".to_string()),
+    }
 }
 
 fn sanitize_file_stem(stem: &str) -> String {
@@ -126,21 +137,41 @@ fn copy_background_image_to_project(
     ))
 }
 
-#[tauri::command]
-fn resolve_project_asset_path(folder_path: String, relative_path: String) -> Result<String, String> {
+fn resolve_project_asset_path_inner(folder_path: String, relative_path: String) -> Result<std::path::PathBuf, String> {
     let normalized_relative_path = relative_path.replace('\\', "/");
 
     if normalized_relative_path.starts_with('/')
         || normalized_relative_path
             .split('/')
             .any(|segment| segment.is_empty() || segment == "..")
+        || !normalized_relative_path.starts_with("assets/backgrounds/")
     {
         return Err("Project asset path must be relative to the project folder.".to_string());
     }
 
-    let asset_path = normalized_relative_path
+    Ok(normalized_relative_path
         .split('/')
-        .fold(std::path::PathBuf::from(folder_path), |path, segment| path.join(segment));
+        .fold(std::path::PathBuf::from(folder_path), |path, segment| path.join(segment)))
+}
+
+#[tauri::command]
+fn resolve_project_asset_path(folder_path: String, relative_path: String) -> Result<String, String> {
+    let asset_path = resolve_project_asset_path_inner(folder_path, relative_path)?;
 
     Ok(asset_path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+fn read_project_asset_file(folder_path: String, relative_path: String) -> Result<(Vec<u8>, String), String> {
+    let asset_path = resolve_project_asset_path_inner(folder_path, relative_path)?;
+    let extension = asset_path
+        .extension()
+        .and_then(|value| value.to_str())
+        .ok_or_else(|| "Project asset has no file extension.".to_string())?;
+    let mime_type = background_mime_type(extension)?;
+    let bytes = std::fs::read(&asset_path).map_err(|error| {
+        format!("Failed to read {}: {}", asset_path.display(), error)
+    })?;
+
+    Ok((bytes, mime_type.to_string()))
 }

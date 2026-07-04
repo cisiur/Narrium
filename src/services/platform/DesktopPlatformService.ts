@@ -1,4 +1,4 @@
-import { convertFileSrc, invoke } from '@tauri-apps/api/core';
+import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { confirm, open } from '@tauri-apps/plugin-dialog';
 import type {
@@ -16,18 +16,34 @@ export interface DesktopCloseRequestEvent {
   preventDefault(): void;
 }
 
-export async function handleDesktopCloseRequest(
-  event: DesktopCloseRequestEvent,
+export function createDesktopCloseRequestHandler(
   handler: () => Promise<boolean>,
   closeWindow: () => Promise<void>,
-): Promise<void> {
-  event.preventDefault();
+): (event: DesktopCloseRequestEvent) => Promise<void> {
+  let isProgrammaticClose = false;
 
-  const shouldClose = await handler();
+  return async (event) => {
+    if (isProgrammaticClose) {
+      return;
+    }
 
-  if (shouldClose) {
-    await closeWindow();
-  }
+    event.preventDefault();
+
+    const shouldClose = await handler();
+
+    if (!shouldClose) {
+      return;
+    }
+
+    isProgrammaticClose = true;
+
+    try {
+      await closeWindow();
+    } catch (error) {
+      isProgrammaticClose = false;
+      throw error;
+    }
+  };
 }
 
 export class DesktopPlatformService implements PlatformService, PlatformProjectFileApi, PlatformProjectAssetApi {
@@ -86,22 +102,26 @@ export class DesktopPlatformService implements PlatformService, PlatformProjectF
     folderPath: string,
     sourceFilePath: string,
   ): Promise<PlatformBackgroundAsset> {
-    const [relativePath, filePath, fileName] = await invoke<[string, string, string]>(
+    const [relativePath, _filePath, fileName] = await invoke<[string, string, string]>(
       'copy_background_image_to_project',
       { folderPath, sourceFilePath },
     );
 
     return {
       relativePath,
-      renderUrl: convertFileSrc(filePath),
+      renderUrl: await this.resolveProjectAssetUrl(folderPath, relativePath),
       fileName,
     };
   }
 
   async resolveProjectAssetUrl(folderPath: string, relativePath: string): Promise<string> {
-    const filePath = await invoke<string>('resolve_project_asset_path', { folderPath, relativePath });
+    const [bytes, mimeType] = await invoke<[number[], string]>('read_project_asset_file', {
+      folderPath,
+      relativePath,
+    });
+    const blob = new Blob([new Uint8Array(bytes)], { type: mimeType });
 
-    return convertFileSrc(filePath);
+    return URL.createObjectURL(blob);
   }
 
   async confirmUnsavedChanges(projectName: string): Promise<UnsavedChangesAction> {
@@ -128,9 +148,8 @@ export class DesktopPlatformService implements PlatformService, PlatformProjectF
 
   async onCloseRequested(handler: () => Promise<boolean>): Promise<() => void> {
     const appWindow = getCurrentWindow();
+    const closeHandler = createDesktopCloseRequestHandler(handler, () => appWindow.close());
 
-    return appWindow.onCloseRequested(async (event) => {
-      await handleDesktopCloseRequest(event, handler, () => appWindow.destroy());
-    });
+    return appWindow.onCloseRequested(closeHandler);
   }
 }

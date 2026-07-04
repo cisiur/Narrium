@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { resolveAssetUrl } from '../../services/assets';
+import { isProjectRelativeAssetPath, resolveAssetUrl } from '../../services/assets';
 import { useCanvasStore } from '../../store/useCanvasStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { ConditionGroupsEditor } from '../story-logic/ConditionGroupsEditor';
@@ -117,7 +117,35 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
   const [urlAssetName, setUrlAssetName] = useState('');
   const [urlAssetUrl, setUrlAssetUrl] = useState('');
   const [uploadAssetName, setUploadAssetName] = useState('');
+  const [failedImageUrls, setFailedImageUrls] = useState<Record<string, boolean>>({});
   const canImportLocalBackground = Boolean(activeProjectFolderPath);
+  const selectedAssetUrl = selectedAsset?.url ?? '';
+  const currentBackgroundUrl =
+    scene.background.mode === 'upload' || scene.background.mode === 'url'
+      ? scene.background.url
+      : selectedAssetUrl;
+  const localBackgroundWarningUrl =
+    currentBackgroundUrl && isProjectRelativeAssetPath(currentBackgroundUrl)
+      ? currentBackgroundUrl
+      : null;
+  const hasLocalBackgroundWarning =
+    Boolean(localBackgroundWarningUrl) &&
+    (!projectAssetUrls[localBackgroundWarningUrl as string] ||
+      failedImageUrls[localBackgroundWarningUrl as string]);
+  const localBackgroundResolvedUrl = localBackgroundWarningUrl
+    ? resolveAssetUrl(localBackgroundWarningUrl, projectAssetUrls)
+    : '';
+
+  const markImageLoadResult = (url: string, didLoad: boolean) => {
+    if (!isProjectRelativeAssetPath(url)) {
+      return;
+    }
+
+    setFailedImageUrls((current) => ({
+      ...current,
+      [url]: !didLoad,
+    }));
+  };
 
   const updateBackground = (background: SceneBackground) => {
     updateSceneBackground(scene.id, background);
@@ -458,6 +486,8 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
                 <img
                   src={resolveAssetUrl(asset.url, projectAssetUrls)}
                   alt=""
+                  onLoad={() => markImageLoadResult(asset.url, true)}
+                  onError={() => markImageLoadResult(asset.url, false)}
                   className="h-10 w-12 rounded bg-gray-950 object-cover"
                 />
                 <div className="min-w-0">
@@ -494,6 +524,14 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
           {projectFolderError}
         </p>
       ) : null}
+      {hasLocalBackgroundWarning && localBackgroundWarningUrl ? (
+        <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs leading-5 text-amber-100">
+          Could not load local background asset: {localBackgroundWarningUrl}
+          {localBackgroundResolvedUrl ? (
+            <span className="block truncate text-amber-200/80">{localBackgroundResolvedUrl}</span>
+          ) : null}
+        </p>
+      ) : null}
 
       <div className="overflow-hidden rounded-md border border-gray-700 bg-gray-950">
         {scene.background.mode === 'none' ? (
@@ -507,6 +545,8 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
             <img
               src={resolveAssetUrl(scene.background.url, projectAssetUrls)}
               alt="Background preview"
+              onLoad={() => markImageLoadResult(scene.background.url, true)}
+              onError={() => markImageLoadResult(scene.background.url, false)}
               className="h-32 w-full object-cover"
             />
           ) : (
@@ -521,6 +561,8 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
             <img
               src={resolveAssetUrl(scene.background.url, projectAssetUrls)}
               alt="Uploaded background preview"
+              onLoad={() => markImageLoadResult(scene.background.url, true)}
+              onError={() => markImageLoadResult(scene.background.url, false)}
               className="h-32 w-full object-cover"
             />
           ) : (
@@ -541,6 +583,8 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
             <img
               src={resolveAssetUrl(selectedAsset.url, projectAssetUrls)}
               alt="Asset background preview"
+              onLoad={() => markImageLoadResult(selectedAsset.url, true)}
+              onError={() => markImageLoadResult(selectedAsset.url, false)}
               className="h-32 w-full object-cover"
             />
           ) : (

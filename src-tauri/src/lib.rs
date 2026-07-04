@@ -11,8 +11,8 @@ pub fn run() {
 }
 
 #[tauri::command]
-fn read_project_file(folder_path: String, file_name: String) -> Result<(String, String), String> {
-    let project_file_path = std::path::Path::new(&folder_path).join(file_name);
+fn read_project_file(file_path: String) -> Result<(String, String), String> {
+    let project_file_path = std::path::Path::new(&file_path);
     let contents = std::fs::read_to_string(&project_file_path).map_err(|error| {
         format!("Failed to read {}: {}", project_file_path.display(), error)
     })?;
@@ -21,12 +21,14 @@ fn read_project_file(folder_path: String, file_name: String) -> Result<(String, 
 }
 
 #[tauri::command]
-fn write_project_file(folder_path: String, file_name: String, contents: String) -> Result<String, String> {
-    let project_file_path = std::path::Path::new(&folder_path).join(file_name);
+fn write_project_file(file_path: String, contents: String) -> Result<String, String> {
+    let project_file_path = std::path::Path::new(&file_path);
 
-    std::fs::create_dir_all(&folder_path).map_err(|error| {
-        format!("Failed to create {}: {}", folder_path, error)
-    })?;
+    if let Some(parent_path) = project_file_path.parent() {
+        std::fs::create_dir_all(parent_path).map_err(|error| {
+            format!("Failed to create {}: {}", parent_path.display(), error)
+        })?;
+    }
 
     std::fs::write(&project_file_path, contents).map_err(|error| {
         format!("Failed to write {}: {}", project_file_path.display(), error)

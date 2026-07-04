@@ -21,10 +21,9 @@ describe('workspace dirty state', () => {
       projects: [],
       activeProjectId: null,
       activeProject: null,
-      activeProjectFolderPath: null,
       activeProjectFilePath: null,
       activeProjectDirty: false,
-      projectFolderError: null,
+      projectFileError: null,
     });
   });
 

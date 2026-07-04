@@ -10,7 +10,7 @@ interface AppShellProps {
   children: ReactNode;
   isProjectOpen?: boolean;
   projectName?: string;
-  projectFolderPath?: string | null;
+  projectFilePath?: string | null;
   projectDirty?: boolean;
   activeProjectView?: ProjectView;
   rightPanel?: ReactNode;
@@ -34,7 +34,7 @@ export function AppShell({
   children,
   isProjectOpen = false,
   projectName,
-  projectFolderPath = null,
+  projectFilePath = null,
   projectDirty = false,
   activeProjectView = 'canvas',
   rightPanel,
@@ -88,9 +88,9 @@ export function AppShell({
               </>
             ) : null}
           </p>
-          {isProjectOpen && projectFolderPath ? (
+          {isProjectOpen ? (
             <p className="mt-0.5 max-w-xl truncate text-xs normal-case tracking-normal text-gray-500">
-              {projectFolderPath}
+              {projectFilePath ?? 'Unsaved draft - use Save As to create a .narrium file'}
             </p>
           ) : null}
         </div>
@@ -175,6 +175,7 @@ export function AppShell({
                   type="button"
                   onClick={onSaveProject}
                   disabled={!canSaveProject}
+                  title={!canSaveProject ? 'Use Save As to create a .narrium project file first.' : undefined}
                   className="rounded bg-gray-700 px-2 py-1 text-xs font-medium text-gray-100 hover:bg-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Save

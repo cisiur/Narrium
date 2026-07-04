@@ -72,21 +72,21 @@ Current preference data:
 ```typescript
 interface RecentProject {
   name: string;
-  folderPath: string;
+  filePath: string;
   lastOpenedAt: string;
 }
 
 interface AppPreferences {
   recentProjects: RecentProject[];
-  lastOpenedProjectFolderPath: string | null;
+  lastOpenedProjectFilePath: string | null;
 }
 ```
 
 Notes:
 - Recent projects are application preferences, not story data.
 - Recent projects are capped at 10 entries.
-- `lastOpenedProjectFolderPath` is used to offer reopening the last project; Narrium does not automatically reopen it.
-- These preferences do not change the canonical `Project` model or `project.narrium.json`.
+- `lastOpenedProjectFilePath` is used to offer reopening the last project; Narrium does not automatically reopen it.
+- These preferences do not change the canonical `Project` model or `.narrium` file wrapper.
 
 ---
 
@@ -129,43 +129,32 @@ Notes:
 
 ---
 
-## Future desktop-first project format
+## Desktop-first project format
 
 The current MVP `Project` object remains the validated domain model for scenes, choices, story logic, characters, resources, variables, groups, settings, and runtime initialization.
 
-The first desktop project artifact is now a local project folder containing `project.narrium.json`:
+The desktop project artifact is now a `.narrium` file:
 
 ```text
-MyStory/
-  project.narrium.json
+MyStory.narrium
 ```
 
 Current implementation rules:
-- `project.narrium.json` stores the normalized JSON-compatible `Project` data.
-- Create Project Folder, Open Project Folder, Save, and Save As operate on this file in desktop builds.
-- Dirty state and recent project folders are desktop app state, not fields inside `Project`.
+- `.narrium` files are JSON internally and wrap the normalized JSON-compatible `Project` data.
+- The wrapper shape is `{ "format": "narrium.project", "formatVersion": 1, "project": { ... } }`.
+- Open Project File, Save, and Save As operate on `.narrium` files in desktop builds.
+- Create Project creates a transitional localStorage draft until Save As creates a `.narrium` file.
+- Dirty state and recent project files are desktop app state, not fields inside `Project`.
 - Browser/Vite workflow still uses the existing localStorage-backed workspace for compatibility.
-- Assets are not copied into folders yet.
+- Local asset folders are not implemented yet.
 - Uploaded images and asset-library uploads may still be Data URLs in the saved JSON until a later asset-storage task.
-
-For production desktop storage, the saved project should continue evolving toward a fuller local project folder:
-
-```text
-MyStory/
-  project.narrium.json
-  assets/
-    backgrounds/
-    characters/
-    audio/
-    ui/
-```
+- Legacy raw Project JSON, including old `project.narrium.json`, remains openable as a compatibility fallback when selected as a file.
 
 Intended storage rules:
-- `project.narrium.json` stores the JSON-compatible `Project` data.
-- Asset references inside the project file should use relative paths such as `assets/backgrounds/castle.png`.
-- Imported or uploaded files should be copied into the local project folder.
+- `.narrium` stores the JSON-compatible `Project` data inside the wrapper.
+- Asset references inside the project file should eventually use relative paths such as `assets/castle.png`.
+- Imported or uploaded files should eventually be copied into local project asset storage.
 - Large uploaded image Data URLs should not be stored inside the long-term saved project file.
-- The project folder should be portable as a folder/package, not as one bloated JSON blob.
 - The exact local asset file layout remains future work.
 
 Compatibility:
@@ -531,7 +520,7 @@ Notes:
 
 Future desktop direction:
 - `AssetLibraryItem` should evolve to represent imported local files through project-relative paths.
-- A future item may keep `sourceType: 'upload'` for compatibility while storing `url` or a successor field as a relative path such as `assets/backgrounds/forest.png`.
+- A future item may keep `sourceType: 'upload'` for compatibility while storing `url` or a successor field as a relative path such as `assets/forest.png`.
 - Metadata such as original filename, media type, file size, dimensions, or checksum can be added when needed.
 - Long-term desktop project files should avoid large image Data URLs except when importing legacy web MVP JSON before migration.
 

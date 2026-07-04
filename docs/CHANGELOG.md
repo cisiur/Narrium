@@ -6,12 +6,26 @@ This changelog records milestone-level project changes. It is intentionally conc
 
 ## Unreleased / Next
 
+### Added - Native Narrium project file workflow
+
+Changes:
+- Added `.narrium` as the desktop project file extension.
+- `.narrium` files are JSON internally and wrap the current Project JSON with `format: "narrium.project"` and `formatVersion: 1`.
+- Replaced the default desktop folder workflow with Open Project File, Save, and Save As against explicit project file paths.
+- Kept raw legacy Project JSON openable as a compatibility fallback, including old `project.narrium.json` files when selected as files.
+- LocalStorage My Projects remain transitional drafts until Save As creates a `.narrium` file.
+- Recent projects now store file paths instead of folder paths.
+- Kept local asset folders, image copying, Data URL migration, autosave, playable export changes, and Project model redesign out of scope.
+
+Validation:
+- Added tests for `.narrium` serialization and parsing, raw legacy JSON parsing, Save-enabled file-backed projects, draft Save-disabled state, Save As file path activation, recent project file paths, and avoiding `project.narrium.json` as the default save target.
+
 ### Fixed - Native desktop window close
 
 Changes:
 - Disabled native desktop close interception so clicking the window X always closes the app.
-- Kept explicit dirty checks for Open Project Folder and Create Project Folder.
-- Kept dirty state, Save, Save As, recent projects, and project-folder behavior intact.
+- Kept explicit dirty checks for Open Project File and Create Project drafts.
+- Kept dirty state, Save, Save As, and recent projects intact.
 - Documented that native close dirty protection needs a dedicated redesign before it is restored.
 
 Validation:
@@ -22,10 +36,10 @@ Validation:
 Changes:
 - Added dirty-state tracking for desktop project edits.
 - Added guarded desktop Open/Create workflows for dirty projects with Save, Don't Save, and Cancel paths.
-- Added lightweight desktop app preferences for up to 10 recent project folders and the last opened project.
+- Added lightweight desktop app preferences for up to 10 recent projects and the last opened project.
 - Added a My Projects offer to reopen the last project without automatically reopening it.
-- Added current folder display and `*` dirty indicator in the project header.
-- Disabled Save until a desktop project has a known folder while keeping Save As available.
+- Added current path display and `*` dirty indicator in the project header.
+- Disabled Save until a desktop project has a known path while keeping Save As available.
 - Moved project-file read path joining into the platform/Rust layer to match project-file writes.
 - Preserved browser/localStorage compatibility, Project data, asset handling, Preview, JSON export/import, and standalone HTML export.
 - Kept asset folders, image copying, local image references, autosave, Git integration, cloud sync, and playable export changes out of scope.

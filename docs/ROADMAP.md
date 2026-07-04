@@ -24,7 +24,7 @@ Status note:
 - The browser-based MVP is validated and archived on `MVP_web_legacy`.
 - Completed MVP epics remain the product foundation and reference implementation.
 - A minimal Tauri v2 desktop shell foundation exists on `main`.
-- A JSON-only local project folder foundation exists on `main` for `project.narrium.json`.
+- A native `.narrium` desktop project file workflow exists on `main`; files are JSON internally and wrap the current `Project`.
 - Local asset file storage and a new playable export format have not been implemented yet.
 
 ```text
@@ -475,6 +475,7 @@ Purpose:
 | E11-02 | Desktop shell foundation using Tauri v2 around the existing Vite/React UI | [BOTH] | Done |
 | E11-03A | Local project folder foundation: create/open/save/save-as `project.narrium.json` only | [BOTH] | Done |
 | E11-03B | Local project workflow hardening: recent projects, unsaved state, project-folder UX refinements | [BOTH] | Done |
+| E11-03C | Native Narrium project file workflow using `.narrium` files | [BOTH] | Done |
 | E11-04 | `project.narrium.json` storage format using the validated `Project` domain model | [BOTH] | Done for JSON-only project folders |
 | E11-05 | Local asset file storage under project `assets/` folders | [BOTH] | Planned |
 | E11-06 | Relative asset paths in project JSON | [BOTH] | Planned |
@@ -505,15 +506,25 @@ Current E11-03B deliverable:
 - Desktop projects track dirty state after edits and return clean after successful Save or Save As.
 - Desktop Open/Create flows prompt before discarding dirty changes.
 - Native window X close guard is temporarily disabled so the desktop app always closes; unsaved-change protection for native close should be redesigned in a future dedicated task.
-- Desktop app preferences now keep up to 10 recent project folders and the last opened project.
+- Desktop app preferences now keep up to 10 recent projects and the last opened project.
 - The My Projects screen offers to reopen the last project instead of reopening it automatically.
-- The project header shows the current folder path and a `*` dirty indicator.
-- Save is disabled until the active desktop project has a known folder; Save As remains available.
+- The project header shows the current project path and a `*` dirty indicator.
+- Save is disabled until the active desktop project has a known path; Save As remains available.
 - Browser/Vite workflow remains compatible.
 - Asset folders, image copying, local asset paths, autosave, Git integration, cloud sync, and playable export changes remain planned future work.
 
+Current E11-03C deliverable:
+- Desktop Open Project File uses a native file picker for `.narrium` files and legacy `.json` files.
+- Save As targets a `.narrium` file path instead of asking for a folder.
+- `.narrium` files are JSON internally and use `{ "format": "narrium.project", "formatVersion": 1, "project": { ... } }`.
+- Raw legacy Project JSON remains openable as a compatibility fallback.
+- Old `project.narrium.json` files are legacy/transitional and are no longer the default save target.
+- LocalStorage My Projects remain transitional drafts until Save As creates a `.narrium` file.
+- Recent projects now store file paths, not folder paths.
+- No asset folders, image copying, local asset path migration, playable export changes, autosave, or Project model redesign were added.
+
 Full EPIC 11 deliverable intent:
-- A desktop app can create, open, save, and preview Narrium projects from local folders.
+- A desktop app can create drafts, open `.narrium` files, save known project files, and preview Narrium projects.
 - Imported assets are copied into the project folder instead of being stored as large Data URLs in the long-term project file.
 - Legacy web MVP JSON remains importable as a migration path.
 - Future playable export work can build on the same project folder and relative asset path model.
@@ -522,7 +533,7 @@ Full EPIC 11 deliverable intent:
 
 ## Next Immediate Step
 
-Continue EPIC 11 desktop project system work after the hardened JSON-only folder workflow.
+Continue EPIC 11 desktop project system work after the native `.narrium` project-file workflow.
 
 Recommended next task:
 - E11-05 - Local asset file storage under project `assets/` folders.

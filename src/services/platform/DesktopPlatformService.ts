@@ -1,10 +1,11 @@
 import { invoke } from '@tauri-apps/api/core';
-import { confirm, open } from '@tauri-apps/plugin-dialog';
+import { confirm, open, save } from '@tauri-apps/plugin-dialog';
 import type {
   PlatformName,
   PlatformProjectFile,
   PlatformProjectFileApi,
-  ProjectFolderSelectionOptions,
+  ProjectFileSaveOptions,
+  ProjectFileSelectionOptions,
   PlatformService,
   UnsavedChangesAction,
 } from './PlatformService';
@@ -22,27 +23,52 @@ export class DesktopPlatformService implements PlatformService, PlatformProjectF
     return 'desktop';
   }
 
-  async selectProjectFolder(options: ProjectFolderSelectionOptions): Promise<string | null> {
+  async selectProjectFileToOpen(options: ProjectFileSelectionOptions): Promise<string | null> {
     const selectedPath = await open({
-      directory: true,
+      directory: false,
       multiple: false,
       title: options.title,
+      filters: [
+        {
+          name: 'Narrium Project',
+          extensions: ['narrium'],
+        },
+        {
+          name: 'Legacy JSON',
+          extensions: ['json'],
+        },
+      ],
     });
 
     return typeof selectedPath === 'string' ? selectedPath : null;
   }
 
-  async readProjectFile(folderPath: string, fileName: string): Promise<PlatformProjectFile> {
-    const [filePath, contents] = await invoke<[string, string]>('read_project_file', { folderPath, fileName });
+  async selectProjectFilePathForSaveAs(options: ProjectFileSaveOptions): Promise<string | null> {
+    const selectedPath = await save({
+      title: options.title,
+      defaultPath: options.defaultFileName,
+      filters: [
+        {
+          name: 'Narrium Project',
+          extensions: ['narrium'],
+        },
+      ],
+    });
+
+    return typeof selectedPath === 'string' ? selectedPath : null;
+  }
+
+  async readProjectFile(filePath: string): Promise<PlatformProjectFile> {
+    const [resolvedFilePath, contents] = await invoke<[string, string]>('read_project_file', { filePath });
 
     return {
-      filePath,
+      filePath: resolvedFilePath,
       contents,
     };
   }
 
-  writeProjectFile(folderPath: string, fileName: string, contents: string): Promise<string> {
-    return invoke('write_project_file', { folderPath, fileName, contents });
+  writeProjectFile(filePath: string, contents: string): Promise<string> {
+    return invoke('write_project_file', { filePath, contents });
   }
 
   async confirmUnsavedChanges(projectName: string): Promise<UnsavedChangesAction> {

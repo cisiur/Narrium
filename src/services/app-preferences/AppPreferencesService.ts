@@ -3,13 +3,13 @@ const MAX_RECENT_PROJECTS = 10;
 
 export interface RecentProject {
   name: string;
-  folderPath: string;
+  filePath: string;
   lastOpenedAt: string;
 }
 
 export interface AppPreferences {
   recentProjects: RecentProject[];
-  lastOpenedProjectFolderPath: string | null;
+  lastOpenedProjectFilePath: string | null;
 }
 
 export interface AppPreferencesService {
@@ -21,7 +21,7 @@ export interface AppPreferencesService {
 
 const emptyPreferences: AppPreferences = {
   recentProjects: [],
-  lastOpenedProjectFolderPath: null,
+  lastOpenedProjectFilePath: null,
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -32,7 +32,7 @@ function resemblesRecentProject(value: unknown): value is RecentProject {
   return (
     isRecord(value) &&
     typeof value.name === 'string' &&
-    typeof value.folderPath === 'string' &&
+    typeof value.filePath === 'string' &&
     typeof value.lastOpenedAt === 'string'
   );
 }
@@ -44,8 +44,8 @@ export function normalizeRecentProjects(recentProjects: RecentProject[]): Recent
     .slice()
     .sort((left, right) => right.lastOpenedAt.localeCompare(left.lastOpenedAt))
     .forEach((project) => {
-      if (!uniqueProjects.has(project.folderPath)) {
-        uniqueProjects.set(project.folderPath, project);
+      if (!uniqueProjects.has(project.filePath)) {
+        uniqueProjects.set(project.filePath, project);
       }
     });
 
@@ -62,12 +62,12 @@ export function recordRecentProject(
       ...project,
       lastOpenedAt: openedAt,
     },
-    ...preferences.recentProjects.filter((recentProject) => recentProject.folderPath !== project.folderPath),
+    ...preferences.recentProjects.filter((recentProject) => recentProject.filePath !== project.filePath),
   ]);
 
   return {
     recentProjects,
-    lastOpenedProjectFolderPath: project.folderPath,
+    lastOpenedProjectFilePath: project.filePath,
   };
 }
 
@@ -92,8 +92,8 @@ export class BrowserAppPreferencesService implements AppPreferencesService {
         recentProjects: normalizeRecentProjects(
           Array.isArray(parsed.recentProjects) ? parsed.recentProjects.filter(resemblesRecentProject) : [],
         ),
-        lastOpenedProjectFolderPath:
-          typeof parsed.lastOpenedProjectFolderPath === 'string' ? parsed.lastOpenedProjectFolderPath : null,
+        lastOpenedProjectFilePath:
+          typeof parsed.lastOpenedProjectFilePath === 'string' ? parsed.lastOpenedProjectFilePath : null,
       };
     } catch {
       return emptyPreferences;
@@ -105,7 +105,7 @@ export class BrowserAppPreferencesService implements AppPreferencesService {
       this.storageKey,
       JSON.stringify({
         recentProjects: normalizeRecentProjects(preferences.recentProjects),
-        lastOpenedProjectFolderPath: preferences.lastOpenedProjectFolderPath,
+        lastOpenedProjectFilePath: preferences.lastOpenedProjectFilePath,
       }),
     );
   }
@@ -121,7 +121,7 @@ export class BrowserAppPreferencesService implements AppPreferencesService {
   clearLastOpenedProject(): AppPreferences {
     const nextPreferences = {
       ...this.loadPreferences(),
-      lastOpenedProjectFolderPath: null,
+      lastOpenedProjectFilePath: null,
     };
 
     this.savePreferences(nextPreferences);

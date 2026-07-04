@@ -51,4 +51,40 @@ describe('AppShell', () => {
 
     expect(html).not.toContain('Add selected to group...');
   });
+
+  it('shows unsaved draft status and disables Save when no project file path is known', () => {
+    const html = renderToStaticMarkup(
+      <AppShell
+        isProjectOpen
+        projectName="Draft"
+        projectFilePath={null}
+        onSaveProject={() => undefined}
+        canSaveProject={false}
+      >
+        <div />
+      </AppShell>,
+    );
+
+    expect(html).toContain('Unsaved draft - use Save As to create a .narrium file');
+    expect(html).toContain('Use Save As to create a .narrium project file first.');
+    expect(html).toContain('disabled=""');
+  });
+
+  it('shows project file path and enables Save when a project file path is known', () => {
+    const html = renderToStaticMarkup(
+      <AppShell
+        isProjectOpen
+        projectName="File-backed"
+        projectFilePath="C:/Stories/File-backed.narrium"
+        onSaveProject={() => undefined}
+        canSaveProject
+      >
+        <div />
+      </AppShell>,
+    );
+
+    expect(html).toContain('C:/Stories/File-backed.narrium');
+    expect(html).not.toContain('Unsaved draft');
+    expect(html).not.toContain('disabled=""');
+  });
 });

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { getAppPreferencesService, type RecentProject } from '../services/app-preferences';
 import { getPlatformService, type UnsavedChangesAction } from '../services/platform';
-import { getProjectFolderService } from '../services/project-folder';
+import { getProjectFileService } from '../services/project-file';
 import { getProjectStorage } from '../services/project-storage';
 import { normalizeProject } from '../domain/project';
 import type { Project, WorkspaceProjectMeta, WorkspaceState } from '../types';
@@ -14,7 +14,7 @@ import {
 } from './projectHistory';
 
 const projectStorage = getProjectStorage();
-const projectFolderService = getProjectFolderService();
+const projectFileService = getProjectFileService();
 const appPreferencesService = getAppPreferencesService();
 const platformService = getPlatformService();
 const initialAppPreferences = appPreferencesService.loadPreferences();
@@ -23,24 +23,22 @@ let desktopLifecycleInitialized = false;
 interface WorkspaceStore extends WorkspaceState {
   activeProject: Project | null;
   projectHistory: ProjectHistoryState;
-  activeProjectFolderPath: string | null;
   activeProjectFilePath: string | null;
   activeProjectDirty: boolean;
-  projectFolderError: string | null;
-  canUseProjectFolders: boolean;
+  projectFileError: string | null;
+  canUseProjectFiles: boolean;
   recentProjects: RecentProject[];
   lastOpenedProject: RecentProject | null;
   createProject: () => WorkspaceProjectMeta;
   createProjectWithUnsavedCheck: () => Promise<WorkspaceProjectMeta | null>;
-  createProjectFolder: () => Promise<void>;
   importProject: (project: Project) => WorkspaceProjectMeta;
-  openProjectFolder: () => Promise<void>;
-  openRecentProject: (folderPath: string) => Promise<void>;
+  openProjectFile: () => Promise<void>;
+  openRecentProject: (filePath: string) => Promise<void>;
   openProject: (projectId: string) => void;
   openProjectWithUnsavedCheck: (projectId: string) => Promise<void>;
   closeProject: () => void;
-  saveActiveProjectToFolder: () => Promise<boolean>;
-  saveActiveProjectAsFolder: () => Promise<boolean>;
+  saveActiveProjectToFile: () => Promise<boolean>;
+  saveActiveProjectAsFile: () => Promise<boolean>;
   initializeDesktopLifecycle: () => Promise<void>;
   ensureCanLeaveActiveProject: () => Promise<boolean>;
   renameProject: (projectId: string, newName: string) => void;
@@ -117,18 +115,18 @@ function createWorkspaceForProject(state: WorkspaceStore, project: Project) {
   };
 }
 
-function getLastOpenedProject(recentProjects: RecentProject[], folderPath: string | null): RecentProject | null {
-  if (!folderPath) {
+function getLastOpenedProject(recentProjects: RecentProject[], filePath: string | null): RecentProject | null {
+  if (!filePath) {
     return null;
   }
 
-  return recentProjects.find((project) => project.folderPath === folderPath) ?? null;
+  return recentProjects.find((project) => project.filePath === filePath) ?? null;
 }
 
-function recordOpenedProject(project: Project, folderPath: string) {
+function recordOpenedProject(project: Project, filePath: string) {
   return appPreferencesService.recordRecentProject({
     name: project.name,
-    folderPath,
+    filePath,
   });
 }
 
@@ -138,15 +136,14 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
   ...initialWorkspace,
   activeProject: projectStorage.loadProject(initialWorkspace.activeProjectId),
   projectHistory: createEmptyProjectHistory(initialWorkspace.activeProjectId),
-  activeProjectFolderPath: null,
   activeProjectFilePath: null,
   activeProjectDirty: false,
-  projectFolderError: null,
-  canUseProjectFolders: projectFolderService.canUseProjectFolders(),
+  projectFileError: null,
+  canUseProjectFiles: projectFileService.canUseProjectFiles(),
   recentProjects: initialAppPreferences.recentProjects,
   lastOpenedProject: getLastOpenedProject(
     initialAppPreferences.recentProjects,
-    initialAppPreferences.lastOpenedProjectFolderPath,
+    initialAppPreferences.lastOpenedProjectFilePath,
   ),
   createProject: () => {
     const projectMeta = createProjectMeta();
@@ -165,10 +162,9 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
         ...nextWorkspace,
         activeProject: project,
         projectHistory: createEmptyProjectHistory(project.id),
-        activeProjectFolderPath: null,
         activeProjectFilePath: null,
         activeProjectDirty: false,
-        projectFolderError: null,
+        projectFileError: null,
       };
     });
 
@@ -180,56 +176,6 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
     }
 
     return get().createProject();
-  },
-  createProjectFolder: async () => {
-    if (!(await get().ensureCanLeaveActiveProject())) {
-      return;
-    }
-
-    const projectMeta = createProjectMeta();
-    const project = createEmptyProject(projectMeta);
-
-    try {
-      const projectFolder = await projectFolderService.createProjectFolder(project);
-
-      if (!projectFolder) {
-        return;
-      }
-
-      projectStorage.saveProject(projectFolder.project);
-      const preferences = recordOpenedProject(projectFolder.project, projectFolder.folderPath);
-
-      set((state) => {
-        const nextWorkspace = {
-          projects: [
-            ...state.projects.filter((existingProject) => existingProject.id !== projectFolder.project.id),
-            createProjectMetaFromProject(projectFolder.project),
-          ],
-          activeProjectId: projectFolder.project.id,
-        };
-
-        projectStorage.saveWorkspace(nextWorkspace);
-
-        return {
-          ...nextWorkspace,
-          activeProject: projectFolder.project,
-          projectHistory: createEmptyProjectHistory(projectFolder.project.id),
-          activeProjectFolderPath: projectFolder.folderPath,
-          activeProjectFilePath: projectFolder.filePath,
-          activeProjectDirty: false,
-          projectFolderError: null,
-          recentProjects: preferences.recentProjects,
-          lastOpenedProject: getLastOpenedProject(
-            preferences.recentProjects,
-            preferences.lastOpenedProjectFolderPath,
-          ),
-        };
-      });
-    } catch (error) {
-      set({
-        projectFolderError: error instanceof Error ? error.message : 'Could not create project folder.',
-      });
-    }
   },
   importProject: (project) => {
     const normalizedProject = normalizeProject(project).project;
@@ -263,96 +209,93 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
         ...nextWorkspace,
         activeProject: importedProject,
         projectHistory: createEmptyProjectHistory(importedProject.id),
-        activeProjectFolderPath: null,
         activeProjectFilePath: null,
         activeProjectDirty: false,
-        projectFolderError: null,
+        projectFileError: null,
       };
     });
 
     return projectMeta;
   },
-  openProjectFolder: async () => {
+  openProjectFile: async () => {
     if (!(await get().ensureCanLeaveActiveProject())) {
       return;
     }
 
     try {
-      const projectFolder = await projectFolderService.openProjectFolder();
+      const projectFile = await projectFileService.openProjectFile();
 
-      if (!projectFolder) {
+      if (!projectFile) {
         return;
       }
 
-      projectStorage.saveProject(projectFolder.project);
-      const preferences = recordOpenedProject(projectFolder.project, projectFolder.folderPath);
+      projectStorage.saveProject(projectFile.project);
+      const preferences = recordOpenedProject(projectFile.project, projectFile.filePath);
 
       set((state) => {
         const nextWorkspace = {
           projects: [
-            ...state.projects.filter((project) => project.id !== projectFolder.project.id),
-            createProjectMetaFromProject(projectFolder.project),
+            ...state.projects.filter((project) => project.id !== projectFile.project.id),
+            createProjectMetaFromProject(projectFile.project),
           ],
-          activeProjectId: projectFolder.project.id,
+          activeProjectId: projectFile.project.id,
         };
 
         projectStorage.saveWorkspace(nextWorkspace);
 
         return {
           ...nextWorkspace,
-          activeProject: projectFolder.project,
-          projectHistory: createEmptyProjectHistory(projectFolder.project.id),
-          activeProjectFolderPath: projectFolder.folderPath,
-          activeProjectFilePath: projectFolder.filePath,
+          activeProject: projectFile.project,
+          projectHistory: createEmptyProjectHistory(projectFile.project.id),
+          activeProjectFilePath: projectFile.filePath,
           activeProjectDirty: false,
-          projectFolderError: null,
+          projectFileError: null,
           recentProjects: preferences.recentProjects,
           lastOpenedProject: getLastOpenedProject(
             preferences.recentProjects,
-            preferences.lastOpenedProjectFolderPath,
+            preferences.lastOpenedProjectFilePath,
           ),
         };
       });
     } catch (error) {
       set({
-        projectFolderError: error instanceof Error ? error.message : 'Could not open project folder.',
+        projectFileError: error instanceof Error ? error.message : 'Could not open project file.',
       });
     }
   },
-  openRecentProject: async (folderPath) => {
+  openRecentProject: async (filePath) => {
     if (!(await get().ensureCanLeaveActiveProject())) {
       return;
     }
 
     try {
-      const projectFolder = await projectFolderService.openProjectFolderAt(folderPath);
+      const projectFile = await projectFileService.openProjectFileAt(filePath);
 
-      projectStorage.saveProject(projectFolder.project);
-      const preferences = recordOpenedProject(projectFolder.project, projectFolder.folderPath);
+      projectStorage.saveProject(projectFile.project);
+      const preferences = recordOpenedProject(projectFile.project, projectFile.filePath);
 
       set((state) => {
         const nextWorkspace = {
           projects: [
-            ...state.projects.filter((project) => project.id !== projectFolder.project.id),
-            createProjectMetaFromProject(projectFolder.project),
+            ...state.projects.filter((project) => project.id !== projectFile.project.id),
+            createProjectMetaFromProject(projectFile.project),
           ],
-          activeProjectId: projectFolder.project.id,
+          activeProjectId: projectFile.project.id,
         };
 
         projectStorage.saveWorkspace(nextWorkspace);
 
         return {
           ...nextWorkspace,
-          activeProject: projectFolder.project,
-          projectHistory: createEmptyProjectHistory(projectFolder.project.id),
-          activeProjectFolderPath: projectFolder.folderPath,
-          activeProjectFilePath: projectFolder.filePath,
+          activeProject: projectFile.project,
+          projectHistory: createEmptyProjectHistory(projectFile.project.id),
+          activeProjectFilePath: projectFile.filePath,
           activeProjectDirty: false,
-          projectFolderError: null,
+          projectFileError: null,
           recentProjects: preferences.recentProjects,
           lastOpenedProject: getLastOpenedProject(
             preferences.recentProjects,
-            preferences.lastOpenedProjectFolderPath,
+            preferences.lastOpenedProjectFilePath,
           ),
         };
       });
@@ -360,7 +303,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
       const preferences = appPreferencesService.clearLastOpenedProject();
 
       set({
-        projectFolderError: error instanceof Error ? error.message : 'Could not open recent project.',
+        projectFileError: error instanceof Error ? error.message : 'Could not open recent project.',
         recentProjects: preferences.recentProjects,
         lastOpenedProject: null,
       });
@@ -385,10 +328,9 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
         ...nextWorkspace,
         activeProject: project,
         projectHistory: createEmptyProjectHistory(project.id),
-        activeProjectFolderPath: null,
         activeProjectFilePath: null,
         activeProjectDirty: false,
-        projectFolderError: null,
+        projectFileError: null,
       };
     });
   },
@@ -412,46 +354,44 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
         ...nextWorkspace,
         activeProject: null,
         projectHistory: createEmptyProjectHistory(),
-        activeProjectFolderPath: null,
         activeProjectFilePath: null,
         activeProjectDirty: false,
-        projectFolderError: null,
+        projectFileError: null,
       };
     });
   },
-  saveActiveProjectToFolder: async () => {
-    const { activeProject, activeProjectFolderPath } = get();
+  saveActiveProjectToFile: async () => {
+    const { activeProject, activeProjectFilePath } = get();
 
     if (!activeProject) {
       return false;
     }
 
-    if (!activeProjectFolderPath) {
-      return get().saveActiveProjectAsFolder();
+    if (!activeProjectFilePath) {
+      return get().saveActiveProjectAsFile();
     }
 
     try {
-      const projectFolder = await projectFolderService.saveProject(activeProject, activeProjectFolderPath);
+      const projectFile = await projectFileService.saveProject(activeProject, activeProjectFilePath);
 
-      projectStorage.saveProject(projectFolder.project);
-      const preferences = recordOpenedProject(projectFolder.project, projectFolder.folderPath);
+      projectStorage.saveProject(projectFile.project);
+      const preferences = recordOpenedProject(projectFile.project, projectFile.filePath);
 
       set((state) => {
-        const nextWorkspace = createWorkspaceForProject(state, projectFolder.project);
+        const nextWorkspace = createWorkspaceForProject(state, projectFile.project);
 
         projectStorage.saveWorkspace(nextWorkspace);
 
         return {
           ...nextWorkspace,
-          activeProject: projectFolder.project,
-          activeProjectFolderPath: projectFolder.folderPath,
-          activeProjectFilePath: projectFolder.filePath,
+          activeProject: projectFile.project,
+          activeProjectFilePath: projectFile.filePath,
           activeProjectDirty: false,
-          projectFolderError: null,
+          projectFileError: null,
           recentProjects: preferences.recentProjects,
           lastOpenedProject: getLastOpenedProject(
             preferences.recentProjects,
-            preferences.lastOpenedProjectFolderPath,
+            preferences.lastOpenedProjectFilePath,
           ),
         };
       });
@@ -459,13 +399,13 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
       return true;
     } catch (error) {
       set({
-        projectFolderError: error instanceof Error ? error.message : 'Could not save project.',
+        projectFileError: error instanceof Error ? error.message : 'Could not save project.',
       });
 
       return false;
     }
   },
-  saveActiveProjectAsFolder: async () => {
+  saveActiveProjectAsFile: async () => {
     const { activeProject } = get();
 
     if (!activeProject) {
@@ -473,31 +413,30 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
     }
 
     try {
-      const projectFolder = await projectFolderService.saveProjectAs(activeProject);
+      const projectFile = await projectFileService.saveProjectAs(activeProject);
 
-      if (!projectFolder) {
+      if (!projectFile) {
         return false;
       }
 
-      projectStorage.saveProject(projectFolder.project);
-      const preferences = recordOpenedProject(projectFolder.project, projectFolder.folderPath);
+      projectStorage.saveProject(projectFile.project);
+      const preferences = recordOpenedProject(projectFile.project, projectFile.filePath);
 
       set((state) => {
-        const nextWorkspace = createWorkspaceForProject(state, projectFolder.project);
+        const nextWorkspace = createWorkspaceForProject(state, projectFile.project);
 
         projectStorage.saveWorkspace(nextWorkspace);
 
         return {
           ...nextWorkspace,
-          activeProject: projectFolder.project,
-          activeProjectFolderPath: projectFolder.folderPath,
-          activeProjectFilePath: projectFolder.filePath,
+          activeProject: projectFile.project,
+          activeProjectFilePath: projectFile.filePath,
           activeProjectDirty: false,
-          projectFolderError: null,
+          projectFileError: null,
           recentProjects: preferences.recentProjects,
           lastOpenedProject: getLastOpenedProject(
             preferences.recentProjects,
-            preferences.lastOpenedProjectFolderPath,
+            preferences.lastOpenedProjectFilePath,
           ),
         };
       });
@@ -505,7 +444,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
       return true;
     } catch (error) {
       set({
-        projectFolderError: error instanceof Error ? error.message : 'Could not save project as.',
+        projectFileError: error instanceof Error ? error.message : 'Could not save project as.',
       });
 
       return false;
@@ -712,6 +651,6 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
       return true;
     }
 
-    return get().saveActiveProjectToFolder();
+    return get().saveActiveProjectToFile();
   },
 }));

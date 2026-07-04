@@ -250,13 +250,12 @@ function ProjectSettingsSidebar({
 export function MyProjectsScreen() {
   const projects = useWorkspaceStore((state) => state.projects);
   const createProjectWithUnsavedCheck = useWorkspaceStore((state) => state.createProjectWithUnsavedCheck);
-  const createProjectFolder = useWorkspaceStore((state) => state.createProjectFolder);
   const importProject = useWorkspaceStore((state) => state.importProject);
-  const openProjectFolder = useWorkspaceStore((state) => state.openProjectFolder);
+  const openProjectFile = useWorkspaceStore((state) => state.openProjectFile);
   const openRecentProject = useWorkspaceStore((state) => state.openRecentProject);
   const openProjectWithUnsavedCheck = useWorkspaceStore((state) => state.openProjectWithUnsavedCheck);
-  const canUseProjectFolders = useWorkspaceStore((state) => state.canUseProjectFolders);
-  const projectFolderError = useWorkspaceStore((state) => state.projectFolderError);
+  const canUseProjectFiles = useWorkspaceStore((state) => state.canUseProjectFiles);
+  const projectFileError = useWorkspaceStore((state) => state.projectFileError);
   const recentProjects = useWorkspaceStore((state) => state.recentProjects);
   const lastOpenedProject = useWorkspaceStore((state) => state.lastOpenedProject);
   const renameProject = useWorkspaceStore((state) => state.renameProject);
@@ -300,8 +299,8 @@ export function MyProjectsScreen() {
           {importError ? (
             <p className="mt-2 text-sm font-medium text-red-700">{importError}</p>
           ) : null}
-          {projectFolderError ? (
-            <p className="mt-2 text-sm font-medium text-red-700">{projectFolderError}</p>
+          {projectFileError ? (
+            <p className="mt-2 text-sm font-medium text-red-700">{projectFileError}</p>
           ) : null}
         </div>
         <div className="flex items-center gap-2">
@@ -322,23 +321,14 @@ export function MyProjectsScreen() {
           >
             Import JSON
           </button>
-          {canUseProjectFolders ? (
-            <>
-              <button
-                type="button"
-                onClick={() => void openProjectFolder()}
-                className="rounded-md border border-ink-950/10 bg-white px-4 py-2 text-sm font-semibold text-ink-800 shadow-sm transition hover:border-accent-500/40 hover:text-ink-950"
-              >
-                Open Project Folder
-              </button>
-              <button
-                type="button"
-                onClick={() => void createProjectFolder()}
-                className="rounded-md bg-accent-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-accent-600"
-              >
-                Create Project Folder
-              </button>
-            </>
+          {canUseProjectFiles ? (
+            <button
+              type="button"
+              onClick={() => void openProjectFile()}
+              className="rounded-md border border-ink-950/10 bg-white px-4 py-2 text-sm font-semibold text-ink-800 shadow-sm transition hover:border-accent-500/40 hover:text-ink-950"
+            >
+              Open Project File
+            </button>
           ) : null}
           <button
             type="button"
@@ -351,18 +341,18 @@ export function MyProjectsScreen() {
         </div>
       </div>
 
-      {canUseProjectFolders && lastOpenedProject ? (
+      {canUseProjectFiles && lastOpenedProject ? (
         <section className="mb-6 rounded-md border border-accent-500/30 bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
               <h2 className="text-sm font-semibold text-ink-950">Reopen last project</h2>
               <p className="mt-1 truncate text-sm text-ink-600">
-                {lastOpenedProject.name} - {lastOpenedProject.folderPath}
+                {lastOpenedProject.name} - {lastOpenedProject.filePath}
               </p>
             </div>
             <button
               type="button"
-              onClick={() => void openRecentProject(lastOpenedProject.folderPath)}
+              onClick={() => void openRecentProject(lastOpenedProject.filePath)}
               className="shrink-0 rounded-md bg-accent-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-accent-600"
             >
               Reopen
@@ -371,19 +361,19 @@ export function MyProjectsScreen() {
         </section>
       ) : null}
 
-      {canUseProjectFolders && recentProjects.length > 0 ? (
+      {canUseProjectFiles && recentProjects.length > 0 ? (
         <section className="mb-8">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-600">Recent Project Folders</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-600">Recent Projects</h2>
           <div className="mt-3 divide-y divide-ink-950/10 rounded-md border border-ink-950/10 bg-white">
             {recentProjects.map((project) => (
               <button
-                key={project.folderPath}
+                key={project.filePath}
                 type="button"
-                onClick={() => void openRecentProject(project.folderPath)}
+                onClick={() => void openRecentProject(project.filePath)}
                 className="block w-full px-4 py-3 text-left hover:bg-parchment-100"
               >
                 <span className="block truncate text-sm font-semibold text-ink-950">{project.name}</span>
-                <span className="mt-1 block truncate text-xs text-ink-600">{project.folderPath}</span>
+                <span className="mt-1 block truncate text-xs text-ink-600">{project.filePath}</span>
               </button>
             ))}
           </div>
@@ -394,7 +384,7 @@ export function MyProjectsScreen() {
         <div className="flex min-h-80 flex-col items-center justify-center rounded-md border border-dashed border-ink-950/20 bg-white p-8 text-center">
           <h2 className="text-xl font-semibold text-ink-950">No projects yet</h2>
           <p className="mt-2 max-w-md text-sm leading-6 text-ink-600">
-            Create a local mock project to start shaping the Narrium workspace foundation.
+            Create an unsaved draft, then use Save As when you are ready to create a .narrium file.
           </p>
           <button
             type="button"

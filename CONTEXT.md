@@ -71,8 +71,8 @@ Workflow:
 | State management | Zustand |
 | Styling | Tailwind CSS v3 |
 | Desktop shell | Tauri v2 foundation |
-| Storage | `ProjectStorage` service boundary for browser/localStorage plus desktop project-folder service for `project.narrium.json` |
-| Project format | JSON-compatible `Project` object; desktop project folders now save `project.narrium.json` |
+| Storage | `ProjectStorage` service boundary for browser/localStorage plus desktop project-file service for `.narrium` files |
+| Project format | `.narrium` desktop project files are JSON internally and wrap the current `Project` object |
 | Runtime player | Embedded React Preview player |
 | Exported player | Standalone HTML file for archived web MVP; future playable export format TBD |
 | Tests | Vitest |
@@ -94,10 +94,11 @@ Strategic status:
 - Standalone HTML export generation now lives in `src/services/export/`.
 - JSON import accepts legacy choices with `conditions` and missing `effects`, then normalizes to the current `conditionGroups`/`effects` shape.
 - Platform identity now goes through `src/services/platform/`; future desktop APIs must be added behind that service boundary.
-- Desktop builds now have a JSON-only local project folder foundation for Create Project Folder, Open Project Folder, Save, and Save As.
-- Desktop project workflow hardening is implemented: dirty state, guarded Open/Create, recent project folders, last-opened offer, platform-owned path joining, folder path display, and dirty `*` indicator.
+- Desktop builds now use native `.narrium` project files for Open Project File, Save, and Save As.
+- Desktop project workflow hardening is implemented: dirty state, guarded Open/Create, recent project files, last-opened offer, platform-owned file read/write, file path display, and dirty `*` indicator.
 - Native window X close guard is temporarily disabled so the desktop app always closes; explicit Open/Create dirty checks remain active.
-- Desktop project folders currently contain `project.narrium.json` only.
+- `.narrium` files are JSON internally and use `{ format: "narrium.project", formatVersion: 1, project }`.
+- Legacy raw Project JSON and old `project.narrium.json` files remain openable as compatibility fallbacks when selected as files.
 - Current intended dependency direction is UI/features -> stores -> services -> domain -> types.
 - Local asset file storage, asset folder creation, asset migration, autosave, and future playable export packaging have not been implemented yet on `main`.
 
@@ -160,7 +161,7 @@ Current recommended next milestone:
 - Recommended next task should be selected by the project owner.
 
 Good candidates:
-- Local `assets/` folder storage for imported files.
+- Local asset file storage for imported files.
 - Import/migration path from legacy web MVP JSON, including future extraction of embedded Data URLs.
 - Desktop preview parity with the validated web MVP preview.
 - Future playable export foundation.
@@ -213,36 +214,37 @@ Good candidates:
   - My Projects
   - Add Scene
   - Preview
-  - Save / Save As in desktop project-folder capable builds
+  - Save / Save As in desktop project-file capable builds
   - Export JSON
   - Export HTML
 
-### Desktop Project Folders
+### Desktop Project Files
 
-- Desktop project-folder workflow exists for JSON-only projects.
+- Desktop project-file workflow exists for JSON-only `.narrium` projects.
 - Supported desktop actions:
-  - Create Project Folder
-  - Open Project Folder
+  - Open Project File
   - Save
   - Save As
-- Required folder shape for the current implementation:
-  - `My Story/project.narrium.json`
-- `project.narrium.json` contains the normalized current `Project` JSON.
-- Opening a project folder reads and normalizes `project.narrium.json`.
-- Invalid project folder JSON shows a project-folder error in the My Projects screen.
+- Create Project creates a localStorage-backed draft with no project file path until Save As.
+- `.narrium` files contain JSON with `format`, `formatVersion`, and `project` fields.
+- Opening a `.narrium` file reads and normalizes the wrapped `project`.
+- Raw legacy Project JSON remains openable through Open Project File when selected as a `.json` file.
+- Old `project.narrium.json` files are legacy/transitional and are no longer the default desktop save target.
+- Invalid project files show a project-file error in the My Projects screen.
 - Browser/Vite workflow still uses `narrium_workspace` and `narrium_project_{id}` in localStorage.
-- The workspace store currently keeps transitional active project folder/file paths while a desktop folder project is open.
-- Desktop folder projects become dirty after edits and clean after successful Save or Save As.
-- Desktop Open Project Folder and Create Project Folder prompt before discarding dirty changes.
+- The workspace store currently keeps the active desktop project file path while a file-backed project is open.
+- Desktop file-backed projects become dirty after edits and clean after successful Save or Save As.
+- Desktop Open Project File and local draft Create Project prompt before discarding dirty changes.
 - Native window X close does not prompt for unsaved changes for now; a future dedicated task should redesign native-close unsaved-changes protection.
-- Recent project folders are stored as app preferences, not as workspace project data.
-- The recent project list stores project name, folder path, and last opened timestamp.
+- Recent project files are stored as app preferences, not as workspace project data.
+- The recent project list stores project name, file path, and last opened timestamp.
 - The recent project list is capped at 10 entries.
 - The last opened desktop project is offered on launch but is not reopened automatically.
-- The project header shows the current folder path and appends `*` to dirty project names.
-- Save is disabled until a desktop project has a known folder; Save As remains available.
+- The project header shows the current file path and appends `*` to dirty project names.
+- Drafts with no known file path show `Unsaved draft - use Save As to create a .narrium file`.
+- Save is disabled until a desktop project has a known file path; Save As remains available.
 - Workspace/localStorage remains a compatibility layer, not the long-term desktop project database.
-- No `assets/` folder, image copying, local asset paths, autosave, or playable export package exists yet.
+- No local asset folders, image copying, local asset paths, autosave, or playable export package exists yet.
 
 ### Shared UI
 
@@ -562,7 +564,7 @@ Standalone save/load snapshots include:
 Implemented:
 - Vitest added.
 - `npm.cmd test` runs `vitest run`.
-- Current test count after Scene Groups: **146 tests**.
+- Current test count after native project files: **181 tests**.
 - `runtimeState.test.ts` covers initial RuntimeState creation, including Variables.
 - `runtimeLogic.test.ts` covers representative behavior for:
   - `applyEffects()`
@@ -629,7 +631,7 @@ Important:
 - Resources are player-facing numeric values when marked visible.
 
 Next recommended tasks:
-1. Local asset file storage under project `assets/`.
+1. Local asset file storage.
 2. Migration/import from legacy web MVP JSON.
 3. Future extraction of embedded Data URLs into local asset files.
 4. Desktop preview parity with the validated web MVP preview.
@@ -735,10 +737,10 @@ src/
       BrowserProjectStorage.test.ts
       getProjectStorage.ts
       index.ts
-    project-folder/
-      ProjectFolderService.ts
-      ProjectFolderService.test.ts
-      getProjectFolderService.ts
+    project-file/
+      ProjectFileService.ts
+      ProjectFileService.test.ts
+      getProjectFileService.ts
       index.ts
     platform/
       PlatformService.ts

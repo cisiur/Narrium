@@ -2,7 +2,7 @@
 
 This document describes the intended desktop-first direction for Narrium after completion of the browser MVP.
 
-The browser MVP remains archived on branch `MVP_web_legacy` as a validated prototype and reference implementation. Active development on `main` should now move toward a desktop-first visual novel editor with local project folders, local asset files, and future playable exports.
+The browser MVP remains archived on branch `MVP_web_legacy` as a validated prototype and reference implementation. Active development on `main` should now move toward a desktop-first visual novel editor with native project files, local asset files, and future playable exports.
 
 Current implementation status:
 - A minimal Tauri v2 desktop shell foundation exists under `src-tauri/`.
@@ -15,7 +15,7 @@ Current implementation status:
 - Standalone HTML export generation now lives in `src/services/export/`.
 - Legacy JSON import accepts old `Choice.conditions` and missing `effects`, then normalizes to the current shape.
 - Platform identity now goes through `src/services/platform/`.
-- A JSON-only local project folder foundation exists for desktop builds: create/open/save/save-as writes `project.narrium.json`.
+- A native `.narrium` project-file workflow exists for desktop builds: Open Project File, Save, and Save As read/write `.narrium` files.
 - Desktop project workflow hardening exists for dirty state, guarded Open/Create, recent projects, and last-opened project offers.
 - Native window X close interception is temporarily disabled so the desktop app can always close.
 - Services can depend on domain code, but domain code must stay independent from stores, services, UI, and Tauri APIs.
@@ -27,7 +27,7 @@ Current implementation status:
 
 Narrium becomes a desktop-first visual novel editor.
 
-Authors should be able to create and manage projects as local folders on their machine. Imported images and other media should live as normal files inside the project folder instead of being embedded into browser storage or long JSON payloads.
+Authors should be able to create and manage projects as native `.narrium` files on their machine. Imported images and other media should later live as normal local files referenced by the project instead of being embedded into browser storage or long JSON payloads.
 
 The existing browser MVP validated the core product shape:
 - visual scene canvas,
@@ -75,69 +75,73 @@ Runtime/export boundary status:
 - No new playable export format exists yet.
 
 Platform boundary status:
-- `PlatformService` exposes platform identity and the narrow project-file operations required by the current desktop folder workflow.
+- `PlatformService` exposes platform identity and the narrow project-file operations required by the current desktop file workflow.
 - `BrowserPlatformService` reports the browser runtime.
 - `DesktopPlatformService` reports the Tauri desktop runtime.
 - `getPlatformService()` owns Tauri runtime detection using injected Tauri globals.
 - Future Tauri APIs must be introduced behind `services/platform/`; React components and Zustand stores must not import Tauri directly.
-- Current Tauri usage is limited to folder selection, unsaved-change confirmation, and reading/writing `project.narrium.json` through service boundaries.
+- Current Tauri usage is limited to file open/save dialogs, unsaved-change confirmation, and reading/writing selected project files through service boundaries.
 - Native close dirty protection needs a dedicated redesign before it is restored; the previous async close guard could trap the app.
-- Project file path joining for both reads and writes happens inside the platform/Rust layer.
+- Project file reads and writes operate on explicit file paths selected by the user.
 - No asset loading, image copying, clipboard, shell, notifications, drag-and-drop, autosave, or playable package APIs are implemented.
 
-Project folder status:
-- `src/services/project-folder/` owns desktop project-folder orchestration.
-- Desktop projects currently use a folder containing `project.narrium.json`.
-- The saved file contains the normalized current `Project` JSON.
+Project file status:
+- `src/services/project-file/` owns desktop project-file orchestration.
+- Desktop projects currently use `.narrium` files.
+- `.narrium` files are JSON internally and contain `{ "format": "narrium.project", "formatVersion": 1, "project": { ... } }`.
+- Legacy raw Project JSON and old `project.narrium.json` files remain openable when selected as files.
+- `project.narrium.json` is legacy/transitional and is no longer the default desktop save target.
 - The browser workflow still uses the `ProjectStorage` localStorage backend and legacy keys.
-- The workspace store carries transitional current-folder metadata only while a desktop project is open.
+- The workspace store carries the current desktop project file path only while a file-backed project is open.
 - The workspace store tracks dirty state for active projects.
-- Dirty desktop projects prompt before Open Project Folder and Create Project Folder.
+- Dirty desktop projects prompt before Open Project File and local draft Create Project.
 - Native window X close does not prompt for unsaved changes for now; explicit Open/Create dirty checks remain active.
 - Successful Save and Save As mark the project clean.
-- The project header displays the current folder path and dirty `*` indicator.
-- `src/services/app-preferences/` stores recent project folders and the last opened project as app preferences.
+- The project header displays the current file path and dirty `*` indicator.
+- Drafts without a project file path show `Unsaved draft - use Save As to create a .narrium file`.
+- `src/services/app-preferences/` stores recent project file paths and the last opened project as app preferences.
 - Recent projects are capped at 10 entries and are not workspace project records.
 - The last opened project is offered on launch, not reopened automatically.
 - The long-term workspace direction remains app preferences and recent projects, not the primary project database.
 
 Near-term desktop work should focus on:
-- adding local asset file storage under project folders,
-- replacing remaining long-term localStorage assumptions with project-folder persistence,
+- adding local asset file storage,
+- replacing remaining long-term localStorage assumptions with file-backed persistence,
 - keeping the validated domain model recognizable.
 
 ---
 
 ## Project storage model
 
-Future Narrium desktop projects should be folders:
+Current Narrium desktop projects are `.narrium` files:
 
 ```text
-MyStory/
-  project.narrium.json
+MyStory.narrium
 ```
 
-`project.narrium.json` should store the Narrium `Project` data: scenes, choices, characters, resources, variables, groups, settings, and asset metadata.
+`.narrium` files are JSON internally:
+
+```json
+{
+  "format": "narrium.project",
+  "formatVersion": 1,
+  "project": {}
+}
+```
+
+The wrapped `project` value stores the current Narrium `Project` data: scenes, choices, characters, resources, variables, groups, settings, and asset metadata.
 
 Current implementation:
-- creates or opens a folder selected by the author,
-- reads or writes `project.narrium.json`,
+- opens a `.narrium` file selected by the author,
+- saves to the known `.narrium` file path,
+- uses Save As to create or overwrite a selected `.narrium` file,
 - normalizes opened project JSON,
-- does not create an `assets/` folder yet.
+- also accepts raw legacy Project JSON as an open/import fallback,
+- does not create local asset folders yet.
 
-Future asset-enabled folders should add:
+Future asset-enabled storage should add a clear local file layout alongside or adjacent to the project file. That layout is not implemented yet and should be designed in a dedicated task.
 
-```text
-MyStory/
-  project.narrium.json
-  assets/
-    backgrounds/
-    characters/
-    audio/
-    ui/
-```
-
-Asset references in the JSON should use relative paths:
+Asset references in the JSON should eventually use relative paths:
 
 ```json
 {
@@ -145,7 +149,7 @@ Asset references in the JSON should use relative paths:
   "kind": "background",
   "name": "Castle Hall",
   "sourceType": "upload",
-  "url": "assets/backgrounds/castle-hall.png",
+  "url": "assets/castle-hall.png",
   "createdAt": "2026-07-02T00:00:00.000Z"
 }
 ```
@@ -156,15 +160,9 @@ The exact field name can evolve, but the important rule is that the project file
 
 ## Asset handling
 
-When an author imports or uploads a file, the desktop editor should copy it into the project folder.
+When an author imports or uploads a file, a future desktop editor task should copy it into a local project asset location.
 
-Recommended behavior:
-- background images go under `assets/backgrounds/`,
-- character art can later go under `assets/characters/`,
-- audio can later go under `assets/audio/`,
-- future UI/theme assets can later go under `assets/ui/`.
-
-The project JSON should store asset metadata and relative paths. This avoids browser storage limits, reduces JSON bloat, improves portability, and makes project folders easier to inspect, back up, and version.
+The project JSON should store asset metadata and relative paths. This avoids browser storage limits, reduces JSON bloat, improves portability, and makes projects easier to inspect, back up, and version.
 
 The archived web MVP may still use Data URLs for uploaded images. That behavior is legacy/MVP behavior and should not define long-term desktop storage.
 
@@ -189,7 +187,7 @@ Migration should preserve:
 Legacy embedded Data URLs should eventually be extracted into local files where practical:
 - decode the Data URL,
 - choose a stable filename,
-- write the file into the relevant `assets/` folder,
+- write the file into the future local asset location,
 - replace the embedded Data URL with a relative path,
 - keep enough metadata to avoid losing author-facing asset names.
 
@@ -203,17 +201,17 @@ The current standalone HTML export belongs to the archived browser MVP. It is us
 
 Future playable export may be a playable folder or packaged build rather than one standalone HTML file. A folder/package export can include:
 - a runtime player,
-- `project.narrium.json` or a compiled story payload,
+- a `.narrium` file, JSON payload, or compiled story payload,
 - copied asset files,
 - save/load support appropriate for the target runtime.
 
-The exact export format should be designed later after the desktop project folder model is stable. Current boundary work only separates reusable runtime helpers and standalone HTML export generation; it does not add a new desktop playable export.
+The exact export format should be designed later after the desktop project-file model is stable. Current boundary work only separates reusable runtime helpers and standalone HTML export generation; it does not add a new desktop playable export.
 
 ---
 
-## Non-goals for the current project-folder foundation
+## Non-goals for the current project-file foundation
 
-The current project-folder foundation does not implement:
+The current project-file foundation does not implement:
 - asset folder creation,
 - image file copying,
 - local asset path migration,

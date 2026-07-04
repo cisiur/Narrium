@@ -19,16 +19,20 @@ export class BrowserPlatformService implements PlatformService, PlatformProjectF
     return 'browser';
   }
 
-  selectProjectFolder(): Promise<string | null> {
+  selectProjectFileToOpen(): Promise<string | null> {
+    return Promise.resolve(null);
+  }
+
+  selectProjectFilePathForSaveAs(): Promise<string | null> {
     return Promise.resolve(null);
   }
 
   readProjectFile(): Promise<PlatformProjectFile> {
-    return Promise.reject(new Error('Project folders are only available in the desktop app.'));
+    return Promise.reject(new Error('Project files are only available in the desktop app.'));
   }
 
   writeProjectFile(): Promise<string> {
-    return Promise.reject(new Error('Project folders are only available in the desktop app.'));
+    return Promise.reject(new Error('Project files are only available in the desktop app.'));
   }
 
   confirmUnsavedChanges(projectName: string): Promise<UnsavedChangesAction> {

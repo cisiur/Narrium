@@ -4,7 +4,7 @@ import { normalizeRecentProjects, recordRecentProject, type AppPreferences, type
 function createRecentProject(index: number, overrides: Partial<RecentProject> = {}): RecentProject {
   return {
     name: `Project ${index}`,
-    folderPath: `C:/Stories/Project ${index}`,
+    filePath: `C:/Stories/Project ${index}.narrium`,
     lastOpenedAt: `2026-01-${String(index).padStart(2, '0')}T00:00:00.000Z`,
     ...overrides,
   };
@@ -34,14 +34,14 @@ describe('app preferences recent projects', () => {
   it('moves a reopened project to the top and updates last opened metadata', () => {
     const preferences: AppPreferences = {
       recentProjects: [createRecentProject(1), createRecentProject(2)],
-      lastOpenedProjectFolderPath: 'C:/Stories/Project 2',
+      lastOpenedProjectFilePath: 'C:/Stories/Project 2.narrium',
     };
 
     const nextPreferences = recordRecentProject(
       preferences,
       {
         name: 'Project 1 Revised',
-        folderPath: 'C:/Stories/Project 1',
+        filePath: 'C:/Stories/Project 1.narrium',
       },
       '2026-02-01T00:00:00.000Z',
     );
@@ -49,9 +49,9 @@ describe('app preferences recent projects', () => {
     expect(nextPreferences.recentProjects).toHaveLength(2);
     expect(nextPreferences.recentProjects[0]).toEqual({
       name: 'Project 1 Revised',
-      folderPath: 'C:/Stories/Project 1',
+      filePath: 'C:/Stories/Project 1.narrium',
       lastOpenedAt: '2026-02-01T00:00:00.000Z',
     });
-    expect(nextPreferences.lastOpenedProjectFolderPath).toBe('C:/Stories/Project 1');
+    expect(nextPreferences.lastOpenedProjectFilePath).toBe('C:/Stories/Project 1.narrium');
   });
 });

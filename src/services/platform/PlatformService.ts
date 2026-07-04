@@ -1,7 +1,12 @@
 export type PlatformName = 'browser' | 'desktop';
 
-export interface ProjectFolderSelectionOptions {
+export interface ProjectFileSelectionOptions {
   title: string;
+}
+
+export interface ProjectFileSaveOptions {
+  title: string;
+  defaultFileName: string;
 }
 
 export interface PlatformProjectFile {
@@ -12,9 +17,10 @@ export interface PlatformProjectFile {
 export type UnsavedChangesAction = 'save' | 'discard' | 'cancel';
 
 export interface PlatformProjectFileApi {
-  selectProjectFolder(options: ProjectFolderSelectionOptions): Promise<string | null>;
-  readProjectFile(folderPath: string, fileName: string): Promise<PlatformProjectFile>;
-  writeProjectFile(folderPath: string, fileName: string, contents: string): Promise<string>;
+  selectProjectFileToOpen(options: ProjectFileSelectionOptions): Promise<string | null>;
+  selectProjectFilePathForSaveAs(options: ProjectFileSaveOptions): Promise<string | null>;
+  readProjectFile(filePath: string): Promise<PlatformProjectFile>;
+  writeProjectFile(filePath: string, contents: string): Promise<string>;
 }
 
 export interface PlatformService extends PlatformProjectFileApi {

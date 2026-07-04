@@ -6,6 +6,7 @@ export type {
   PlatformProjectFile,
   PlatformProjectFileApi,
   PlatformService,
-  ProjectFolderSelectionOptions,
+  ProjectFileSaveOptions,
+  ProjectFileSelectionOptions,
   UnsavedChangesAction,
 } from './PlatformService';

@@ -100,8 +100,13 @@ Project file status:
 - The project header displays the current file path and dirty `*` indicator.
 - Drafts without a project file path show `Unsaved draft - use Save As to create a .narrium file`.
 - `src/services/app-preferences/` stores recent project file paths and the last opened project as app preferences.
+- Recent project metadata stores `projectId` when known so My Projects cards can reopen associated `.narrium` files directly.
+- Cards without a file association remain localStorage drafts.
+- Older recent metadata may associate by unique project name only; duplicate names do not auto-open a file.
+- File-backed cards display a `.narrium file` label and path, while drafts display `Local draft`.
 - Recent projects are capped at 10 entries and are not workspace project records.
 - The last opened project is offered on launch, not reopened automatically.
+- The My Projects landing screen no longer renders the single-item `WORKSPACE > My Projects` sidebar.
 - The long-term workspace direction remains app preferences and recent projects, not the primary project database.
 
 Near-term desktop work should focus on:

@@ -476,6 +476,7 @@ Purpose:
 | E11-03A | Local project folder foundation: create/open/save/save-as `project.narrium.json` only | [BOTH] | Done |
 | E11-03B | Local project workflow hardening: recent projects, unsaved state, project-folder UX refinements | [BOTH] | Done |
 | E11-03C | Native Narrium project file workflow using `.narrium` files | [BOTH] | Done |
+| E11-03D | My Projects file-backed card UX cleanup | [BOTH] | Done |
 | E11-04 | `project.narrium.json` storage format using the validated `Project` domain model | [BOTH] | Done for JSON-only project folders |
 | E11-05 | Local asset file storage under project `assets/` folders | [BOTH] | Planned |
 | E11-06 | Relative asset paths in project JSON | [BOTH] | Planned |
@@ -522,6 +523,15 @@ Current E11-03C deliverable:
 - LocalStorage My Projects remain transitional drafts until Save As creates a `.narrium` file.
 - Recent projects now store file paths, not folder paths.
 - No asset folders, image copying, local asset path migration, playable export changes, autosave, or Project model redesign were added.
+
+Current E11-03D deliverable:
+- My Projects cards open an associated `.narrium` file directly when recent-project metadata contains a matching project id.
+- Older recent metadata can associate by unique project name only; duplicate names do not auto-open a file to avoid the wrong match.
+- Cards without a file association remain localStorage drafts.
+- File-backed cards show a `.narrium file` label and file path; draft cards show `Local draft`.
+- The old single-item `WORKSPACE > My Projects` landing sidebar was removed.
+- Native window X close remains pass-through.
+- Local asset storage, autosave, playable export changes, and Project model redesign remain out of scope.
 
 Full EPIC 11 deliverable intent:
 - A desktop app can create drafts, open `.narrium` files, save known project files, and preview Narrium projects.

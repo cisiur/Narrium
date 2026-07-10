@@ -99,6 +99,9 @@ Strategic status:
 - Native window X close guard is temporarily disabled so the desktop app always closes; explicit Open/Create dirty checks remain active.
 - `.narrium` files are JSON internally and use `{ format: "narrium.project", formatVersion: 1, project }`.
 - Legacy raw Project JSON and old `project.narrium.json` files remain openable as compatibility fallbacks when selected as files.
+- My Projects cards open associated `.narrium` files directly when recent-project metadata links the card to a file-backed project.
+- LocalStorage cards without a file association remain local drafts.
+- The old single-item `WORKSPACE > My Projects` landing sidebar has been removed; editor navigation remains.
 - Current intended dependency direction is UI/features -> stores -> services -> domain -> types.
 - Local asset file storage, asset folder creation, asset migration, autosave, and future playable export packaging have not been implemented yet on `main`.
 
@@ -237,9 +240,11 @@ Good candidates:
 - Desktop Open Project File and local draft Create Project prompt before discarding dirty changes.
 - Native window X close does not prompt for unsaved changes for now; a future dedicated task should redesign native-close unsaved-changes protection.
 - Recent project files are stored as app preferences, not as workspace project data.
-- The recent project list stores project name, file path, and last opened timestamp.
+- The recent project list stores project id when known, project name, file path, and last opened timestamp.
 - The recent project list is capped at 10 entries.
 - The last opened desktop project is offered on launch but is not reopened automatically.
+- Project cards associated with recent `.narrium` files open through the file-backed path, so Save is enabled immediately and the header shows the file path.
+- Project cards without a file association open as localStorage drafts, so Save stays disabled until Save As.
 - The project header shows the current file path and appends `*` to dirty project names.
 - Drafts with no known file path show `Unsaved draft - use Save As to create a .narrium file`.
 - Save is disabled until a desktop project has a known file path; Save As remains available.
@@ -564,7 +569,7 @@ Standalone save/load snapshots include:
 Implemented:
 - Vitest added.
 - `npm.cmd test` runs `vitest run`.
-- Current test count after native project files: **181 tests**.
+- Current test count after file-backed My Projects cards: **189 tests**.
 - `runtimeState.test.ts` covers initial RuntimeState creation, including Variables.
 - `runtimeLogic.test.ts` covers representative behavior for:
   - `applyEffects()`

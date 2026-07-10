@@ -2,6 +2,7 @@ const APP_PREFERENCES_KEY = 'narrium_app_preferences';
 const MAX_RECENT_PROJECTS = 10;
 
 export interface RecentProject {
+  projectId?: string;
   name: string;
   filePath: string;
   lastOpenedAt: string;
@@ -31,6 +32,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function resemblesRecentProject(value: unknown): value is RecentProject {
   return (
     isRecord(value) &&
+    (value.projectId === undefined || typeof value.projectId === 'string') &&
     typeof value.name === 'string' &&
     typeof value.filePath === 'string' &&
     typeof value.lastOpenedAt === 'string'

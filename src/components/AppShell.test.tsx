@@ -87,4 +87,16 @@ describe('AppShell', () => {
     expect(html).not.toContain('Unsaved draft');
     expect(html).not.toContain('disabled=""');
   });
+
+  it('does not render the single-item Workspace sidebar on the My Projects screen', () => {
+    const html = renderToStaticMarkup(
+      <AppShell>
+        <h1>My Projects</h1>
+      </AppShell>,
+    );
+
+    expect(html).toContain('My Projects');
+    expect(html).not.toContain('Workspace');
+    expect(html).not.toContain('grid-cols-[14rem_minmax(0,1fr)]');
+  });
 });

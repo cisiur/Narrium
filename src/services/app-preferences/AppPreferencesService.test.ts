@@ -40,6 +40,7 @@ describe('app preferences recent projects', () => {
     const nextPreferences = recordRecentProject(
       preferences,
       {
+        projectId: 'project-1',
         name: 'Project 1 Revised',
         filePath: 'C:/Stories/Project 1.narrium',
       },
@@ -48,10 +49,28 @@ describe('app preferences recent projects', () => {
 
     expect(nextPreferences.recentProjects).toHaveLength(2);
     expect(nextPreferences.recentProjects[0]).toEqual({
+      projectId: 'project-1',
       name: 'Project 1 Revised',
       filePath: 'C:/Stories/Project 1.narrium',
       lastOpenedAt: '2026-02-01T00:00:00.000Z',
     });
     expect(nextPreferences.lastOpenedProjectFilePath).toBe('C:/Stories/Project 1.narrium');
+  });
+
+  it('preserves project id metadata for file-backed project cards', () => {
+    const nextPreferences = recordRecentProject(
+      {
+        recentProjects: [],
+        lastOpenedProjectFilePath: null,
+      },
+      {
+        projectId: 'project-42',
+        name: 'Project 42',
+        filePath: 'C:/Stories/Project 42.narrium',
+      },
+      '2026-02-01T00:00:00.000Z',
+    );
+
+    expect(nextPreferences.recentProjects[0].projectId).toBe('project-42');
   });
 });

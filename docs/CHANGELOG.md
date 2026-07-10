@@ -6,6 +6,18 @@ This changelog records milestone-level project changes. It is intentionally conc
 
 ## Unreleased / Next
 
+### Fixed - My Projects file-backed cards
+
+Changes:
+- Project cards now open the associated `.narrium` file when recent-project metadata links the card to a file-backed project.
+- Recent project metadata now records `projectId` when projects are opened or saved, with a safe unique-name fallback for older recent entries.
+- File-backed cards show a `.narrium file` label and truncated file path; unassociated localStorage cards show `Local draft`.
+- Removed the single-item `WORKSPACE > My Projects` sidebar from the landing screen while preserving editor navigation.
+- Kept local asset storage, playable export, autosave, Project model redesign, and native close interception out of scope.
+
+Validation:
+- Added tests for file-backed card association, draft fallback, recent metadata `projectId`, card labels, Save state coverage, and removal of the landing Workspace sidebar.
+
 ### Added - Native Narrium project file workflow
 
 Changes:

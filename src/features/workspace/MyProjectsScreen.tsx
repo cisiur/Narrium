@@ -2,17 +2,20 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useConfirmationDialog } from '../../components';
 import { RightSidebar } from '../../components/RightSidebar';
 import { useWorkspaceStore } from '../../store/workspaceStore';
+import type { RecentProject } from '../../services/app-preferences';
 import type { Project, WorkspaceProjectMeta } from '../../types';
 import { parseProjectImport } from '../../utils/projectImport';
 
 interface ProjectCardProps {
   project: WorkspaceProjectMeta;
+  associatedFilePath: string | null;
   onOpen: () => void;
   onOpenSettings: () => void;
 }
 
-function ProjectCard({
+export function ProjectCard({
   project,
+  associatedFilePath,
   onOpen,
   onOpenSettings,
 }: ProjectCardProps) {
@@ -63,8 +66,32 @@ function ProjectCard({
       <span className="mt-1 block text-xs text-ink-600">
         Updated {new Date(project.updatedAt).toLocaleDateString()}
       </span>
+      {associatedFilePath ? (
+        <span className="mt-3 block truncate rounded bg-accent-50 px-2 py-1 text-xs font-medium text-accent-700">
+          .narrium file - {associatedFilePath}
+        </span>
+      ) : (
+        <span className="mt-3 block rounded bg-parchment-100 px-2 py-1 text-xs font-medium text-ink-600">
+          Local draft
+        </span>
+      )}
     </article>
   );
+}
+
+export function findAssociatedRecentProject(
+  project: WorkspaceProjectMeta,
+  recentProjects: RecentProject[],
+): RecentProject | null {
+  const projectIdMatch = recentProjects.find((recentProject) => recentProject.projectId === project.id);
+
+  if (projectIdMatch) {
+    return projectIdMatch;
+  }
+
+  const nameMatches = recentProjects.filter((recentProject) => recentProject.name === project.name);
+
+  return nameMatches.length === 1 ? nameMatches[0] : null;
 }
 
 interface ProjectSettingsSidebarProps {
@@ -397,14 +424,23 @@ export function MyProjectsScreen() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {projects.map((project) => (
-            <ProjectCard
-              key={project.id}
-              project={project}
-              onOpen={() => void openProjectWithUnsavedCheck(project.id)}
-              onOpenSettings={() => setSettingsProjectId(project.id)}
-            />
-          ))}
+          {projects.map((project) => {
+            const associatedRecentProject = findAssociatedRecentProject(project, recentProjects);
+
+            return (
+              <ProjectCard
+                key={project.id}
+                project={project}
+                associatedFilePath={associatedRecentProject?.filePath ?? null}
+                onOpen={() =>
+                  void (associatedRecentProject
+                    ? openRecentProject(associatedRecentProject.filePath)
+                    : openProjectWithUnsavedCheck(project.id))
+                }
+                onOpenSettings={() => setSettingsProjectId(project.id)}
+              />
+            );
+          })}
         </div>
       )}
       <ProjectSettingsSidebar

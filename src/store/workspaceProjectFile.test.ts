@@ -49,6 +49,7 @@ describe('workspace project file workflow', () => {
       recordRecentProject: vi.fn(() => ({
         recentProjects: [
           {
+            projectId: project.id,
             name: project.name,
             filePath: projectFilePath,
             lastOpenedAt: '2026-01-01T00:00:00.000Z',
@@ -95,14 +96,31 @@ describe('workspace project file workflow', () => {
 
     const { useWorkspaceStore } = await import('./workspaceStore');
 
-    return { useWorkspaceStore, project, projectFileService };
+    return { useWorkspaceStore, project, projectFileService, appPreferencesService };
   }
 
   it('sets the active project file path after opening a project file', async () => {
-    const { useWorkspaceStore } = await loadStoreWithProjectFileMocks();
+    const { useWorkspaceStore, project, projectFileService, appPreferencesService } =
+      await loadStoreWithProjectFileMocks();
 
     await useWorkspaceStore.getState().openProjectFile();
 
+    expect(projectFileService.openProjectFile).toHaveBeenCalled();
+    expect(appPreferencesService.recordRecentProject).toHaveBeenCalledWith({
+      projectId: project.id,
+      name: project.name,
+      filePath: 'C:/Stories/Test Project.narrium',
+    });
+    expect(useWorkspaceStore.getState().activeProjectFilePath).toBe('C:/Stories/Test Project.narrium');
+    expect(useWorkspaceStore.getState().activeProjectDirty).toBe(false);
+  });
+
+  it('sets the active project file path after opening a recent project', async () => {
+    const { useWorkspaceStore, projectFileService } = await loadStoreWithProjectFileMocks();
+
+    await useWorkspaceStore.getState().openRecentProject('C:/Stories/Test Project.narrium');
+
+    expect(projectFileService.openProjectFileAt).toHaveBeenCalledWith('C:/Stories/Test Project.narrium');
     expect(useWorkspaceStore.getState().activeProjectFilePath).toBe('C:/Stories/Test Project.narrium');
     expect(useWorkspaceStore.getState().activeProjectDirty).toBe(false);
   });

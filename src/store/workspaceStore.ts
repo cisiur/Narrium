@@ -125,6 +125,7 @@ function getLastOpenedProject(recentProjects: RecentProject[], filePath: string 
 
 function recordOpenedProject(project: Project, filePath: string) {
   return appPreferencesService.recordRecentProject({
+    projectId: project.id,
     name: project.name,
     filePath,
   });

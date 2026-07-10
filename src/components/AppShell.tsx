@@ -248,19 +248,7 @@ export function AppShell({
           {rightPanel ? <div className="overflow-hidden bg-gray-950">{rightPanel}</div> : null}
         </div>
       ) : (
-        <div className="grid min-h-[calc(100vh-3.5rem)] grid-cols-[14rem_minmax(0,1fr)]">
-          <nav className="border-r border-ink-950/10 bg-white p-4">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-600">Workspace</p>
-            <button
-              type="button"
-              className="w-full rounded-md bg-accent-500 px-3 py-2 text-left text-sm font-semibold text-white"
-            >
-              My Projects
-            </button>
-          </nav>
-
-          <main className="min-w-0 p-6">{children}</main>
-        </div>
+        <main className="min-h-[calc(100vh-3.5rem)] min-w-0 p-6">{children}</main>
       )}
     </div>
   );

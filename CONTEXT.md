@@ -88,7 +88,7 @@ Strategic status:
 - The existing React/TypeScript editor, canonical `Project` model, story logic runtime, preview, validation, JSON import/export, and standalone HTML export remain the validated MVP foundation.
 - A minimal Tauri v2 desktop shell foundation exists on `main` and loads the existing Vite/React UI.
 - Workspace/project persistence now goes through a `ProjectStorage` service boundary.
-- The active implementation is still browser/localStorage and preserves the legacy web MVP keys/data format.
+- Browser projects and local desktop drafts still use browser/localStorage through the legacy web MVP keys/data format.
 - Project normalization/migration logic now lives in `src/domain/project/`, not `src/store/`.
 - Runtime execution helpers and runtime-state initialization now live in `src/domain/runtime/`.
 - Standalone HTML export generation now lives in `src/services/export/`.
@@ -96,6 +96,8 @@ Strategic status:
 - Platform identity now goes through `src/services/platform/`; future desktop APIs must be added behind that service boundary.
 - Desktop builds now use native `.narrium` project files for Open Project File, Save, and Save As.
 - Desktop project workflow hardening is implemented: dirty state, guarded Open/Create, recent project files, last-opened offer, platform-owned file read/write, file path display, and dirty `*` indicator.
+- Desktop file-backed `.narrium` projects no longer mirror full Project JSON into BrowserProjectStorage/localStorage.
+- For file-backed desktop projects, the active Project stays in memory and the `.narrium` file is the persistent source of truth.
 - Native window X close guard is temporarily disabled so the desktop app always closes; explicit Open/Create dirty checks remain active.
 - `.narrium` files are JSON internally and use `{ format: "narrium.project", formatVersion: 1, project }`.
 - Legacy raw Project JSON and old `project.narrium.json` files remain openable as compatibility fallbacks when selected as files.
@@ -237,6 +239,11 @@ Good candidates:
 - Browser/Vite workflow still uses `narrium_workspace` and `narrium_project_{id}` in localStorage.
 - The workspace store currently keeps the active desktop project file path while a file-backed project is open.
 - Desktop file-backed projects become dirty after edits and clean after successful Save or Save As.
+- Desktop file-backed project edits, undo, redo, Save, and Save As do not write the full Project payload to localStorage.
+- Workspace metadata, recent-project metadata, file associations, and thumbnails remain persisted separately.
+- Save As removes any old local draft payload for that project id once the `.narrium` file is written.
+- Browser/localStorage projects and desktop drafts still persist full Project JSON as transitional draft storage.
+- Draft storage quota failures now surface a clear storage-full error instead of silently failing.
 - Desktop Open Project File and local draft Create Project prompt before discarding dirty changes.
 - Native window X close does not prompt for unsaved changes for now; a future dedicated task should redesign native-close unsaved-changes protection.
 - Recent project files are stored as app preferences, not as workspace project data.
@@ -253,7 +260,7 @@ Good candidates:
 - The project header shows the current file path and appends `*` to dirty project names.
 - Drafts with no known file path show `Unsaved draft - use Save As to create a .narrium file`.
 - Save is disabled until a desktop project has a known file path; Save As remains available.
-- Workspace/localStorage remains a compatibility layer, not the long-term desktop project database.
+- Workspace/localStorage remains a compatibility layer for metadata and drafts, not the long-term desktop project database.
 - No local asset folders, image copying, local asset paths, autosave, or playable export package exists yet.
 
 ### Shared UI
@@ -284,7 +291,7 @@ Good candidates:
 - `Ctrl+Z` undoes active-project edits.
 - `Ctrl+Y` and `Ctrl+Shift+Z` redo active-project edits.
 - Undo/redo shortcuts ignore text-editing targets.
-- Undo/redo persists restored project snapshots to localStorage and synchronizes the canvas.
+- Undo/redo persists restored project snapshots to localStorage for browser/draft projects and keeps file-backed desktop projects in memory until Save.
 
 ### Canvas Graph Editor
 
@@ -582,7 +589,7 @@ Standalone save/load snapshots include:
 Implemented:
 - Vitest added.
 - `npm.cmd test` runs `vitest run`.
-- Current test count after background asset catalog foundation: **202 tests**.
+- Current test count after desktop storage stabilization: **207 tests**.
 - `runtimeState.test.ts` covers initial RuntimeState creation, including Variables.
 - `runtimeLogic.test.ts` covers representative behavior for:
   - `applyEffects()`

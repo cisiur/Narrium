@@ -480,6 +480,7 @@ Purpose:
 | E11-03D | My Projects file-backed card UX cleanup | [BOTH] | Done |
 | E11-04 | `project.narrium.json` storage format using the validated `Project` domain model | [BOTH] | Done for JSON-only project folders |
 | E11-05A | Background asset catalog foundation using embedded/remote sources | [BOTH] | Done |
+| E11-05A.1 | Desktop storage stabilization: stop mirroring file-backed projects into localStorage | [BOTH] | Done |
 | E11-05B | Local asset file storage under project `assets/` folders | [BOTH] | Planned |
 | E11-06 | Relative asset paths in project JSON | [BOTH] | Planned |
 | E11-07 | Migration/import from legacy web MVP JSON | [BOTH] | Planned |
@@ -545,6 +546,15 @@ Current E11-05A deliverable:
 - Background rendering uses a platform-neutral asset display resolver.
 - Deleting a referenced background asset clears affected scene backgrounds.
 - No local asset files, `assets/` directory, filesystem copying, Blob URLs, autosave, or playable export changes were added.
+
+Current E11-05A.1 deliverable:
+- Desktop file-backed `.narrium` projects no longer write full Project JSON into BrowserProjectStorage/localStorage after open, edit, Save, or Save As.
+- File-backed desktop projects keep the active Project in memory and persist it only through explicit `.narrium` Save or Save As.
+- Workspace metadata, recent-project metadata, file associations, and thumbnails remain stored separately.
+- Browser projects and local desktop drafts still use BrowserProjectStorage for full Project JSON.
+- Save As removes any stale local draft payload for the saved project id.
+- Draft storage quota failures surface a clear error instead of silently failing.
+- Future E11-05B local asset files remain unchanged and still planned behind the canonical asset catalog.
 
 Full EPIC 11 deliverable intent:
 - A desktop app can create drafts, open `.narrium` files, save known project files, and preview Narrium projects.

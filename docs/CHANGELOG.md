@@ -6,6 +6,21 @@ This changelog records milestone-level project changes. It is intentionally conc
 
 ## Unreleased / Next
 
+### Fixed - Desktop project storage stabilization
+
+Changes:
+- File-backed desktop `.narrium` projects no longer mirror the full Project JSON into BrowserProjectStorage/localStorage after open, edit, Save, or Save As.
+- `.narrium` is now the persistent source of truth for full file-backed desktop projects.
+- Active file-backed projects stay in memory, mark dirty on edits, and write the full Project only through Save or Save As.
+- Workspace metadata, recent project metadata, project file association, and thumbnails remain stored separately.
+- LocalStorage-backed drafts and the browser workflow still persist full Project JSON through BrowserProjectStorage.
+- Save As removes any old draft payload for the project id after the `.narrium` file is written.
+- Browser draft quota failures now surface a clear storage-full error instead of failing silently.
+- Kept local asset files, `assets/` directories, filesystem copying, Blob URLs, autosave, playable export changes, and Project model redesign out of scope.
+
+Validation:
+- Added tests proving file-backed desktop open/edit/Save/Save As do not call BrowserProjectStorage.saveProject, browser drafts still do, workspace metadata still persists, quota errors surface, and repeated embedded asset edits do not write full Project JSON to localStorage.
+
 ### Changed - Background asset catalog foundation
 
 Changes:

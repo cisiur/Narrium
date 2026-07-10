@@ -9,7 +9,8 @@ Current implementation status:
 - The shell loads the existing Vite/React UI in development and points at the Vite `dist` output for desktop builds.
 - Browser development remains available through the existing Vite workflow.
 - Workspace/project persistence now goes through a synchronous `ProjectStorage` service boundary.
-- The current `BrowserProjectStorage` backend still uses `narrium_workspace` and `narrium_project_{id}` in browser localStorage.
+- The current `BrowserProjectStorage` backend still uses `narrium_workspace` and `narrium_project_{id}` for browser projects and local desktop drafts.
+- File-backed desktop `.narrium` projects do not mirror full Project JSON into BrowserProjectStorage/localStorage.
 - Project normalization/migration code now lives in `src/domain/project/`.
 - Runtime execution helpers and runtime-state initialization now live in `src/domain/runtime/`.
 - Standalone HTML export generation now lives in `src/services/export/`.
@@ -94,6 +95,12 @@ Project file status:
 - `project.narrium.json` is legacy/transitional and is no longer the default desktop save target.
 - The browser workflow still uses the `ProjectStorage` localStorage backend and legacy keys.
 - The workspace store carries the current desktop project file path only while a file-backed project is open.
+- For file-backed desktop projects, the active Project is held in memory and `.narrium` is the persistent source of truth.
+- File-backed project edits, undo, redo, Save, and Save As do not call BrowserProjectStorage.saveProject.
+- Workspace metadata, recent-project metadata, file associations, and thumbnails remain persisted separately.
+- LocalStorage-backed drafts and browser projects continue to store full Project JSON as transitional draft/browser storage.
+- Save As removes any stale local draft Project payload for that project id after writing the `.narrium` file.
+- Browser/draft quota errors are surfaced as clear storage-full errors.
 - The workspace store tracks dirty state for active projects.
 - Dirty desktop projects prompt before Open Project File and local draft Create Project.
 - Native window X close does not prompt for unsaved changes for now; explicit Open/Create dirty checks remain active.
@@ -112,7 +119,7 @@ Project file status:
 
 Near-term desktop work should focus on:
 - adding local asset file storage,
-- replacing remaining long-term localStorage assumptions with file-backed persistence,
+- keeping localStorage limited to browser projects, temporary drafts, and lightweight workspace/app metadata,
 - keeping the validated domain model recognizable.
 
 ---
@@ -144,6 +151,7 @@ Current implementation:
 - normalizes opened project JSON,
 - stores newly added background sources once in `project.assetLibrary`,
 - stores scene background assignments as `assetId` references where possible,
+- does not mirror full file-backed Project JSON into localStorage,
 - also accepts raw legacy Project JSON as an open/import fallback,
 - does not create local asset folders yet.
 

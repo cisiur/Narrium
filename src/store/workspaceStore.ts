@@ -131,6 +131,30 @@ function recordOpenedProject(project: Project, filePath: string) {
   });
 }
 
+function isActiveFileBackedProject(state: Pick<WorkspaceStore, 'activeProject' | 'activeProjectFilePath'>, projectId: string) {
+  return state.activeProject?.id === projectId && state.activeProjectFilePath !== null;
+}
+
+function saveProjectIfLocalDraft(state: Pick<WorkspaceStore, 'activeProject' | 'activeProjectFilePath'>, project: Project) {
+  if (isActiveFileBackedProject(state, project.id)) {
+    return;
+  }
+
+  projectStorage.saveProject(project);
+}
+
+function getStorageErrorMessage(error: unknown): string {
+  if (
+    typeof DOMException !== 'undefined' &&
+    error instanceof DOMException &&
+    error.name === 'QuotaExceededError'
+  ) {
+    return 'Could not save project draft because browser storage is full. Use Save As for a .narrium file or remove large embedded assets from drafts.';
+  }
+
+  return error instanceof Error ? error.message : 'Could not save project draft.';
+}
+
 const initialWorkspace = projectStorage.loadWorkspace();
 
 export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
@@ -230,7 +254,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
         return;
       }
 
-      projectStorage.saveProject(projectFile.project);
+      projectStorage.deleteProject(projectFile.project.id);
       const preferences = recordOpenedProject(projectFile.project, projectFile.filePath);
 
       set((state) => {
@@ -272,7 +296,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
     try {
       const projectFile = await projectFileService.openProjectFileAt(filePath);
 
-      projectStorage.saveProject(projectFile.project);
+      projectStorage.deleteProject(projectFile.project.id);
       const preferences = recordOpenedProject(projectFile.project, projectFile.filePath);
 
       set((state) => {
@@ -375,7 +399,6 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
     try {
       const projectFile = await projectFileService.saveProject(activeProject, activeProjectFilePath);
 
-      projectStorage.saveProject(projectFile.project);
       const preferences = recordOpenedProject(projectFile.project, projectFile.filePath);
 
       set((state) => {
@@ -420,7 +443,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
         return false;
       }
 
-      projectStorage.saveProject(projectFile.project);
+      projectStorage.deleteProject(projectFile.project.id);
       const preferences = recordOpenedProject(projectFile.project, projectFile.filePath);
 
       set((state) => {
@@ -488,13 +511,21 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
         activeProjectId: state.activeProjectId,
       };
 
-      projectStorage.saveProject(nextProject);
-      projectStorage.saveWorkspace(nextWorkspace);
+      try {
+        saveProjectIfLocalDraft(state, nextProject);
+        projectStorage.saveWorkspace(nextWorkspace);
+      } catch (error) {
+        return {
+          ...state,
+          projectFileError: getStorageErrorMessage(error),
+        };
+      }
 
       return {
         ...nextWorkspace,
         activeProject: state.activeProject?.id === projectId ? nextProject : state.activeProject,
         activeProjectDirty: state.activeProject?.id === projectId ? true : state.activeProjectDirty,
+        projectFileError: null,
       };
     });
   },
@@ -526,13 +557,21 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
         activeProjectId: state.activeProjectId,
       };
 
-      projectStorage.saveProject(nextProject);
-      projectStorage.saveWorkspace(nextWorkspace);
+      try {
+        saveProjectIfLocalDraft(state, nextProject);
+        projectStorage.saveWorkspace(nextWorkspace);
+      } catch (error) {
+        return {
+          ...state,
+          projectFileError: getStorageErrorMessage(error),
+        };
+      }
 
       return {
         ...nextWorkspace,
         activeProject: state.activeProject?.id === projectId ? nextProject : state.activeProject,
         activeProjectDirty: state.activeProject?.id === projectId ? true : state.activeProjectDirty,
+        projectFileError: null,
       };
     });
   },
@@ -567,14 +606,22 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
       const nextProject = stampProjectUpdatedAt(updatedProject);
       const nextWorkspace = createWorkspaceForProject(state, nextProject);
 
-      projectStorage.saveProject(nextProject);
-      projectStorage.saveWorkspace(nextWorkspace);
+      try {
+        saveProjectIfLocalDraft(state, nextProject);
+        projectStorage.saveWorkspace(nextWorkspace);
+      } catch (error) {
+        return {
+          ...state,
+          projectFileError: getStorageErrorMessage(error),
+        };
+      }
 
       return {
         ...nextWorkspace,
         activeProject: nextProject,
         projectHistory: pushProjectSnapshot(state.projectHistory, state.activeProject),
         activeProjectDirty: true,
+        projectFileError: null,
       };
     });
   },
@@ -593,14 +640,22 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
       const nextProject = stampProjectUpdatedAt(result.project);
       const nextWorkspace = createWorkspaceForProject(state, nextProject);
 
-      projectStorage.saveProject(nextProject);
-      projectStorage.saveWorkspace(nextWorkspace);
+      try {
+        saveProjectIfLocalDraft(state, nextProject);
+        projectStorage.saveWorkspace(nextWorkspace);
+      } catch (error) {
+        return {
+          ...state,
+          projectFileError: getStorageErrorMessage(error),
+        };
+      }
 
       return {
         ...nextWorkspace,
         activeProject: nextProject,
         projectHistory: result.history,
         activeProjectDirty: true,
+        projectFileError: null,
       };
     });
 
@@ -621,14 +676,22 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
       const nextProject = stampProjectUpdatedAt(result.project);
       const nextWorkspace = createWorkspaceForProject(state, nextProject);
 
-      projectStorage.saveProject(nextProject);
-      projectStorage.saveWorkspace(nextWorkspace);
+      try {
+        saveProjectIfLocalDraft(state, nextProject);
+        projectStorage.saveWorkspace(nextWorkspace);
+      } catch (error) {
+        return {
+          ...state,
+          projectFileError: getStorageErrorMessage(error),
+        };
+      }
 
       return {
         ...nextWorkspace,
         activeProject: nextProject,
         projectHistory: result.history,
         activeProjectDirty: true,
+        projectFileError: null,
       };
     });
 

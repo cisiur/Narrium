@@ -35,6 +35,18 @@ export class BrowserPlatformService implements PlatformService, PlatformProjectF
     return Promise.reject(new Error('Project files are only available in the desktop app.'));
   }
 
+  importBackgroundAssetFile(): Promise<null> {
+    return Promise.resolve(null);
+  }
+
+  resolveLocalAssetDisplaySource(): Promise<null> {
+    return Promise.resolve(null);
+  }
+
+  copyLocalAssetForProjectSaveAs(): Promise<void> {
+    return Promise.resolve();
+  }
+
   confirmUnsavedChanges(projectName: string): Promise<UnsavedChangesAction> {
     const shouldSave = window.confirm(`Save changes to "${projectName}" before continuing?`);
 

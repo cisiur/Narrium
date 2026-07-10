@@ -79,6 +79,9 @@ describe('workspace project file workflow', () => {
       selectProjectFilePathForSaveAs: vi.fn(),
       readProjectFile: vi.fn(),
       writeProjectFile: vi.fn(),
+      importBackgroundAssetFile: vi.fn(() => Promise.resolve(null)),
+      resolveLocalAssetDisplaySource: vi.fn(() => Promise.resolve(null)),
+      copyLocalAssetForProjectSaveAs: vi.fn(() => Promise.resolve()),
     };
 
     vi.doMock('../services/project-storage', () => ({
@@ -143,7 +146,7 @@ describe('workspace project file workflow', () => {
 
     await useWorkspaceStore.getState().saveActiveProjectAsFile();
 
-    expect(projectFileService.saveProjectAs).toHaveBeenCalledWith(project);
+    expect(projectFileService.saveProjectAs).toHaveBeenCalledWith(project, null);
     expect(projectStorage.saveProject).not.toHaveBeenCalled();
     expect(projectStorage.deleteProject).toHaveBeenCalledWith(project.id);
     expect(useWorkspaceStore.getState().activeProjectFilePath).toBe('C:/Stories/Test Project.narrium');

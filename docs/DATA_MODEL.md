@@ -10,8 +10,8 @@ This document defines the canonical data structures for Narrium. It is the prima
 - The same `Project` object is the source of truth for editor, Preview player, JSON export/import, and exported standalone HTML player.
 - Scene logic is declarative only: conditions and effects, no scripting language.
 - Background assets are cataloged in `Project.assetLibrary`.
-- Current background asset sources remain embedded Data URLs or remote URLs.
-- Future desktop project storage should keep large imported assets as local files behind the asset catalog instead of embedding them as Data URLs.
+- Current background asset sources may be embedded Data URLs, remote URLs, or desktop local project-relative files.
+- Desktop project storage keeps newly imported background files as local files behind the asset catalog instead of embedding them as Data URLs.
 - Project thumbnails are stored in the full `Project` and mirrored into workspace metadata for fast project listing.
 - Workspace metadata is stored separately from full project payload.
 - Characters, Resources, and Variables are project data, not separate stores.
@@ -147,15 +147,15 @@ Current implementation rules:
 - Create Project creates a transitional localStorage draft until Save As creates a `.narrium` file.
 - Dirty state and recent project files are desktop app state, not fields inside `Project`.
 - Browser/Vite workflow still uses the existing localStorage-backed workspace for compatibility.
-- Local asset folders are not implemented yet.
-- Uploaded background images are stored as embedded Data URL assets in `assetLibrary` until a later asset-storage task.
+- Desktop file-backed uploads are copied into `assets/backgrounds/` beside the `.narrium` file.
+- Browser uploads are stored as embedded Data URL assets in `assetLibrary`.
 - Remote background URLs are stored as remote URL assets in `assetLibrary`.
 - Newly assigned scene backgrounds should reference catalog assets by `assetId` instead of duplicating source URLs on scenes.
 - Legacy raw Project JSON, including old `project.narrium.json`, remains openable as a compatibility fallback when selected as a file.
 
 Intended storage rules:
 - `.narrium` stores the JSON-compatible `Project` data inside the wrapper.
-- Asset references inside the project file should eventually add a local storage backend with relative paths such as `assets/castle.png`.
+- Local asset references inside the project file use relative paths such as `assets/backgrounds/castle.png`.
 - Imported or uploaded files should eventually be copied into local project asset storage.
 - Large uploaded image Data URLs should not be stored inside the long-term saved project file.
 - The exact local asset file layout remains future work.
@@ -511,7 +511,7 @@ interface AssetLibraryItem {
   id: string;
   kind: 'background';
   name: string;
-  storageType: 'embedded' | 'remote';
+  storageType: 'embedded' | 'remote' | 'local';
   source: string;
   createdAt: string;
   metadata?: {
@@ -527,19 +527,22 @@ Notes:
 - Narrium currently supports background assets only.
 - `storageType='embedded'` stores a Data URL in `source`.
 - `storageType='remote'` stores an external URL in `source`.
+- `storageType='local'` stores a project-relative file path such as `assets/backgrounds/forest.png` in `source`.
 - New uploaded and URL backgrounds are stored in `Project.assetLibrary`, and scenes reference them through `SceneBackground.assetId`.
 - Multiple scenes can reference the same asset without duplicating the source data.
 - JSON project export/import preserves asset library items.
 - `.narrium` saves the normalized asset catalog inside the wrapped Project.
 - Standalone HTML export embeds the full Project, so embedded Data URL assets remain available in the exported player.
-- A platform-neutral asset source resolver is responsible for turning an asset into a display source for thumbnails, preview, and playback.
+- Asset display resolution is centralized. Embedded and remote sources are direct; local sources resolve through the desktop platform service with the active project file path.
 - Deleting a referenced asset clears affected scene background assignments.
+- Deleting a local asset entry does not delete the physical file yet.
 
 Compatibility and future desktop direction:
 - Legacy serialized assets with `sourceType` and `url` normalize into `storageType` and `source`.
 - Legacy scene backgrounds with direct `mode='upload'` or `mode='url'` normalize into catalog assets where practical.
-- Future E11-05B should add local file storage as a new backend behind this same catalog model.
-- No local asset files, filesystem paths, `assets/` directory, Blob URLs, or checksums are part of the current model.
+- Local desktop uploads do not automatically migrate old embedded assets.
+- Standalone local-asset packaging is future work.
+- Absolute filesystem paths, Blob URLs, checksums, physical cleanup, and non-background asset categories are not part of the current model.
 
 ---
 

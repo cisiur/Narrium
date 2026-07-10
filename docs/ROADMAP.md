@@ -481,7 +481,7 @@ Purpose:
 | E11-04 | `project.narrium.json` storage format using the validated `Project` domain model | [BOTH] | Done for JSON-only project folders |
 | E11-05A | Background asset catalog foundation using embedded/remote sources | [BOTH] | Done |
 | E11-05A.1 | Desktop storage stabilization: stop mirroring file-backed projects into localStorage | [BOTH] | Done |
-| E11-05B | Local asset file storage under project `assets/` folders | [BOTH] | Planned |
+| E11-05B | Local background asset files under project `assets/backgrounds/` folders | [BOTH] | Done |
 | E11-06 | Relative asset paths in project JSON | [BOTH] | Planned |
 | E11-07 | Migration/import from legacy web MVP JSON | [BOTH] | Planned |
 | E11-08 | Extract legacy embedded Data URLs into local asset files during migration where practical | [BOTH] | Planned |
@@ -554,7 +554,18 @@ Current E11-05A.1 deliverable:
 - Browser projects and local desktop drafts still use BrowserProjectStorage for full Project JSON.
 - Save As removes any stale local draft payload for the saved project id.
 - Draft storage quota failures surface a clear error instead of silently failing.
-- Future E11-05B local asset files remain unchanged and still planned behind the canonical asset catalog.
+- Future local asset file work remains focused on migration, packaging, cleanup, and non-background asset categories.
+
+Current E11-05B deliverable:
+- Desktop file-backed projects import uploaded background images into `assets/backgrounds/` beside the `.narrium` file.
+- `AssetLibraryItem.storageType` supports `local`, and local asset `source` values are project-relative paths with forward slashes.
+- Desktop drafts must be saved as `.narrium` before importing local assets.
+- Browser uploads remain embedded Data URL assets.
+- Remote URL assets remain remote catalog entries and are not downloaded.
+- Asset Library is the only UI entry point for URL/upload backgrounds; direct scene URL/upload modes remain legacy-compatible but hidden.
+- Save As copies referenced local background files to the new project directory before writing the relocated `.narrium`.
+- Deleting a catalog asset clears scene references but does not delete physical files.
+- Standalone local-asset packaging remains future work.
 
 Full EPIC 11 deliverable intent:
 - A desktop app can create drafts, open `.narrium` files, save known project files, and preview Narrium projects.

@@ -25,4 +25,10 @@ describe('resolveAssetDisplaySource', () => {
       'https://example.com/background.jpg',
     );
   });
+
+  it('keeps local asset sources as project-relative paths', () => {
+    expect(resolveAssetDisplaySource(createAsset('local', 'assets/backgrounds/forest.png'))).toBe(
+      'assets/backgrounds/forest.png',
+    );
+  });
 });

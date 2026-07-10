@@ -254,6 +254,9 @@ Good candidates:
 - Project cards without a file association open as localStorage drafts, so Save stays disabled until Save As.
 - The background asset library is now the canonical catalog for newly added scene backgrounds.
 - New uploaded backgrounds are stored once as embedded Data URL assets; new remote backgrounds are stored once as remote URL assets.
+- Desktop file-backed uploaded backgrounds are copied into `assets/backgrounds/` beside the `.narrium` file and stored as `storageType: 'local'` with a relative path.
+- Browser uploaded backgrounds remain embedded Data URL assets.
+- Desktop drafts must be saved as `.narrium` before importing local background assets.
 - New scene background assignments use `scene.background.mode = 'asset'` plus `assetId` and do not duplicate the source URL on the scene.
 - Legacy direct scene backgrounds using `mode: 'upload'` or `mode: 'url'` are normalized into catalog assets when projects load or save.
 - Asset display goes through a platform-neutral resolver in `src/domain/assets/`; it does not access Tauri, filesystem paths, Blob URLs, or project file paths.
@@ -395,7 +398,8 @@ Good candidates:
 - Scene reference background mode.
 - Project Asset Library:
   - add remote URL asset
-  - add embedded upload asset
+  - add embedded browser upload asset
+  - add local desktop file-backed upload asset
   - list background assets
   - use asset as scene background
   - delete asset
@@ -403,11 +407,15 @@ Good candidates:
 - `AssetLibraryItem` is the canonical runtime catalog for new background sources:
   - `storageType: 'embedded'` stores a Data URL in `source`
   - `storageType: 'remote'` stores an external URL in `source`
+  - `storageType: 'local'` stores a project-relative path such as `assets/backgrounds/forest.png` in `source`
 - Newly uploaded or URL-assigned scene backgrounds create or use an asset and set `SceneBackground.mode = 'asset'`.
 - Legacy scene backgrounds with direct `SceneBackground.url` still load and render, and normalization migrates them into asset references where practical.
 - Multiple scenes can reference the same background asset without duplicating its source data.
 - Deleting a referenced asset clears affected scene background assignments.
-- Local background asset files and an `assets/` directory are not implemented yet; future E11-05B should add local file storage behind the same asset model.
+- Deleting a local asset entry does not delete the physical file yet.
+- Asset Library is the only new UI entry point for URL/upload backgrounds; direct scene URL/upload modes remain legacy-compatible but hidden.
+- Save As copies referenced local background files to the new project directory before writing the relocated `.narrium`.
+- Standalone local-asset packaging, embedded-to-local migration, physical cleanup, hashing, and non-background assets remain future work.
 - SceneNode background thumbnails support URL, upload, asset, one-level scene reference, and placeholders.
 - Story Player and standalone HTML background rendering supports URL, upload, asset, one-level scene reference, and no background fallback.
 
@@ -589,7 +597,7 @@ Standalone save/load snapshots include:
 Implemented:
 - Vitest added.
 - `npm.cmd test` runs `vitest run`.
-- Current test count after desktop storage stabilization: **207 tests**.
+- Current test count after local background asset files: **211 tests**.
 - `runtimeState.test.ts` covers initial RuntimeState creation, including Variables.
 - `runtimeLogic.test.ts` covers representative behavior for:
   - `applyEffects()`

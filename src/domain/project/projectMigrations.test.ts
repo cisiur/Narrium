@@ -131,6 +131,29 @@ describe('normalizeProject', () => {
     ]);
   });
 
+  it('preserves local background asset storage during normalization', () => {
+    const project = createProject({
+      assetLibrary: [
+        {
+          id: 'asset-local',
+          kind: 'background',
+          name: 'Forest',
+          storageType: 'local',
+          source: 'assets/backgrounds/forest.png',
+          createdAt: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    });
+
+    const normalizedProject = normalizeProject(project);
+
+    expect(normalizedProject.changed).toBe(false);
+    expect(normalizedProject.project.assetLibrary[0]).toMatchObject({
+      storageType: 'local',
+      source: 'assets/backgrounds/forest.png',
+    });
+  });
+
   it('migrates legacy direct scene Data URLs into the asset catalog', () => {
     const dataUrl = 'data:image/png;base64,abc';
     const normalizedProject = normalizeProject(

@@ -36,6 +36,7 @@ export interface SceneNodeData {
   scene: Scene;
   scenes: Scene[];
   assetLibrary: AssetLibraryItem[];
+  projectFilePath: string | null;
 }
 
 export interface SceneGroupFrameData {
@@ -188,6 +189,7 @@ function buildNodes(
   scenes: Scene[],
   groups: SceneGroup[],
   assetLibrary: AssetLibraryItem[],
+  projectFilePath: string | null,
   selectedSceneIds: string[],
   selectedGroupId: string | null,
 ): Node<CanvasNodeData>[] {
@@ -239,6 +241,7 @@ function buildNodes(
         scene,
         scenes,
         assetLibrary,
+        projectFilePath,
       },
     }));
 
@@ -884,6 +887,7 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
         activeProject.scenes,
         activeProject.groups,
         activeProject.assetLibrary,
+        useWorkspaceStore.getState().activeProjectFilePath,
         nextSelectedSceneIds,
         nextSelectedGroupId,
       ),

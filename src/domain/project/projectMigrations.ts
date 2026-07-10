@@ -212,7 +212,7 @@ function normalizeResource(resource: LegacyResource): { resource: Resource; chan
 }
 
 function inferAssetStorageType(asset: LegacyAssetLibraryItem, source: string): AssetStorageType {
-  if (asset.storageType === 'embedded' || asset.storageType === 'remote') {
+  if (asset.storageType === 'embedded' || asset.storageType === 'remote' || asset.storageType === 'local') {
     return asset.storageType;
   }
 

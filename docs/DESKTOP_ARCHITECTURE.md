@@ -54,7 +54,7 @@ Tauri v2 is now the desktop shell foundation. It wraps the existing web UI while
 The current Tauri foundation is intentionally minimal:
 - it does not add desktop-specific application behavior,
 - it does not introduce filesystem project storage,
-- it does not expose local asset import APIs,
+- it exposes only narrow local background asset import, display, and Save As relocation APIs,
 - it does not change the `Project` model.
 
 The current storage abstraction is also intentionally minimal:
@@ -82,10 +82,10 @@ Platform boundary status:
 - `DesktopPlatformService` reports the Tauri desktop runtime.
 - `getPlatformService()` owns Tauri runtime detection using injected Tauri globals.
 - Future Tauri APIs must be introduced behind `services/platform/`; React components and Zustand stores must not import Tauri directly.
-- Current Tauri usage is limited to file open/save dialogs, unsaved-change confirmation, and reading/writing selected project files through service boundaries.
+- Current Tauri usage is limited to file open/save dialogs, unsaved-change confirmation, selected project-file reads/writes, and local background asset file import/display/relocation through service boundaries.
 - Native close dirty protection needs a dedicated redesign before it is restored; the previous async close guard could trap the app.
 - Project file reads and writes operate on explicit file paths selected by the user.
-- No asset loading, image copying, clipboard, shell, notifications, drag-and-drop, autosave, or playable package APIs are implemented.
+- No unrestricted filesystem, clipboard, shell, notifications, drag-and-drop, autosave, or playable package APIs are implemented.
 
 Project file status:
 - `src/services/project-file/` owns desktop project-file orchestration.
@@ -118,7 +118,7 @@ Project file status:
 - The long-term workspace direction remains app preferences and recent projects, not the primary project database.
 
 Near-term desktop work should focus on:
-- adding local asset file storage,
+- extending local asset file storage beyond background imports,
 - keeping localStorage limited to browser projects, temporary drafts, and lightweight workspace/app metadata,
 - keeping the validated domain model recognizable.
 
@@ -152,25 +152,26 @@ Current implementation:
 - stores newly added background sources once in `project.assetLibrary`,
 - stores scene background assignments as `assetId` references where possible,
 - does not mirror full file-backed Project JSON into localStorage,
+- stores desktop-imported local background assets as relative paths such as `assets/backgrounds/forest.png`,
 - also accepts raw legacy Project JSON as an open/import fallback,
-- does not create local asset folders yet.
+- creates `assets/backgrounds/` lazily only when a desktop local background import succeeds.
 
-Future asset-enabled storage should add a clear local file layout alongside or adjacent to the project file. That layout is not implemented yet and should be designed in a dedicated task.
+Local background asset files live beside the project file under `assets/backgrounds/`.
 
-Asset references in the JSON should eventually use relative paths:
+Local asset references in the JSON use relative paths:
 
 ```json
 {
   "id": "asset_123",
   "kind": "background",
   "name": "Castle Hall",
-  "storageType": "embedded",
-  "source": "data:image/png;base64,...",
+  "storageType": "local",
+  "source": "assets/backgrounds/castle-hall.png",
   "createdAt": "2026-07-02T00:00:00.000Z"
 }
 ```
 
-Future local asset storage should add a dedicated storage backend behind this same asset catalog, rather than returning to direct scene URLs or broad filesystem APIs.
+Future asset work should continue behind this same asset catalog, rather than returning to direct scene URLs or broad filesystem APIs.
 
 ---
 
@@ -184,13 +185,22 @@ Current E11-05A behavior:
 - duplicate legacy sources reuse one asset,
 - display code resolves assets through a platform-neutral helper that has no Tauri, filesystem, Blob URL, or project-path knowledge.
 
-When an author imports or uploads a file in a future desktop storage task, the editor should copy it into a local project asset location.
+Current E11-05B behavior:
+- desktop file-backed background uploads use a native image picker for PNG, JPG, JPEG, and WEBP,
+- copied files are placed under `assets/backgrounds/` beside the `.narrium` file,
+- the project stores `storageType: "local"` and a forward-slash relative source path,
+- desktop drafts must be saved as `.narrium` before local asset import,
+- browser uploads continue to store embedded Data URLs,
+- remote URL assets remain URLs and are not downloaded,
+- Save As copies referenced local background files to the new project directory before writing the relocated `.narrium`,
+- local asset display is resolved through the platform service and never through raw `file://` URLs,
+- deleting a catalog asset clears scene references but does not delete the physical file.
 
 The project JSON should store asset metadata and relative paths. This avoids browser storage limits, reduces JSON bloat, improves portability, and makes projects easier to inspect, back up, and version.
 
 The archived web MVP may still use Data URLs for uploaded images. That behavior is legacy/MVP behavior and should not define long-term desktop storage.
 
-No local asset files, `assets/` directory, filesystem copying, asset extraction, or physical file cleanup exists yet.
+Automatic embedded-to-local migration, standalone local-asset packaging, orphan cleanup, physical deletion, hashing, duplicate detection, and non-background asset categories remain future work.
 
 ---
 

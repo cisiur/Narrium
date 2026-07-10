@@ -14,6 +14,13 @@ export interface PlatformProjectFile {
   contents: string;
 }
 
+export interface ImportedBackgroundAssetFile {
+  name: string;
+  relativePath: string;
+  mimeType: string;
+  fileSize: number;
+}
+
 export type UnsavedChangesAction = 'save' | 'discard' | 'cancel';
 
 export interface PlatformProjectFileApi {
@@ -21,6 +28,13 @@ export interface PlatformProjectFileApi {
   selectProjectFilePathForSaveAs(options: ProjectFileSaveOptions): Promise<string | null>;
   readProjectFile(filePath: string): Promise<PlatformProjectFile>;
   writeProjectFile(filePath: string, contents: string): Promise<string>;
+  importBackgroundAssetFile(projectFilePath: string): Promise<ImportedBackgroundAssetFile | null>;
+  resolveLocalAssetDisplaySource(projectFilePath: string, relativePath: string): Promise<string | null>;
+  copyLocalAssetForProjectSaveAs(
+    sourceProjectFilePath: string,
+    destinationProjectFilePath: string,
+    relativePath: string,
+  ): Promise<void>;
 }
 
 export interface PlatformService extends PlatformProjectFileApi {

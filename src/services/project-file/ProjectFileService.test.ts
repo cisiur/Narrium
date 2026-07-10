@@ -46,6 +46,9 @@ function createPlatformFileApi(overrides: Partial<PlatformProjectFileApi> = {}):
       }),
     ),
     writeProjectFile: vi.fn((filePath: string) => Promise.resolve(filePath)),
+    importBackgroundAssetFile: vi.fn(() => Promise.resolve(null)),
+    resolveLocalAssetDisplaySource: vi.fn(() => Promise.resolve(null)),
+    copyLocalAssetForProjectSaveAs: vi.fn(() => Promise.resolve()),
     ...overrides,
   };
 }
@@ -99,6 +102,31 @@ describe('native Narrium project file serialization', () => {
       url: '',
     });
     expect(JSON.stringify(serialized.project).match(/data:image\/png;base64,background/g)).toHaveLength(1);
+  });
+
+  it('serializes local background assets as relative paths', () => {
+    const project = createProject({
+      assetLibrary: [
+        {
+          id: 'asset-local',
+          kind: 'background',
+          name: 'Forest',
+          storageType: 'local',
+          source: 'assets/backgrounds/forest.png',
+          createdAt: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    });
+    const serialized = JSON.parse(serializeNarriumProjectFile(project)) as {
+      project: Project;
+    };
+
+    expect(serialized.project.assetLibrary[0]).toMatchObject({
+      storageType: 'local',
+      source: 'assets/backgrounds/forest.png',
+    });
+    expect(serialized.project.assetLibrary[0].source).not.toMatch(/^[A-Za-z]:[\\/]/);
+    expect(serialized.project.assetLibrary[0].source).not.toContain('\\');
   });
 
   it('parses wrapped .narrium project files', () => {
@@ -168,6 +196,66 @@ describe('DesktopProjectFileService', () => {
       defaultFileName: `Moonlit Road.${NARRIUM_PROJECT_EXTENSION}`,
     });
     expect(result?.filePath).toBe('C:/Stories/My Story.narrium');
+  });
+
+  it('copies referenced local background assets before Save As writes the relocated project', async () => {
+    const project = createProject({
+      assetLibrary: [
+        {
+          id: 'asset-local',
+          kind: 'background',
+          name: 'Forest',
+          storageType: 'local',
+          source: 'assets/backgrounds/forest.png',
+          createdAt: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    });
+    const platformFileApi = createPlatformFileApi({
+      selectProjectFilePathForSaveAs: vi.fn((_options: ProjectFileSaveOptions) =>
+        Promise.resolve('D:/Stories/Relocated.narrium'),
+      ),
+      writeProjectFile: vi.fn((filePath: string) => Promise.resolve(filePath)),
+    });
+    const service = new DesktopProjectFileService(platformFileApi);
+
+    const result = await service.saveProjectAs(project, 'C:/Stories/Original.narrium');
+
+    expect(platformFileApi.copyLocalAssetForProjectSaveAs).toHaveBeenCalledWith(
+      'C:/Stories/Original.narrium',
+      'D:/Stories/Relocated.narrium',
+      'assets/backgrounds/forest.png',
+    );
+    expect(platformFileApi.writeProjectFile).toHaveBeenCalledWith(
+      'D:/Stories/Relocated.narrium',
+      expect.any(String),
+    );
+    expect(result?.filePath).toBe('D:/Stories/Relocated.narrium');
+  });
+
+  it('does not write Save As when local asset relocation fails', async () => {
+    const project = createProject({
+      assetLibrary: [
+        {
+          id: 'asset-local',
+          kind: 'background',
+          name: 'Forest',
+          storageType: 'local',
+          source: 'assets/backgrounds/forest.png',
+          createdAt: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    });
+    const platformFileApi = createPlatformFileApi({
+      copyLocalAssetForProjectSaveAs: vi.fn(() => Promise.reject(new Error('copy failed'))),
+      writeProjectFile: vi.fn((filePath: string) => Promise.resolve(filePath)),
+    });
+    const service = new DesktopProjectFileService(platformFileApi);
+
+    await expect(service.saveProjectAs(project, 'C:/Stories/Original.narrium')).rejects.toThrow(
+      'copy failed',
+    );
+    expect(platformFileApi.writeProjectFile).not.toHaveBeenCalled();
   });
 
   it('adds the .narrium extension when Save As returns a path without it', async () => {

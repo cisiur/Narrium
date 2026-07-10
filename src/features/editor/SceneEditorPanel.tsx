@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useCanvasStore } from '../../store/useCanvasStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
+import { getPlatformService } from '../../services/platform';
 import { ConditionGroupsEditor } from '../story-logic/ConditionGroupsEditor';
 import { EffectsEditor } from '../story-logic/EffectsEditor';
 import { VALIDATION_CODES, validateProject } from '../validation/projectValidation';
-import { resolveAssetDisplaySource } from '../../domain/assets/assetSources';
+import { useAssetDisplaySource } from '../assets/assetDisplay';
 import {
   ProjectValidationPanel,
   navigateToValidationIssue,
@@ -97,7 +98,76 @@ interface BackgroundEditorProps {
   assets: AssetLibraryItem[];
 }
 
-function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
+interface BackgroundAssetRowProps {
+  asset: AssetLibraryItem;
+  projectFilePath: string | null;
+  onUse: (assetId: string) => void;
+  onDelete: (assetId: string) => void;
+}
+
+function BackgroundAssetRow({ asset, projectFilePath, onUse, onDelete }: BackgroundAssetRowProps) {
+  const assetSource = useAssetDisplaySource(asset, projectFilePath);
+  const storageLabel =
+    asset.storageType === 'local'
+      ? 'Local file'
+      : asset.storageType === 'remote'
+        ? 'Remote URL'
+        : 'Embedded';
+
+  return (
+    <div className="grid grid-cols-[3rem_1fr_auto] items-center gap-2 rounded-md border border-gray-700 bg-gray-900 p-2">
+      {assetSource ? (
+        <img src={assetSource} alt="" className="h-10 w-12 rounded bg-gray-950 object-cover" />
+      ) : (
+        <div className="flex h-10 w-12 items-center justify-center rounded bg-gray-950 text-[10px] text-gray-500">
+          Missing
+        </div>
+      )}
+      <div className="min-w-0">
+        <div className="truncate text-xs font-semibold text-gray-100">{asset.name}</div>
+        <div className="truncate text-[11px] text-gray-500">{storageLabel}</div>
+      </div>
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          onClick={() => onUse(asset.id)}
+          className="rounded bg-gray-700 px-2 py-1 text-xs text-gray-100 hover:bg-gray-600"
+        >
+          Use
+        </button>
+        <button
+          type="button"
+          onClick={() => onDelete(asset.id)}
+          className="rounded px-2 py-1 text-xs text-gray-400 hover:bg-gray-700 hover:text-gray-100"
+          aria-label={`Delete ${asset.name}`}
+        >
+          ×
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function BackgroundAssetThumbnail({
+  asset,
+  projectFilePath,
+}: {
+  asset: AssetLibraryItem;
+  projectFilePath: string | null;
+}) {
+  const assetSource = useAssetDisplaySource(asset, projectFilePath);
+
+  return assetSource ? (
+    <img src={assetSource} alt="" className="h-10 w-12 rounded bg-gray-950 object-cover" />
+  ) : (
+    <div className="flex h-10 w-12 items-center justify-center rounded bg-gray-950 text-[10px] text-gray-500">
+      Missing
+    </div>
+  );
+}
+
+export function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
+  const activeProjectFilePath = useWorkspaceStore((state) => state.activeProjectFilePath);
   const updateSceneBackground = useCanvasStore((state) => state.updateSceneBackground);
   const addBackgroundAsset = useCanvasStore((state) => state.addBackgroundAsset);
   const deleteBackgroundAsset = useCanvasStore((state) => state.deleteBackgroundAsset);
@@ -110,11 +180,9 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
   const [urlAssetName, setUrlAssetName] = useState('');
   const [urlAssetUrl, setUrlAssetUrl] = useState('');
   const [uploadAssetName, setUploadAssetName] = useState('');
-  const [sceneUrlDraft, setSceneUrlDraft] = useState('');
-
-  useEffect(() => {
-    setSceneUrlDraft(scene.background.mode === 'url' ? scene.background.url : '');
-  }, [scene.background.mode, scene.background.url, scene.id]);
+  const [assetError, setAssetError] = useState<string | null>(null);
+  const browserUploadInputRef = useRef<HTMLInputElement | null>(null);
+  const selectedAssetSource = useAssetDisplaySource(selectedAsset, activeProjectFilePath);
 
   const updateBackground = (background: SceneBackground) => {
     updateSceneBackground(scene.id, background);
@@ -148,26 +216,6 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
       return;
     }
 
-    if (mode === 'url') {
-      updateBackground({
-        mode: 'url',
-        assetId: null,
-        sourceSceneId: null,
-        url: scene.background.mode === 'url' ? scene.background.url : '',
-      });
-      return;
-    }
-
-    if (mode === 'upload') {
-      updateBackground({
-        mode: 'upload',
-        assetId: null,
-        sourceSceneId: null,
-        url: scene.background.mode === 'upload' ? scene.background.url : '',
-      });
-      return;
-    }
-
     const sourceSceneId =
       scene.background.mode === 'scene_reference' && scene.background.sourceSceneId
         ? scene.background.sourceSceneId
@@ -181,24 +229,6 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
     });
   };
 
-  const updateUrl = (url: string) => {
-    const source = url.trim();
-
-    if (!source) {
-      return;
-    }
-
-    const assetId = addBackgroundAsset({
-      name: source,
-      storageType: 'remote',
-      source,
-    });
-
-    if (assetId) {
-      useAsset(assetId);
-    }
-  };
-
   const updateSceneReference = (sourceSceneId: string) => {
     updateBackground({
       mode: 'scene_reference',
@@ -208,7 +238,7 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
     });
   };
 
-  const handleUpload = (file: File | undefined) => {
+  const importBrowserUpload = (file: File | undefined) => {
     if (!file) {
       return;
     }
@@ -221,7 +251,7 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
       }
 
       const assetId = addBackgroundAsset({
-        name: file.name || 'Uploaded Background',
+        name: uploadAssetName || file.name || 'Uploaded Background',
         storageType: 'embedded',
         source: reader.result,
         metadata: {
@@ -232,10 +262,56 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
 
       if (assetId) {
         useAsset(assetId);
+        setUploadAssetName('');
+        setAssetError(null);
       }
     };
 
     reader.readAsDataURL(file);
+  };
+
+  const importDesktopUpload = async () => {
+    const platformService = getPlatformService();
+
+    if (!activeProjectFilePath) {
+      setAssetError('Save the project as a .narrium file before importing local assets.');
+      return;
+    }
+
+    try {
+      const importedFile = await platformService.importBackgroundAssetFile(activeProjectFilePath);
+
+      if (!importedFile) {
+        return;
+      }
+
+      const assetId = addBackgroundAsset({
+        name: uploadAssetName || importedFile.name || 'Uploaded Background',
+        storageType: 'local',
+        source: importedFile.relativePath,
+        metadata: {
+          mimeType: importedFile.mimeType,
+          fileSize: importedFile.fileSize,
+        },
+      });
+
+      if (assetId) {
+        useAsset(assetId);
+        setUploadAssetName('');
+        setAssetError(null);
+      }
+    } catch (error) {
+      setAssetError(error instanceof Error ? error.message : 'Could not import background image.');
+    }
+  };
+
+  const importUpload = () => {
+    if (getPlatformService().isDesktop()) {
+      void importDesktopUpload();
+      return;
+    }
+
+    browserUploadInputRef.current?.click();
   };
 
   const useAsset = (assetId: string) => {
@@ -254,40 +330,17 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
       return;
     }
 
-    addBackgroundAsset({
-      name: urlAssetName || 'Untitled Background',
+    const assetId = addBackgroundAsset({
+      name: urlAssetName || source,
       storageType: 'remote',
       source,
     });
+    if (assetId) {
+      useAsset(assetId);
+    }
     setUrlAssetName('');
     setUrlAssetUrl('');
-  };
-
-  const addUploadedAsset = (file: File | undefined) => {
-    if (!file) {
-      return;
-    }
-
-    const reader = new FileReader();
-
-    reader.onload = () => {
-      if (typeof reader.result !== 'string') {
-        return;
-      }
-
-      addBackgroundAsset({
-        name: uploadAssetName || file.name || 'Uploaded Background',
-        storageType: 'embedded',
-        source: reader.result,
-        metadata: {
-          mimeType: file.type || undefined,
-          fileSize: file.size,
-        },
-      });
-      setUploadAssetName('');
-    };
-
-    reader.readAsDataURL(file);
+    setAssetError(null);
   };
 
   return (
@@ -297,8 +350,6 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
         <div className="space-y-2">
           {[
             { label: 'None', mode: 'none' },
-            { label: 'URL', mode: 'url' },
-            { label: 'Upload', mode: 'upload' },
             { label: 'Scene Reference', mode: 'scene_reference' },
             { label: 'Asset Library', mode: 'asset' },
           ].map((option) => (
@@ -315,42 +366,6 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
           ))}
         </div>
       </div>
-
-      {scene.background.mode === 'url' ? (
-        <label className="block text-xs font-semibold text-gray-300">
-          External Image URL
-          <input
-            type="text"
-            value={sceneUrlDraft}
-            onChange={(event) => setSceneUrlDraft(event.target.value)}
-            className="mt-2 w-full rounded bg-gray-950 px-2 py-2 text-sm font-normal text-gray-100 outline-none ring-1 ring-gray-700 focus:ring-blue-500"
-            placeholder="https://example.com/background.jpg"
-          />
-          <button
-            type="button"
-            onClick={() => updateUrl(sceneUrlDraft)}
-            disabled={sceneUrlDraft.trim().length === 0}
-            className="mt-2 rounded bg-gray-700 px-2 py-1 text-xs font-medium text-gray-100 hover:bg-gray-600 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            Use URL Background
-          </button>
-        </label>
-      ) : null}
-
-      {scene.background.mode === 'upload' ? (
-        <label className="block text-xs font-semibold text-gray-300">
-          Upload Image
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(event) => {
-              handleUpload(event.target.files?.[0]);
-              event.currentTarget.value = '';
-            }}
-            className="mt-2 block w-full text-xs text-gray-300 file:mr-3 file:rounded file:border-0 file:bg-gray-700 file:px-2 file:py-1 file:text-xs file:font-medium file:text-gray-100 hover:file:bg-gray-600"
-          />
-        </label>
-      ) : null}
 
       {scene.background.mode === 'scene_reference' ? (
         <label className="block text-xs font-semibold text-gray-300">
@@ -414,21 +429,35 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
             />
             <input
               type="file"
+              ref={browserUploadInputRef}
               accept="image/*"
               onChange={(event) => {
-                addUploadedAsset(event.target.files?.[0]);
+                importBrowserUpload(event.target.files?.[0]);
                 event.currentTarget.value = '';
               }}
-              className="block w-full text-xs text-gray-300 file:mr-3 file:rounded file:border-0 file:bg-gray-700 file:px-2 file:py-1 file:text-xs file:font-medium file:text-gray-100 hover:file:bg-gray-600"
+              className="hidden"
             />
+            <button
+              type="button"
+              onClick={importUpload}
+              className="rounded bg-gray-700 px-2 py-1 text-xs font-medium text-gray-100 hover:bg-gray-600"
+            >
+              Import Image
+            </button>
           </div>
         </div>
+
+        {assetError ? (
+          <p className="mt-3 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+            {assetError}
+          </p>
+        ) : null}
 
         <div className="mt-4 space-y-2">
           <div className="text-xs font-semibold text-gray-300">Project background assets</div>
           {backgroundAssets.length === 0 ? (
             <p className="rounded-md border border-dashed border-gray-700 px-3 py-3 text-xs text-gray-500">
-              No assets yet. Add a URL or uploaded image to use it as a scene background.
+              Add a background asset by upload or URL.
             </p>
           ) : (
             backgroundAssets.map((asset) => (
@@ -436,11 +465,7 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
                 key={asset.id}
                 className="grid grid-cols-[3rem_1fr_auto] items-center gap-2 rounded-md border border-gray-700 bg-gray-900 p-2"
               >
-                <img
-                  src={resolveAssetDisplaySource(asset)}
-                  alt=""
-                  className="h-10 w-12 rounded bg-gray-950 object-cover"
-                />
+                <BackgroundAssetThumbnail asset={asset} projectFilePath={activeProjectFilePath} />
                 <div className="min-w-0">
                   <div className="truncate text-xs font-semibold text-gray-100">{asset.name}</div>
                   <div className="text-[11px] text-gray-500">
@@ -512,9 +537,9 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
         ) : null}
 
         {scene.background.mode === 'asset' ? (
-          selectedAsset ? (
+          selectedAsset && selectedAssetSource ? (
             <img
-              src={resolveAssetDisplaySource(selectedAsset)}
+              src={selectedAssetSource}
               alt="Asset background preview"
               className="h-32 w-full object-cover"
             />

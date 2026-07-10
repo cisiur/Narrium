@@ -913,6 +913,9 @@ ${saveLoadControls}
 
       if (scene.background.mode === 'asset') {
         const asset = project.assetLibrary.find((item) => item.id === scene.background.assetId);
+        if (asset?.storageType === 'local') {
+          return null;
+        }
         return asset?.source || asset?.url || null;
       }
 

@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import type { Choice, Project } from '../../types';
 import { advanceRuntimeForChoice, createInitialRuntimeState } from '../../domain/runtime';
+import { useWorkspaceStore } from '../../store/workspaceStore';
+import { useSceneBackgroundDisplaySource } from '../assets/assetDisplay';
 import { DialoguePanel } from './DialoguePanel';
 import {
   createChoiceViewModels,
-  resolveSceneBackgroundUrl,
   resolveSpeakerName,
 } from './playerHelpers';
 import { ResourceHud } from './ResourceHud';
@@ -17,10 +18,11 @@ interface StoryPlayerProps {
 
 export function StoryPlayer({ project, onExitPreview }: StoryPlayerProps) {
   const [runtimeState, setRuntimeState] = useState(() => createInitialRuntimeState(project));
+  const activeProjectFilePath = useWorkspaceStore((state) => state.activeProjectFilePath);
   const currentScene =
     project.scenes.find((scene) => scene.id === runtimeState.currentSceneId) ?? null;
   const currentPage = currentScene?.dialoguePages[runtimeState.currentPageIndex] ?? null;
-  const backgroundUrl = currentScene ? resolveSceneBackgroundUrl(project, currentScene) : null;
+  const backgroundUrl = useSceneBackgroundDisplaySource(project, currentScene, activeProjectFilePath);
   const speakerName = currentPage ? resolveSpeakerName(project, currentPage.speakerId) : null;
   const hasNextPage = currentScene
     ? runtimeState.currentPageIndex < currentScene.dialoguePages.length - 1

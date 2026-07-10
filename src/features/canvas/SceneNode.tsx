@@ -1,67 +1,14 @@
 import { Handle, Position, type NodeProps } from 'reactflow';
-import { resolveAssetDisplaySource } from '../../domain/assets/assetSources';
+import {
+  resolveLegacySceneBackgroundSource,
+  resolveSceneBackgroundAsset,
+  useAssetDisplaySource,
+} from '../assets/assetDisplay';
 import { useCanvasStore, type SceneNodeData } from '../../store/useCanvasStore';
-import type { Scene } from '../../types';
 
 interface ThumbnailResult {
   imageUrl: string | null;
   placeholder: string;
-}
-
-function resolveDirectSceneImage(scene: Scene, data: SceneNodeData): ThumbnailResult {
-  if (scene.background.mode === 'url' || scene.background.mode === 'upload') {
-    return {
-      imageUrl: scene.background.url || null,
-      placeholder: 'No Background',
-    };
-  }
-
-  if (scene.background.mode === 'asset') {
-    if (!scene.background.assetId) {
-      return {
-        imageUrl: null,
-        placeholder: 'No Background',
-      };
-    }
-
-    const asset = data.assetLibrary.find((item) => item.id === scene.background.assetId);
-
-    return {
-      imageUrl: asset ? resolveAssetDisplaySource(asset) : null,
-      placeholder: asset ? 'No Background' : 'Missing Asset',
-    };
-  }
-
-  return {
-    imageUrl: null,
-    placeholder: 'No Background',
-  };
-}
-
-function resolveThumbnail(data: SceneNodeData): ThumbnailResult {
-  const scene = data.scene;
-
-  if (scene.background.mode === 'scene_reference') {
-    const referencedScene = data.scenes.find((item) => item.id === scene.background.sourceSceneId);
-
-    if (!referencedScene) {
-      return {
-        imageUrl: null,
-        placeholder: 'Scene Reference',
-      };
-    }
-
-    const referencedImage = resolveDirectSceneImage(referencedScene, data);
-
-    return referencedImage.imageUrl
-      ? referencedImage
-      : {
-          imageUrl: null,
-          placeholder: 'Scene Reference',
-        };
-  }
-
-  return resolveDirectSceneImage(scene, data);
 }
 
 export function SceneNode({ id, data, selected }: NodeProps<SceneNodeData>) {
@@ -69,7 +16,35 @@ export function SceneNode({ id, data, selected }: NodeProps<SceneNodeData>) {
   const openEditor = useCanvasStore((state) => state.openEditor);
   const pageCount = data.scene.dialoguePages.length;
   const choiceCount = data.scene.choices.length;
-  const thumbnail = resolveThumbnail(data);
+  const project = {
+    id: 'thumbnail-project',
+    name: 'Thumbnail Project',
+    thumbnail: null,
+    startSceneId: '',
+    scenes: data.scenes,
+    characters: [],
+    resources: [],
+    variables: [],
+    groups: [],
+    assetLibrary: data.assetLibrary,
+    settings: {
+      allowSessionSaveLoad: true,
+    },
+    createdAt: '',
+    updatedAt: '',
+  };
+  const asset = resolveSceneBackgroundAsset(project, data.scene);
+  const assetSource = useAssetDisplaySource(asset, data.projectFilePath);
+  const legacySource = resolveLegacySceneBackgroundSource(project, data.scene);
+  const thumbnail: ThumbnailResult = {
+    imageUrl: asset ? assetSource : legacySource,
+    placeholder:
+      data.scene.background.mode === 'scene_reference'
+        ? 'Scene Reference'
+        : asset || legacySource
+          ? 'Missing Asset'
+          : 'No Background',
+  };
 
   return (
     <div

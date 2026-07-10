@@ -437,7 +437,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
     }
 
     try {
-      const projectFile = await projectFileService.saveProjectAs(activeProject);
+      const projectFile = await projectFileService.saveProjectAs(activeProject, get().activeProjectFilePath);
 
       if (!projectFile) {
         return false;

@@ -117,7 +117,7 @@ export interface SceneGroup {
   collapsed: boolean;
 }
 
-export type AssetStorageType = 'embedded' | 'remote';
+export type AssetStorageType = 'embedded' | 'remote' | 'local';
 
 export interface AssetLibraryItem {
   id: string;

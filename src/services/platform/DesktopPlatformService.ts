@@ -1,6 +1,7 @@
-import { invoke } from '@tauri-apps/api/core';
+import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { confirm, open, save } from '@tauri-apps/plugin-dialog';
 import type {
+  ImportedBackgroundAssetFile,
   PlatformName,
   PlatformProjectFile,
   PlatformProjectFileApi,
@@ -69,6 +70,67 @@ export class DesktopPlatformService implements PlatformService, PlatformProjectF
 
   writeProjectFile(filePath: string, contents: string): Promise<string> {
     return invoke('write_project_file', { filePath, contents });
+  }
+
+  async importBackgroundAssetFile(projectFilePath: string): Promise<ImportedBackgroundAssetFile | null> {
+    const selectedPath = await open({
+      directory: false,
+      multiple: false,
+      title: 'Import Background Image',
+      filters: [
+        {
+          name: 'Background Image',
+          extensions: ['png', 'jpg', 'jpeg', 'webp'],
+        },
+      ],
+    });
+
+    if (typeof selectedPath !== 'string') {
+      return null;
+    }
+
+    const [name, relativePath, mimeType, fileSize] = await invoke<[string, string, string, number]>(
+      'import_background_asset_file',
+      {
+        projectFilePath,
+        sourceFilePath: selectedPath,
+      },
+    );
+
+    return {
+      name,
+      relativePath,
+      mimeType,
+      fileSize,
+    };
+  }
+
+  async resolveLocalAssetDisplaySource(
+    projectFilePath: string,
+    relativePath: string,
+  ): Promise<string | null> {
+    try {
+      const absolutePath = await invoke<string>('resolve_local_asset_file', {
+        projectFilePath,
+        relativePath,
+      });
+
+      return convertFileSrc(absolutePath);
+    } catch {
+      return null;
+    }
+  }
+
+  copyLocalAssetForProjectSaveAs(
+    sourceProjectFilePath: string,
+    destinationProjectFilePath: string,
+    relativePath: string,
+  ): Promise<void> {
+    return invoke('copy_local_asset_for_project_save_as', {
+      sourceProjectFilePath,
+      destinationProjectFilePath,
+      relativePath,
+    });
   }
 
   async confirmUnsavedChanges(projectName: string): Promise<UnsavedChangesAction> {

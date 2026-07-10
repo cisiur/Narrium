@@ -6,6 +6,24 @@ This changelog records milestone-level project changes. It is intentionally conc
 
 ## Unreleased / Next
 
+### Added - Local background asset files
+
+Changes:
+- Added `storageType: "local"` for background assets.
+- Desktop file-backed `.narrium` projects now import uploaded background images into `assets/backgrounds/` beside the project file.
+- `.narrium` stores only project-relative local asset paths with forward slashes, not absolute paths or embedded file data.
+- Desktop draft uploads are blocked until the project is saved as a `.narrium` file.
+- Browser uploads continue to create embedded Data URL assets.
+- Remote URL assets remain catalog assets and are not downloaded or cached.
+- Background Source UI now shows only None, Scene Reference, and Asset Library; URL/upload creation lives inside Asset Library.
+- Save As copies referenced local background files to the new project directory before writing the relocated `.narrium`.
+- Deleting a catalog asset still clears scene references but does not delete the physical file.
+- Local asset standalone export packaging, physical cleanup, orphan detection, hashing, compression, and broad asset management remain future work.
+- Native X close remains pass-through and file-backed projects remain excluded from full localStorage mirroring.
+
+Validation:
+- Added tests for UI option cleanup, local asset normalization, local path serialization, Save As asset relocation success/failure, and continued browser/draft storage behavior.
+
 ### Fixed - Desktop project storage stabilization
 
 Changes:

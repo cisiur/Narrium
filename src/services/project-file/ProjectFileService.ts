@@ -22,7 +22,7 @@ export interface ProjectFileService {
   openProjectFile(): Promise<LocalProjectFile | null>;
   openProjectFileAt(filePath: string): Promise<LocalProjectFile>;
   saveProject(project: Project, filePath: string): Promise<LocalProjectFile>;
-  saveProjectAs(project: Project): Promise<LocalProjectFile | null>;
+  saveProjectAs(project: Project, sourceFilePath?: string | null): Promise<LocalProjectFile | null>;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -62,6 +62,16 @@ export function parseNarriumProjectFile(source: string): Project | null {
   }
 
   return parseProjectImport(source);
+}
+
+function getReferencedLocalAssetSources(project: Project): string[] {
+  return Array.from(
+    new Set(
+      project.assetLibrary
+        .filter((asset) => asset.kind === 'background' && asset.storageType === 'local')
+        .map((asset) => asset.source),
+    ),
+  );
 }
 
 export class DesktopProjectFileService implements ProjectFileService {
@@ -110,7 +120,7 @@ export class DesktopProjectFileService implements ProjectFileService {
     };
   }
 
-  async saveProjectAs(project: Project): Promise<LocalProjectFile | null> {
+  async saveProjectAs(project: Project, sourceFilePath: string | null = null): Promise<LocalProjectFile | null> {
     const filePath = await this.platformProjectFiles.selectProjectFilePathForSaveAs({
       title: 'Save Narrium Project As',
       defaultFileName: `${project.name || 'Untitled Project'}.${NARRIUM_PROJECT_EXTENSION}`,
@@ -120,7 +130,22 @@ export class DesktopProjectFileService implements ProjectFileService {
       return null;
     }
 
-    return this.saveProject(project, ensureNarriumProjectExtension(filePath));
+    const destinationFilePath = ensureNarriumProjectExtension(filePath);
+    const localAssetSources = getReferencedLocalAssetSources(project);
+
+    if (sourceFilePath && sourceFilePath !== destinationFilePath) {
+      await Promise.all(
+        localAssetSources.map((relativePath) =>
+          this.platformProjectFiles.copyLocalAssetForProjectSaveAs(
+            sourceFilePath,
+            destinationFilePath,
+            relativePath,
+          ),
+        ),
+      );
+    }
+
+    return this.saveProject(project, destinationFilePath);
   }
 }
 

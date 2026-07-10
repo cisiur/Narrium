@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Project } from '../../types';
+import type { Project, Scene } from '../../types';
 import { normalizeProject } from './projectMigrations';
 
 function createProject(overrides: Partial<Project> = {}): Project {
@@ -20,6 +20,18 @@ function createProject(overrides: Partial<Project> = {}): Project {
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
     ...overrides,
+  };
+}
+
+function createScene(id: string, background: Scene['background']): Scene {
+  return {
+    id,
+    name: id,
+    background,
+    position: { x: 0, y: 0 },
+    dialoguePages: [],
+    choices: [],
+    groupId: null,
   };
 }
 
@@ -88,5 +100,139 @@ describe('normalizeProject', () => {
 
     expect(normalizedProject.changed).toBe(false);
     expect(normalizedProject.project.resources).toEqual(project.resources);
+  });
+
+  it('normalizes legacy background asset sourceType and url fields', () => {
+    const project = createProject({
+      assetLibrary: [
+        {
+          id: 'asset-legacy',
+          kind: 'background',
+          name: 'Forest',
+          sourceType: 'url',
+          url: 'https://example.com/forest.jpg',
+          createdAt: '2026-01-01T00:00:00.000Z',
+        } as unknown as Project['assetLibrary'][number],
+      ],
+    });
+
+    const normalizedProject = normalizeProject(project);
+
+    expect(normalizedProject.changed).toBe(true);
+    expect(normalizedProject.project.assetLibrary).toEqual([
+      {
+        id: 'asset-legacy',
+        kind: 'background',
+        name: 'Forest',
+        storageType: 'remote',
+        source: 'https://example.com/forest.jpg',
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
+    ]);
+  });
+
+  it('migrates legacy direct scene Data URLs into the asset catalog', () => {
+    const dataUrl = 'data:image/png;base64,abc';
+    const normalizedProject = normalizeProject(
+      createProject({
+        scenes: [
+          createScene('scene-1', {
+            mode: 'upload',
+            assetId: null,
+            sourceSceneId: null,
+            url: dataUrl,
+          }),
+        ],
+      }),
+    );
+
+    expect(normalizedProject.changed).toBe(true);
+    expect(normalizedProject.project.assetLibrary).toEqual([
+      expect.objectContaining({
+        kind: 'background',
+        storageType: 'embedded',
+        source: dataUrl,
+      }),
+    ]);
+    expect(normalizedProject.project.scenes[0].background).toEqual({
+      mode: 'asset',
+      assetId: normalizedProject.project.assetLibrary[0].id,
+      sourceSceneId: null,
+      url: '',
+    });
+  });
+
+  it('migrates legacy direct scene remote URLs into the asset catalog', () => {
+    const remoteUrl = 'https://example.com/castle.jpg';
+    const normalizedProject = normalizeProject(
+      createProject({
+        scenes: [
+          createScene('scene-1', {
+            mode: 'url',
+            assetId: null,
+            sourceSceneId: null,
+            url: remoteUrl,
+          }),
+        ],
+      }),
+    );
+
+    expect(normalizedProject.project.assetLibrary[0]).toMatchObject({
+      storageType: 'remote',
+      source: remoteUrl,
+    });
+    expect(normalizedProject.project.scenes[0].background).toMatchObject({
+      mode: 'asset',
+      assetId: normalizedProject.project.assetLibrary[0].id,
+      url: '',
+    });
+  });
+
+  it('reuses one migrated asset for duplicate legacy background sources', () => {
+    const dataUrl = 'data:image/png;base64,same';
+    const normalizedProject = normalizeProject(
+      createProject({
+        scenes: [
+          createScene('scene-1', {
+            mode: 'upload',
+            assetId: null,
+            sourceSceneId: null,
+            url: dataUrl,
+          }),
+          createScene('scene-2', {
+            mode: 'upload',
+            assetId: null,
+            sourceSceneId: null,
+            url: dataUrl,
+          }),
+        ],
+      }),
+    );
+
+    expect(normalizedProject.project.assetLibrary).toHaveLength(1);
+    expect(normalizedProject.project.scenes.map((scene) => scene.background.assetId)).toEqual([
+      normalizedProject.project.assetLibrary[0].id,
+      normalizedProject.project.assetLibrary[0].id,
+    ]);
+  });
+
+  it('keeps asset catalog migration idempotent', () => {
+    const firstPass = normalizeProject(
+      createProject({
+        scenes: [
+          createScene('scene-1', {
+            mode: 'url',
+            assetId: null,
+            sourceSceneId: null,
+            url: 'https://example.com/road.jpg',
+          }),
+        ],
+      }),
+    );
+    const secondPass = normalizeProject(firstPass.project);
+
+    expect(firstPass.changed).toBe(true);
+    expect(secondPass.changed).toBe(false);
+    expect(secondPass.project).toEqual(firstPass.project);
   });
 });

@@ -245,6 +245,11 @@ Good candidates:
 - The last opened desktop project is offered on launch but is not reopened automatically.
 - Project cards associated with recent `.narrium` files open through the file-backed path, so Save is enabled immediately and the header shows the file path.
 - Project cards without a file association open as localStorage drafts, so Save stays disabled until Save As.
+- The background asset library is now the canonical catalog for newly added scene backgrounds.
+- New uploaded backgrounds are stored once as embedded Data URL assets; new remote backgrounds are stored once as remote URL assets.
+- New scene background assignments use `scene.background.mode = 'asset'` plus `assetId` and do not duplicate the source URL on the scene.
+- Legacy direct scene backgrounds using `mode: 'upload'` or `mode: 'url'` are normalized into catalog assets when projects load or save.
+- Asset display goes through a platform-neutral resolver in `src/domain/assets/`; it does not access Tauri, filesystem paths, Blob URLs, or project file paths.
 - The project header shows the current file path and appends `*` to dirty project names.
 - Drafts with no known file path show `Unsaved draft - use Save As to create a .narrium file`.
 - Save is disabled until a desktop project has a known file path; Save As remains available.
@@ -382,12 +387,20 @@ Good candidates:
 - Local upload stored as Data URL.
 - Scene reference background mode.
 - Project Asset Library:
-  - add URL asset
-  - add upload asset
+  - add remote URL asset
+  - add embedded upload asset
   - list background assets
   - use asset as scene background
   - delete asset
   - reset scenes using deleted asset
+- `AssetLibraryItem` is the canonical runtime catalog for new background sources:
+  - `storageType: 'embedded'` stores a Data URL in `source`
+  - `storageType: 'remote'` stores an external URL in `source`
+- Newly uploaded or URL-assigned scene backgrounds create or use an asset and set `SceneBackground.mode = 'asset'`.
+- Legacy scene backgrounds with direct `SceneBackground.url` still load and render, and normalization migrates them into asset references where practical.
+- Multiple scenes can reference the same background asset without duplicating its source data.
+- Deleting a referenced asset clears affected scene background assignments.
+- Local background asset files and an `assets/` directory are not implemented yet; future E11-05B should add local file storage behind the same asset model.
 - SceneNode background thumbnails support URL, upload, asset, one-level scene reference, and placeholders.
 - Story Player and standalone HTML background rendering supports URL, upload, asset, one-level scene reference, and no background fallback.
 
@@ -569,7 +582,7 @@ Standalone save/load snapshots include:
 Implemented:
 - Vitest added.
 - `npm.cmd test` runs `vitest run`.
-- Current test count after file-backed My Projects cards: **189 tests**.
+- Current test count after background asset catalog foundation: **202 tests**.
 - `runtimeState.test.ts` covers initial RuntimeState creation, including Variables.
 - `runtimeLogic.test.ts` covers representative behavior for:
   - `applyEffects()`
@@ -586,10 +599,10 @@ Implemented:
 - `projectHistory.test.ts` covers snapshot push, undo/redo replay, project isolation, and the 50-snapshot cap.
 - `characterDeletion.test.ts` covers unused character deletion, referenced character deletion, speaker reference cleanup, and cancellation.
 - `variableHelpers.test.ts` covers variable key resolution.
-- `projectMigrations.test.ts` covers missing `variables` migration and existing variables preservation.
+- `projectMigrations.test.ts` covers missing `variables` migration, existing variables preservation, legacy asset item normalization, legacy direct scene background migration, duplicate-source reuse, and idempotence.
 - Standalone HTML export tests include variable save/load/runtime template coverage.
 - `ResourceHud.test.tsx` covers Preview Resource HUD display and runtime updates.
-- `useCanvasStore.test.ts` covers Choice copy/paste, id regeneration, Story Logic preservation, clipboard lifetime, and undo history behavior.
+- `useCanvasStore.test.ts` covers Choice copy/paste, id regeneration, Story Logic preservation, clipboard lifetime, undo history behavior, background asset creation, shared scene assignment, and referenced-asset deletion safety.
 
 ---
 
@@ -717,6 +730,9 @@ src/
     useProjectViewStore.ts
 
   domain/
+    assets/
+      assetSources.ts
+      assetSources.test.ts
     project/
       projectDefaults.ts
       projectMigrations.ts

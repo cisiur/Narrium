@@ -1,3 +1,4 @@
+import { resolveAssetDisplaySource } from '../../domain/assets/assetSources';
 import type { Project, Scene } from '../../types';
 export { createChoiceViewModels, type ChoiceViewModel } from '../../domain/runtime';
 
@@ -7,7 +8,9 @@ function resolveDirectBackgroundUrl(project: Project, scene: Scene): string | nu
   }
 
   if (scene.background.mode === 'asset' && scene.background.assetId) {
-    return project.assetLibrary.find((asset) => asset.id === scene.background.assetId)?.url ?? null;
+    const asset = project.assetLibrary.find((item) => item.id === scene.background.assetId);
+
+    return asset ? resolveAssetDisplaySource(asset) : null;
   }
 
   return null;

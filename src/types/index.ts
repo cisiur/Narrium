@@ -117,13 +117,21 @@ export interface SceneGroup {
   collapsed: boolean;
 }
 
+export type AssetStorageType = 'embedded' | 'remote';
+
 export interface AssetLibraryItem {
   id: string;
   kind: 'background';
   name: string;
-  sourceType: 'upload' | 'url';
-  url: string;
+  storageType: AssetStorageType;
+  source: string;
   createdAt: string;
+  metadata?: {
+    mimeType?: string;
+    width?: number;
+    height?: number;
+    fileSize?: number;
+  };
 }
 
 export interface ProjectSettings {

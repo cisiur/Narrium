@@ -18,6 +18,7 @@ Current implementation status:
 - A native `.narrium` project-file workflow exists for desktop builds: Open Project File, Save, and Save As read/write `.narrium` files.
 - Desktop project workflow hardening exists for dirty state, guarded Open/Create, recent projects, and last-opened project offers.
 - Native window X close interception is temporarily disabled so the desktop app can always close.
+- The background asset catalog now stores newly added background sources as embedded Data URL or remote URL assets.
 - Services can depend on domain code, but domain code must stay independent from stores, services, UI, and Tauri APIs.
 - Local asset storage, asset migration, autosave, and playable export packaging are still planned future work.
 
@@ -141,6 +142,8 @@ Current implementation:
 - saves to the known `.narrium` file path,
 - uses Save As to create or overwrite a selected `.narrium` file,
 - normalizes opened project JSON,
+- stores newly added background sources once in `project.assetLibrary`,
+- stores scene background assignments as `assetId` references where possible,
 - also accepts raw legacy Project JSON as an open/import fallback,
 - does not create local asset folders yet.
 
@@ -153,23 +156,33 @@ Asset references in the JSON should eventually use relative paths:
   "id": "asset_123",
   "kind": "background",
   "name": "Castle Hall",
-  "sourceType": "upload",
-  "url": "assets/castle-hall.png",
+  "storageType": "embedded",
+  "source": "data:image/png;base64,...",
   "createdAt": "2026-07-02T00:00:00.000Z"
 }
 ```
 
-The exact field name can evolve, but the important rule is that the project file should refer to local files by relative path instead of embedding large image Data URLs.
+Future local asset storage should add a dedicated storage backend behind this same asset catalog, rather than returning to direct scene URLs or broad filesystem APIs.
 
 ---
 
 ## Asset handling
 
-When an author imports or uploads a file, a future desktop editor task should copy it into a local project asset location.
+Current E11-05A behavior:
+- uploaded background images create `storageType: "embedded"` assets whose `source` is a Data URL,
+- remote background URLs create `storageType: "remote"` assets whose `source` is the external URL,
+- scenes reference those assets by `SceneBackground.assetId`,
+- legacy direct scene Data URLs and remote URLs normalize into catalog assets where practical,
+- duplicate legacy sources reuse one asset,
+- display code resolves assets through a platform-neutral helper that has no Tauri, filesystem, Blob URL, or project-path knowledge.
+
+When an author imports or uploads a file in a future desktop storage task, the editor should copy it into a local project asset location.
 
 The project JSON should store asset metadata and relative paths. This avoids browser storage limits, reduces JSON bloat, improves portability, and makes projects easier to inspect, back up, and version.
 
 The archived web MVP may still use Data URLs for uploaded images. That behavior is legacy/MVP behavior and should not define long-term desktop storage.
+
+No local asset files, `assets/` directory, filesystem copying, asset extraction, or physical file cleanup exists yet.
 
 ---
 

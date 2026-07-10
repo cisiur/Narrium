@@ -3,6 +3,8 @@ import type {
   Condition,
   ConditionGroup,
   DialoguePage,
+  AssetLibraryItem,
+  AssetStorageType,
   Project,
   ProjectSettings,
   Resource,
@@ -15,6 +17,7 @@ type LegacyProject = Omit<Partial<Project>, 'scenes' | 'settings'> & {
   scenes?: LegacyScene[];
   settings?: Partial<ProjectSettings>;
   resources?: LegacyResource[];
+  assetLibrary?: LegacyAssetLibraryItem[];
 };
 
 type LegacyResource = Partial<Resource> & Pick<Resource, 'id' | 'key' | 'defaultValue'>;
@@ -23,6 +26,10 @@ type LegacyScene = Omit<Partial<Scene>, 'dialoguePages' | 'choices' | 'backgroun
   background?: Partial<SceneBackground>;
   dialoguePages?: LegacyDialoguePage[];
   choices?: Array<Choice | LegacyChoice>;
+};
+type LegacyAssetLibraryItem = Partial<AssetLibraryItem> & {
+  sourceType?: 'upload' | 'url';
+  url?: string;
 };
 
 type LegacyDialoguePage = Partial<DialoguePage>;
@@ -43,6 +50,7 @@ const DEFAULT_BACKGROUND: SceneBackground = {
 const DEFAULT_SETTINGS: ProjectSettings = {
   allowSessionSaveLoad: true,
 };
+const LEGACY_ASSET_CREATED_AT = '1970-01-01T00:00:00.000Z';
 
 function hasField(target: object, field: PropertyKey): boolean {
   return Object.prototype.hasOwnProperty.call(target, field);
@@ -203,6 +211,158 @@ function normalizeResource(resource: LegacyResource): { resource: Resource; chan
   };
 }
 
+function inferAssetStorageType(asset: LegacyAssetLibraryItem, source: string): AssetStorageType {
+  if (asset.storageType === 'embedded' || asset.storageType === 'remote') {
+    return asset.storageType;
+  }
+
+  if (asset.sourceType === 'upload') {
+    return 'embedded';
+  }
+
+  if (asset.sourceType === 'url') {
+    return 'remote';
+  }
+
+  return source.startsWith('data:') ? 'embedded' : 'remote';
+}
+
+function normalizeAssetLibraryItem(asset: LegacyAssetLibraryItem): {
+  asset: AssetLibraryItem;
+  changed: boolean;
+} {
+  const source = asset.source ?? asset.url ?? '';
+  const storageType = inferAssetStorageType(asset, source);
+  const changed =
+    isMissingField(asset, 'storageType') ||
+    asset.storageType !== storageType ||
+    isMissingField(asset, 'source') ||
+    asset.source !== source ||
+    hasField(asset, 'sourceType') ||
+    hasField(asset, 'url');
+
+  return {
+    asset: {
+      id: asset.id ?? createLegacyAssetId(source || asset.name || 'background', new Set()),
+      kind: 'background',
+      name: asset.name ?? 'Untitled Background',
+      storageType,
+      source,
+      createdAt: asset.createdAt ?? LEGACY_ASSET_CREATED_AT,
+      ...(asset.metadata ? { metadata: asset.metadata } : {}),
+    },
+    changed,
+  };
+}
+
+function hashSource(source: string): string {
+  let hash = 5381;
+
+  for (let index = 0; index < source.length; index += 1) {
+    hash = (hash * 33) ^ source.charCodeAt(index);
+  }
+
+  return (hash >>> 0).toString(36);
+}
+
+function createLegacyAssetId(source: string, usedIds: Set<string>): string {
+  const baseId = `asset_legacy_${hashSource(source)}`;
+
+  if (!usedIds.has(baseId)) {
+    usedIds.add(baseId);
+    return baseId;
+  }
+
+  let suffix = 2;
+  let nextId = `${baseId}_${suffix}`;
+
+  while (usedIds.has(nextId)) {
+    suffix += 1;
+    nextId = `${baseId}_${suffix}`;
+  }
+
+  usedIds.add(nextId);
+  return nextId;
+}
+
+function createMigratedBackgroundAsset(
+  source: string,
+  storageType: AssetStorageType,
+  usedIds: Set<string>,
+  createdAt: string,
+): AssetLibraryItem {
+  return {
+    id: createLegacyAssetId(source, usedIds),
+    kind: 'background',
+    name: storageType === 'remote' ? 'Imported Remote Background' : 'Imported Background',
+    storageType,
+    source,
+    createdAt,
+  };
+}
+
+function migrateSceneBackgroundsToAssets(
+  scenes: Scene[],
+  assetLibrary: AssetLibraryItem[],
+  projectCreatedAt: string | undefined,
+): { scenes: Scene[]; assetLibrary: AssetLibraryItem[]; changed: boolean } {
+  let changed = false;
+  const nextAssetLibrary = [...assetLibrary];
+  const usedIds = new Set(nextAssetLibrary.map((asset) => asset.id));
+  const sourceToAssetId = new Map<string, string>();
+
+  nextAssetLibrary.forEach((asset) => {
+    if (!sourceToAssetId.has(asset.source)) {
+      sourceToAssetId.set(asset.source, asset.id);
+    }
+  });
+
+  const migratedScenes = scenes.map((scene) => {
+    const background = scene.background;
+
+    if (
+      (background.mode !== 'upload' && background.mode !== 'url') ||
+      background.url.trim().length === 0
+    ) {
+      return scene;
+    }
+
+    const source = background.url;
+    const storageType: AssetStorageType = background.mode === 'upload' ? 'embedded' : 'remote';
+    let assetId = sourceToAssetId.get(source);
+
+    if (!assetId) {
+      const asset = createMigratedBackgroundAsset(
+        source,
+        storageType,
+        usedIds,
+        projectCreatedAt ?? LEGACY_ASSET_CREATED_AT,
+      );
+      nextAssetLibrary.push(asset);
+      sourceToAssetId.set(source, asset.id);
+      assetId = asset.id;
+    }
+
+    changed = true;
+
+    return {
+      ...scene,
+      background: {
+        mode: 'asset',
+        assetId,
+        sourceSceneId: null,
+        url: '',
+      } satisfies SceneBackground,
+    };
+  });
+
+  return {
+    scenes: migratedScenes,
+    assetLibrary: nextAssetLibrary,
+    changed,
+  };
+}
+
 export function normalizeProject(project: Project): { project: Project; changed: boolean } {
   const legacyProject = project as LegacyProject;
   let changed = false;
@@ -247,6 +407,25 @@ export function normalizeProject(project: Project): { project: Project; changed:
 
     return normalizedResource.resource;
   });
+  const assetLibrary = (legacyProject.assetLibrary ?? []).map((asset) => {
+    const normalizedAsset = normalizeAssetLibraryItem(asset);
+
+    if (normalizedAsset.changed) {
+      changed = true;
+    }
+
+    return normalizedAsset.asset;
+  });
+  const backgroundMigration = migrateSceneBackgroundsToAssets(
+    scenes,
+    assetLibrary,
+    legacyProject.createdAt,
+  );
+
+  if (backgroundMigration.changed) {
+    changed = true;
+  }
+
   const sceneIds = new Set(scenes.map((scene) => scene.id));
   const startSceneId =
     scenes.length === 0
@@ -265,12 +444,12 @@ export function normalizeProject(project: Project): { project: Project; changed:
           ...project,
           thumbnail,
           startSceneId,
-          scenes,
+          scenes: backgroundMigration.scenes,
           characters: legacyProject.characters ?? [],
           resources,
           variables: legacyProject.variables ?? [],
           groups: legacyProject.groups ?? [],
-          assetLibrary: legacyProject.assetLibrary ?? [],
+          assetLibrary: backgroundMigration.assetLibrary,
           settings: {
             ...DEFAULT_SETTINGS,
             ...legacyProject.settings,

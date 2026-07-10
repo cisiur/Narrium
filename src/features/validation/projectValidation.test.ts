@@ -109,8 +109,8 @@ function createAsset(id: string): AssetLibraryItem {
     id,
     kind: 'background',
     name: id,
-    sourceType: 'url',
-    url: 'https://example.com/background.jpg',
+    storageType: 'remote',
+    source: 'https://example.com/background.jpg',
     createdAt: '2026-01-01T00:00:00.000Z',
   };
 }

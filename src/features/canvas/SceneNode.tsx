@@ -1,4 +1,5 @@
 import { Handle, Position, type NodeProps } from 'reactflow';
+import { resolveAssetDisplaySource } from '../../domain/assets/assetSources';
 import { useCanvasStore, type SceneNodeData } from '../../store/useCanvasStore';
 import type { Scene } from '../../types';
 
@@ -26,7 +27,7 @@ function resolveDirectSceneImage(scene: Scene, data: SceneNodeData): ThumbnailRe
     const asset = data.assetLibrary.find((item) => item.id === scene.background.assetId);
 
     return {
-      imageUrl: asset?.url ?? null,
+      imageUrl: asset ? resolveAssetDisplaySource(asset) : null,
       placeholder: asset ? 'No Background' : 'Missing Asset',
     };
   }

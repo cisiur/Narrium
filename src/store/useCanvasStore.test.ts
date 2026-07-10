@@ -1387,3 +1387,130 @@ describe('scene groups', () => {
     expect(useWorkspaceStore.getState().projectHistory.undoStack).toHaveLength(1);
   });
 });
+
+describe('background asset catalog', () => {
+  beforeEach(() => {
+    setActiveProject(createProject());
+  });
+
+  it('creates embedded background assets for uploads', () => {
+    const assetId = useCanvasStore.getState().addBackgroundAsset({
+      name: 'Forest',
+      storageType: 'embedded',
+      source: 'data:image/png;base64,forest',
+      metadata: {
+        mimeType: 'image/png',
+        fileSize: 128,
+      },
+    });
+
+    const project = useWorkspaceStore.getState().activeProject as Project;
+
+    expect(assetId).toMatch(/^asset_/);
+    expect(project.assetLibrary).toEqual([
+      expect.objectContaining({
+        id: assetId,
+        kind: 'background',
+        name: 'Forest',
+        storageType: 'embedded',
+        source: 'data:image/png;base64,forest',
+        metadata: {
+          mimeType: 'image/png',
+          fileSize: 128,
+        },
+      }),
+    ]);
+  });
+
+  it('creates remote background assets for URLs', () => {
+    const assetId = useCanvasStore.getState().addBackgroundAsset({
+      name: 'Castle',
+      storageType: 'remote',
+      source: 'https://example.com/castle.jpg',
+    });
+
+    const project = useWorkspaceStore.getState().activeProject as Project;
+
+    expect(project.assetLibrary[0]).toMatchObject({
+      id: assetId,
+      storageType: 'remote',
+      source: 'https://example.com/castle.jpg',
+    });
+  });
+
+  it('stores scene assignments by asset id without duplicating the source URL', () => {
+    const assetId = useCanvasStore.getState().addBackgroundAsset({
+      name: 'Road',
+      storageType: 'remote',
+      source: 'https://example.com/road.jpg',
+    });
+
+    useCanvasStore.getState().updateSceneBackground('scene-start', {
+      mode: 'asset',
+      assetId,
+      sourceSceneId: null,
+      url: '',
+    });
+
+    const project = useWorkspaceStore.getState().activeProject as Project;
+
+    expect(getStartScene(project).background).toEqual({
+      mode: 'asset',
+      assetId,
+      sourceSceneId: null,
+      url: '',
+    });
+  });
+
+  it('allows one background asset to be shared by multiple scenes without duplicating source data', () => {
+    const assetId = useCanvasStore.getState().addBackgroundAsset({
+      name: 'Shared',
+      storageType: 'embedded',
+      source: 'data:image/png;base64,shared',
+    });
+
+    useCanvasStore.getState().updateSceneBackground('scene-start', {
+      mode: 'asset',
+      assetId,
+      sourceSceneId: null,
+      url: '',
+    });
+    useCanvasStore.getState().updateSceneBackground('scene-target', {
+      mode: 'asset',
+      assetId,
+      sourceSceneId: null,
+      url: '',
+    });
+
+    const project = useWorkspaceStore.getState().activeProject as Project;
+
+    expect(project.assetLibrary).toHaveLength(1);
+    expect(project.scenes.map((scene) => scene.background.assetId)).toEqual([assetId, assetId]);
+  });
+
+  it('clears scene background references when deleting a referenced asset', () => {
+    const assetId = useCanvasStore.getState().addBackgroundAsset({
+      name: 'Temporary',
+      storageType: 'remote',
+      source: 'https://example.com/temp.jpg',
+    });
+    useCanvasStore.getState().updateSceneBackground('scene-start', {
+      mode: 'asset',
+      assetId,
+      sourceSceneId: null,
+      url: '',
+    });
+
+    useCanvasStore.getState().deleteBackgroundAsset(assetId as string);
+
+    const project = useWorkspaceStore.getState().activeProject as Project;
+
+    expect(project.assetLibrary).toEqual([]);
+    expect(getStartScene(project).background).toEqual({
+      mode: 'none',
+      assetId: null,
+      sourceSceneId: null,
+      url: '',
+    });
+  });
+});

@@ -6,6 +6,24 @@ This changelog records milestone-level project changes. It is intentionally conc
 
 ## Unreleased / Next
 
+### Changed - Background asset catalog foundation
+
+Changes:
+- Made `Project.assetLibrary` the canonical catalog for newly added background sources.
+- Updated background assets to use `storageType: "embedded" | "remote"` and `source`.
+- New uploaded backgrounds create embedded Data URL assets.
+- New URL backgrounds create remote URL assets.
+- Scene assignments now use `mode: "asset"` plus `assetId` without duplicating the source URL on the scene.
+- Legacy direct scene `upload`/`url` backgrounds normalize into catalog assets where practical.
+- Legacy `AssetLibraryItem.sourceType`/`url` data normalizes into the current asset shape.
+- Duplicate legacy background sources reuse one migrated asset, and migration is idempotent.
+- Added a platform-neutral asset display resolver used by editor, canvas thumbnails, preview, and export rendering paths.
+- Deleting a referenced asset clears affected scene background assignments.
+- Kept local asset files, `assets/` directories, filesystem copying, Blob URLs, Data URL extraction, autosave, playable export changes, and native close interception out of scope.
+
+Validation:
+- Added tests for legacy asset normalization, direct scene Data URL and remote URL migration, duplicate-source reuse, idempotence, embedded/remote asset creation, asset assignment without URL duplication, shared asset assignment, resolver behavior, referenced-asset deletion safety, and `.narrium` serialization.
+
 ### Fixed - My Projects file-backed cards
 
 Changes:

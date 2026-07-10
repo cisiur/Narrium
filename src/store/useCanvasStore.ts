@@ -18,7 +18,15 @@ import {
   projectSceneEdge,
   shouldRenderSceneNode,
 } from '../features/canvas/sceneGroups';
-import type { AssetLibraryItem, Choice, DialoguePage, Scene, SceneBackground, SceneGroup } from '../types';
+import type {
+  AssetLibraryItem,
+  AssetStorageType,
+  Choice,
+  DialoguePage,
+  Scene,
+  SceneBackground,
+  SceneGroup,
+} from '../types';
 import type { Project } from '../types';
 import { useWorkspaceStore } from './workspaceStore';
 
@@ -44,8 +52,9 @@ export type CanvasNodeData = SceneNodeData | SceneGroupFrameData | CollapsedScen
 
 interface AddBackgroundAssetInput {
   name: string;
-  sourceType: 'upload' | 'url';
-  url: string;
+  storageType: AssetStorageType;
+  source: string;
+  metadata?: AssetLibraryItem['metadata'];
 }
 
 interface CanvasStore {
@@ -76,7 +85,7 @@ interface CanvasStore {
   syncFromProject: () => void;
   updateSceneName: (sceneId: string, name: string) => void;
   updateSceneBackground: (sceneId: string, background: SceneBackground) => void;
-  addBackgroundAsset: (input: AddBackgroundAssetInput) => void;
+  addBackgroundAsset: (input: AddBackgroundAssetInput) => string | null;
   deleteBackgroundAsset: (assetId: string) => void;
   updateBackgroundAssetName: (assetId: string, name: string) => void;
   addDialoguePage: (sceneId: string) => void;
@@ -346,9 +355,10 @@ function createBackgroundAsset(input: AddBackgroundAssetInput): AssetLibraryItem
     id: createId('asset'),
     kind: 'background',
     name: input.name.trim() || 'Untitled Background',
-    sourceType: input.sourceType,
-    url: input.url,
+    storageType: input.storageType,
+    source: input.source,
     createdAt: new Date().toISOString(),
+    ...(input.metadata ? { metadata: input.metadata } : {}),
   };
 }
 
@@ -898,6 +908,12 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
     get().syncFromProject();
   },
   addBackgroundAsset: (input) => {
+    const activeProject = useWorkspaceStore.getState().activeProject;
+
+    if (!activeProject) {
+      return null;
+    }
+
     const asset = createBackgroundAsset(input);
 
     useWorkspaceStore.getState().updateActiveProject((project) => ({
@@ -905,6 +921,8 @@ export const useCanvasStore = create<CanvasStore>((set, get) => ({
       assetLibrary: [...project.assetLibrary, asset],
     }));
     get().syncFromProject();
+
+    return asset.id;
   },
   deleteBackgroundAsset: (assetId) => {
     useWorkspaceStore.getState().updateActiveProject((project) => ({

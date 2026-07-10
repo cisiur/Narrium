@@ -4,6 +4,7 @@ import { useWorkspaceStore } from '../../store/workspaceStore';
 import { ConditionGroupsEditor } from '../story-logic/ConditionGroupsEditor';
 import { EffectsEditor } from '../story-logic/EffectsEditor';
 import { VALIDATION_CODES, validateProject } from '../validation/projectValidation';
+import { resolveAssetDisplaySource } from '../../domain/assets/assetSources';
 import {
   ProjectValidationPanel,
   navigateToValidationIssue,
@@ -109,6 +110,11 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
   const [urlAssetName, setUrlAssetName] = useState('');
   const [urlAssetUrl, setUrlAssetUrl] = useState('');
   const [uploadAssetName, setUploadAssetName] = useState('');
+  const [sceneUrlDraft, setSceneUrlDraft] = useState('');
+
+  useEffect(() => {
+    setSceneUrlDraft(scene.background.mode === 'url' ? scene.background.url : '');
+  }, [scene.background.mode, scene.background.url, scene.id]);
 
   const updateBackground = (background: SceneBackground) => {
     updateSceneBackground(scene.id, background);
@@ -176,12 +182,21 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
   };
 
   const updateUrl = (url: string) => {
-    updateBackground({
-      mode: 'url',
-      assetId: null,
-      sourceSceneId: null,
-      url,
+    const source = url.trim();
+
+    if (!source) {
+      return;
+    }
+
+    const assetId = addBackgroundAsset({
+      name: source,
+      storageType: 'remote',
+      source,
     });
+
+    if (assetId) {
+      useAsset(assetId);
+    }
   };
 
   const updateSceneReference = (sourceSceneId: string) => {
@@ -205,12 +220,19 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
         return;
       }
 
-      updateBackground({
-        mode: 'upload',
-        assetId: null,
-        sourceSceneId: null,
-        url: reader.result,
+      const assetId = addBackgroundAsset({
+        name: file.name || 'Uploaded Background',
+        storageType: 'embedded',
+        source: reader.result,
+        metadata: {
+          mimeType: file.type || undefined,
+          fileSize: file.size,
+        },
       });
+
+      if (assetId) {
+        useAsset(assetId);
+      }
     };
 
     reader.readAsDataURL(file);
@@ -226,10 +248,16 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
   };
 
   const addUrlAsset = () => {
+    const source = urlAssetUrl.trim();
+
+    if (!source) {
+      return;
+    }
+
     addBackgroundAsset({
       name: urlAssetName || 'Untitled Background',
-      sourceType: 'url',
-      url: urlAssetUrl,
+      storageType: 'remote',
+      source,
     });
     setUrlAssetName('');
     setUrlAssetUrl('');
@@ -249,8 +277,12 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
 
       addBackgroundAsset({
         name: uploadAssetName || file.name || 'Uploaded Background',
-        sourceType: 'upload',
-        url: reader.result,
+        storageType: 'embedded',
+        source: reader.result,
+        metadata: {
+          mimeType: file.type || undefined,
+          fileSize: file.size,
+        },
       });
       setUploadAssetName('');
     };
@@ -289,11 +321,19 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
           External Image URL
           <input
             type="text"
-            value={scene.background.url}
-            onChange={(event) => updateUrl(event.target.value)}
+            value={sceneUrlDraft}
+            onChange={(event) => setSceneUrlDraft(event.target.value)}
             className="mt-2 w-full rounded bg-gray-950 px-2 py-2 text-sm font-normal text-gray-100 outline-none ring-1 ring-gray-700 focus:ring-blue-500"
             placeholder="https://example.com/background.jpg"
           />
+          <button
+            type="button"
+            onClick={() => updateUrl(sceneUrlDraft)}
+            disabled={sceneUrlDraft.trim().length === 0}
+            className="mt-2 rounded bg-gray-700 px-2 py-1 text-xs font-medium text-gray-100 hover:bg-gray-600 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Use URL Background
+          </button>
         </label>
       ) : null}
 
@@ -303,7 +343,10 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
           <input
             type="file"
             accept="image/*"
-            onChange={(event) => handleUpload(event.target.files?.[0])}
+            onChange={(event) => {
+              handleUpload(event.target.files?.[0]);
+              event.currentTarget.value = '';
+            }}
             className="mt-2 block w-full text-xs text-gray-300 file:mr-3 file:rounded file:border-0 file:bg-gray-700 file:px-2 file:py-1 file:text-xs file:font-medium file:text-gray-100 hover:file:bg-gray-600"
           />
         </label>
@@ -393,11 +436,15 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
                 key={asset.id}
                 className="grid grid-cols-[3rem_1fr_auto] items-center gap-2 rounded-md border border-gray-700 bg-gray-900 p-2"
               >
-                <img src={asset.url} alt="" className="h-10 w-12 rounded bg-gray-950 object-cover" />
+                <img
+                  src={resolveAssetDisplaySource(asset)}
+                  alt=""
+                  className="h-10 w-12 rounded bg-gray-950 object-cover"
+                />
                 <div className="min-w-0">
                   <div className="truncate text-xs font-semibold text-gray-100">{asset.name}</div>
                   <div className="text-[11px] text-gray-500">
-                    {asset.sourceType === 'url' ? 'URL' : 'Upload'}
+                    {asset.storageType === 'remote' ? 'Remote URL' : 'Embedded'}
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
@@ -467,7 +514,7 @@ function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
         {scene.background.mode === 'asset' ? (
           selectedAsset ? (
             <img
-              src={selectedAsset.url}
+              src={resolveAssetDisplaySource(selectedAsset)}
               alt="Asset background preview"
               className="h-32 w-full object-cover"
             />

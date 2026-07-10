@@ -913,7 +913,7 @@ ${saveLoadControls}
 
       if (scene.background.mode === 'asset') {
         const asset = project.assetLibrary.find((item) => item.id === scene.background.assetId);
-        return asset?.url || null;
+        return asset?.source || asset?.url || null;
       }
 
       return null;

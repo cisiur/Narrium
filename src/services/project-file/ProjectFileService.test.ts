@@ -61,6 +61,46 @@ describe('native Narrium project file serialization', () => {
     });
   });
 
+  it('serializes normalized background assets without duplicating scene source URLs', () => {
+    const project = createProject({
+      startSceneId: 'scene-1',
+      scenes: [
+        {
+          id: 'scene-1',
+          name: 'Scene 1',
+          background: {
+            mode: 'upload',
+            assetId: null,
+            sourceSceneId: null,
+            url: 'data:image/png;base64,background',
+          },
+          position: { x: 0, y: 0 },
+          dialoguePages: [],
+          choices: [],
+          groupId: null,
+        },
+      ],
+    });
+
+    const serialized = JSON.parse(serializeNarriumProjectFile(project)) as {
+      project: Project;
+    };
+
+    expect(serialized.project.assetLibrary).toEqual([
+      expect.objectContaining({
+        storageType: 'embedded',
+        source: 'data:image/png;base64,background',
+      }),
+    ]);
+    expect(serialized.project.scenes[0].background).toEqual({
+      mode: 'asset',
+      assetId: serialized.project.assetLibrary[0].id,
+      sourceSceneId: null,
+      url: '',
+    });
+    expect(JSON.stringify(serialized.project).match(/data:image\/png;base64,background/g)).toHaveLength(1);
+  });
+
   it('parses wrapped .narrium project files', () => {
     const project = createProject();
 

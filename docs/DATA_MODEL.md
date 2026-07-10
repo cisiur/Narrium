@@ -9,8 +9,9 @@ This document defines the canonical data structures for Narrium. It is the prima
 - The model must be JSON-serializable without transformation.
 - The same `Project` object is the source of truth for editor, Preview player, JSON export/import, and exported standalone HTML player.
 - Scene logic is declarative only: conditions and effects, no scripting language.
-- Background assets are portable inside exported/imported web MVP project JSON.
-- Future desktop project storage should keep large imported assets as local files referenced by relative paths instead of embedding them as Data URLs.
+- Background assets are cataloged in `Project.assetLibrary`.
+- Current background asset sources remain embedded Data URLs or remote URLs.
+- Future desktop project storage should keep large imported assets as local files behind the asset catalog instead of embedding them as Data URLs.
 - Project thumbnails are stored in the full `Project` and mirrored into workspace metadata for fast project listing.
 - Workspace metadata is stored separately from full project payload.
 - Characters, Resources, and Variables are project data, not separate stores.
@@ -118,7 +119,7 @@ Notes:
 - `startSceneId` is the story entry point for preview and export.
 - Current implementation allows `startSceneId` to be an empty string when the project has no scenes yet.
 - `groups` are editor-only canvas organization metadata.
-- `assetLibrary` stores reusable project-level backgrounds.
+- `assetLibrary` stores reusable project-level background assets.
 - `characters` stores project-level speaker/logic entities.
 - `resources` stores project-wide numeric values intended for player-facing state such as gold, health, or inventory-like counts.
 - `variables` stores project-wide numeric values intended for hidden/internal story state such as flags, suspicion, visited states, or quest stages.
@@ -147,20 +148,23 @@ Current implementation rules:
 - Dirty state and recent project files are desktop app state, not fields inside `Project`.
 - Browser/Vite workflow still uses the existing localStorage-backed workspace for compatibility.
 - Local asset folders are not implemented yet.
-- Uploaded images and asset-library uploads may still be Data URLs in the saved JSON until a later asset-storage task.
+- Uploaded background images are stored as embedded Data URL assets in `assetLibrary` until a later asset-storage task.
+- Remote background URLs are stored as remote URL assets in `assetLibrary`.
+- Newly assigned scene backgrounds should reference catalog assets by `assetId` instead of duplicating source URLs on scenes.
 - Legacy raw Project JSON, including old `project.narrium.json`, remains openable as a compatibility fallback when selected as a file.
 
 Intended storage rules:
 - `.narrium` stores the JSON-compatible `Project` data inside the wrapper.
-- Asset references inside the project file should eventually use relative paths such as `assets/castle.png`.
+- Asset references inside the project file should eventually add a local storage backend with relative paths such as `assets/castle.png`.
 - Imported or uploaded files should eventually be copied into local project asset storage.
 - Large uploaded image Data URLs should not be stored inside the long-term saved project file.
 - The exact local asset file layout remains future work.
 
 Compatibility:
-- Current web MVP exports may still contain embedded Data URLs in `Project.thumbnail`, `SceneBackground.url`, or `AssetLibraryItem.url`.
+- Current web MVP exports may still contain embedded Data URLs in `Project.thumbnail`, legacy `SceneBackground.url`, or legacy `AssetLibraryItem.url`.
 - Desktop import should accept legacy web MVP JSON.
-- A future migration step should extract embedded Data URLs into local files where practical, then rewrite project references to relative paths.
+- Current normalization migrates legacy direct scene background URLs into `assetLibrary` where practical.
+- A future migration step should extract embedded Data URLs into local files where practical, then rewrite asset sources to a future local storage representation.
 - The canonical story model should remain recognizable so existing validation, preview, and runtime logic can be reused.
 
 ---
@@ -217,6 +221,8 @@ Validation rules:
 - `mode='asset'` requires valid `assetId`.
 - `mode='scene_reference'` requires valid `sourceSceneId` and must not self-reference the same scene.
 - Preview and standalone HTML player support one-level `scene_reference` resolution.
+- `url` and `upload` remain legacy-compatible modes. New background assignments should create an asset and set `mode='asset'`.
+- For new asset-backed backgrounds, `url` should be empty so the source is stored once in `AssetLibraryItem.source`.
 
 ---
 
@@ -505,24 +511,35 @@ interface AssetLibraryItem {
   id: string;
   kind: 'background';
   name: string;
-  sourceType: 'upload' | 'url';
-  url: string;
+  storageType: 'embedded' | 'remote';
+  source: string;
   createdAt: string;
+  metadata?: {
+    mimeType?: string;
+    width?: number;
+    height?: number;
+    fileSize?: number;
+  };
 }
 ```
 
 Notes:
-- MVP supports background assets only.
-- Uploaded assets are stored as base64 data URLs in `url` in the archived web MVP.
-- URL assets store their external URL directly.
+- Narrium currently supports background assets only.
+- `storageType='embedded'` stores a Data URL in `source`.
+- `storageType='remote'` stores an external URL in `source`.
+- New uploaded and URL backgrounds are stored in `Project.assetLibrary`, and scenes reference them through `SceneBackground.assetId`.
+- Multiple scenes can reference the same asset without duplicating the source data.
 - JSON project export/import preserves asset library items.
-- Standalone HTML export embeds the full Project, so uploaded asset Data URLs remain available in the exported player.
+- `.narrium` saves the normalized asset catalog inside the wrapped Project.
+- Standalone HTML export embeds the full Project, so embedded Data URL assets remain available in the exported player.
+- A platform-neutral asset source resolver is responsible for turning an asset into a display source for thumbnails, preview, and playback.
+- Deleting a referenced asset clears affected scene background assignments.
 
-Future desktop direction:
-- `AssetLibraryItem` should evolve to represent imported local files through project-relative paths.
-- A future item may keep `sourceType: 'upload'` for compatibility while storing `url` or a successor field as a relative path such as `assets/forest.png`.
-- Metadata such as original filename, media type, file size, dimensions, or checksum can be added when needed.
-- Long-term desktop project files should avoid large image Data URLs except when importing legacy web MVP JSON before migration.
+Compatibility and future desktop direction:
+- Legacy serialized assets with `sourceType` and `url` normalize into `storageType` and `source`.
+- Legacy scene backgrounds with direct `mode='upload'` or `mode='url'` normalize into catalog assets where practical.
+- Future E11-05B should add local file storage as a new backend behind this same catalog model.
+- No local asset files, filesystem paths, `assets/` directory, Blob URLs, or checksums are part of the current model.
 
 ---
 
@@ -616,6 +633,11 @@ Current normalization responsibilities include:
   - `groups`
   - `assetLibrary`
 - adding missing `settings.allowSessionSaveLoad`
+- normalizing legacy `AssetLibraryItem.sourceType`/`url` into `storageType`/`source`
+- migrating legacy direct scene background Data URLs and remote URLs into reusable background assets
+- reusing one migrated asset for duplicate legacy background sources
+- keeping background migration idempotent
 
 Compatibility requirement:
 - Old projects without `variables` must load as valid projects with `variables: []`.
+- Old projects with direct scene background URLs must still load and render, then save in the normalized catalog form where practical.

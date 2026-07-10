@@ -25,6 +25,7 @@ Status note:
 - Completed MVP epics remain the product foundation and reference implementation.
 - A minimal Tauri v2 desktop shell foundation exists on `main`.
 - A native `.narrium` desktop project file workflow exists on `main`; files are JSON internally and wrap the current `Project`.
+- The background asset library is now the canonical catalog for newly added backgrounds; sources remain embedded Data URLs or remote URLs.
 - Local asset file storage and a new playable export format have not been implemented yet.
 
 ```text
@@ -478,7 +479,8 @@ Purpose:
 | E11-03C | Native Narrium project file workflow using `.narrium` files | [BOTH] | Done |
 | E11-03D | My Projects file-backed card UX cleanup | [BOTH] | Done |
 | E11-04 | `project.narrium.json` storage format using the validated `Project` domain model | [BOTH] | Done for JSON-only project folders |
-| E11-05 | Local asset file storage under project `assets/` folders | [BOTH] | Planned |
+| E11-05A | Background asset catalog foundation using embedded/remote sources | [BOTH] | Done |
+| E11-05B | Local asset file storage under project `assets/` folders | [BOTH] | Planned |
 | E11-06 | Relative asset paths in project JSON | [BOTH] | Planned |
 | E11-07 | Migration/import from legacy web MVP JSON | [BOTH] | Planned |
 | E11-08 | Extract legacy embedded Data URLs into local asset files during migration where practical | [BOTH] | Planned |
@@ -533,6 +535,17 @@ Current E11-03D deliverable:
 - Native window X close remains pass-through.
 - Local asset storage, autosave, playable export changes, and Project model redesign remain out of scope.
 
+Current E11-05A deliverable:
+- `AssetLibraryItem` now uses `storageType: 'embedded' | 'remote'` and `source`.
+- New uploaded backgrounds create embedded Data URL assets.
+- New URL backgrounds create remote URL assets.
+- New scene background assignments use `mode: 'asset'` and `assetId` without duplicating source URLs in scenes.
+- Legacy direct scene backgrounds and legacy `sourceType`/`url` asset entries normalize into the canonical catalog.
+- Duplicate legacy sources reuse one migrated asset, and migration is idempotent.
+- Background rendering uses a platform-neutral asset display resolver.
+- Deleting a referenced background asset clears affected scene backgrounds.
+- No local asset files, `assets/` directory, filesystem copying, Blob URLs, autosave, or playable export changes were added.
+
 Full EPIC 11 deliverable intent:
 - A desktop app can create drafts, open `.narrium` files, save known project files, and preview Narrium projects.
 - Imported assets are copied into the project folder instead of being stored as large Data URLs in the long-term project file.
@@ -546,7 +559,7 @@ Full EPIC 11 deliverable intent:
 Continue EPIC 11 desktop project system work after the native `.narrium` project-file workflow.
 
 Recommended next task:
-- E11-05 - Local asset file storage under project `assets/` folders.
+- E11-05B - Local asset file storage under project `assets/` folders behind the canonical asset catalog.
 
 Later candidates:
 - E11-07/E11-08 - Legacy web MVP JSON migration and Data URL extraction.

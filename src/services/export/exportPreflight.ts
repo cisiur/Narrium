@@ -22,8 +22,38 @@ export interface StandaloneHtmlExportPreflightUi {
   showBlockedExportError(message: string, missingLocalAssets: AssetLibraryItem[]): void;
 }
 
-function getLocalAssets(project: Project) {
-  return project.assetLibrary.filter((asset) => asset.storageType === 'local');
+function getReferencedBackgroundAssetIds(project: Project) {
+  const sceneById = new Map(project.scenes.map((scene) => [scene.id, scene]));
+  const referencedAssetIds = new Set<string>();
+
+  const collectDirectBackgroundAsset = (sceneId: string) => {
+    const scene = sceneById.get(sceneId);
+
+    if (scene?.background.mode === 'asset' && scene.background.assetId) {
+      referencedAssetIds.add(scene.background.assetId);
+    }
+  };
+
+  project.scenes.forEach((scene) => {
+    if (scene.background.mode === 'asset' && scene.background.assetId) {
+      referencedAssetIds.add(scene.background.assetId);
+      return;
+    }
+
+    if (scene.background.mode === 'scene_reference' && scene.background.sourceSceneId) {
+      collectDirectBackgroundAsset(scene.background.sourceSceneId);
+    }
+  });
+
+  return referencedAssetIds;
+}
+
+function getReferencedLocalAssets(project: Project) {
+  const referencedAssetIds = getReferencedBackgroundAssetIds(project);
+
+  return project.assetLibrary.filter(
+    (asset) => asset.storageType === 'local' && referencedAssetIds.has(asset.id),
+  );
 }
 
 export async function validateStandaloneHtmlExport(
@@ -31,7 +61,7 @@ export async function validateStandaloneHtmlExport(
   projectFilePath: string | null,
   platformService: Pick<PlatformService, 'resolveLocalAssetDisplaySource'>,
 ): Promise<ExportPreflightResult> {
-  const localAssets = getLocalAssets(project);
+  const localAssets = getReferencedLocalAssets(project);
 
   if (localAssets.length === 0) {
     return {

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { AssetLibraryItem, Project } from '../../types';
+import type { AssetLibraryItem, Project, Scene } from '../../types';
 import { shouldProceedWithStandaloneHtmlExport, validateStandaloneHtmlExport } from './exportPreflight';
 
 function createAsset(overrides: Partial<AssetLibraryItem> = {}): AssetLibraryItem {
@@ -14,13 +14,31 @@ function createAsset(overrides: Partial<AssetLibraryItem> = {}): AssetLibraryIte
   };
 }
 
-function createProject(assetLibrary: AssetLibraryItem[] = []): Project {
+function createScene(id: string, assetId: string | null = null, overrides: Partial<Scene> = {}): Scene {
+  return {
+    id,
+    name: id,
+    background: {
+      mode: assetId ? 'asset' : 'none',
+      assetId,
+      sourceSceneId: null,
+      url: '',
+    },
+    position: { x: 0, y: 0 },
+    dialoguePages: [],
+    choices: [],
+    groupId: null,
+    ...overrides,
+  };
+}
+
+function createProject(assetLibrary: AssetLibraryItem[] = [], scenes: Scene[] = []): Project {
   return {
     id: 'project-1',
     name: 'Project',
     thumbnail: null,
     startSceneId: '',
-    scenes: [],
+    scenes,
     characters: [],
     resources: [],
     variables: [],
@@ -60,7 +78,41 @@ describe('validateStandaloneHtmlExport', () => {
     });
   });
 
-  it('warns when local assets are present and resolvable', async () => {
+  it('ignores missing unused local assets', async () => {
+    const unusedLocalAsset = createAsset({
+      storageType: 'local',
+      source: 'assets/backgrounds/missing-unused.png',
+    });
+    const platformService = {
+      resolveLocalAssetDisplaySource: vi.fn(),
+    };
+
+    await expect(validateStandaloneHtmlExport(createProject([unusedLocalAsset]), null, platformService)).resolves.toEqual({
+      status: 'safe',
+      localAssets: [],
+    });
+    expect(platformService.resolveLocalAssetDisplaySource).not.toHaveBeenCalled();
+  });
+
+  it('ignores existing unused local assets', async () => {
+    const unusedLocalAsset = createAsset({
+      storageType: 'local',
+      source: 'assets/backgrounds/unused.png',
+    });
+    const platformService = {
+      resolveLocalAssetDisplaySource: vi.fn(() => Promise.resolve('http://asset.localhost/unused.png')),
+    };
+
+    await expect(
+      validateStandaloneHtmlExport(createProject([unusedLocalAsset]), 'C:/Stories/Project.narrium', platformService),
+    ).resolves.toEqual({
+      status: 'safe',
+      localAssets: [],
+    });
+    expect(platformService.resolveLocalAssetDisplaySource).not.toHaveBeenCalled();
+  });
+
+  it('warns when referenced local assets are present and resolvable', async () => {
     const localAsset = createAsset({
       storageType: 'local',
       source: 'assets/backgrounds/forest.png',
@@ -70,7 +122,11 @@ describe('validateStandaloneHtmlExport', () => {
     };
 
     await expect(
-      validateStandaloneHtmlExport(createProject([localAsset]), 'C:/Stories/Project.narrium', platformService),
+      validateStandaloneHtmlExport(
+        createProject([localAsset], [createScene('scene-1', localAsset.id)]),
+        'C:/Stories/Project.narrium',
+        platformService,
+      ),
     ).resolves.toEqual({
       status: 'warning',
       localAssets: [localAsset],
@@ -81,7 +137,7 @@ describe('validateStandaloneHtmlExport', () => {
     );
   });
 
-  it('blocks export when local assets cannot be resolved', async () => {
+  it('blocks export when referenced local assets cannot be resolved', async () => {
     const localAsset = createAsset({
       name: 'Missing Forest',
       storageType: 'local',
@@ -92,7 +148,7 @@ describe('validateStandaloneHtmlExport', () => {
     };
 
     const result = await validateStandaloneHtmlExport(
-      createProject([localAsset]),
+      createProject([localAsset], [createScene('scene-1', localAsset.id)]),
       'C:/Stories/Project.narrium',
       platformService,
     );
@@ -113,7 +169,7 @@ describe('validateStandaloneHtmlExport', () => {
     };
 
     const result = await validateStandaloneHtmlExport(
-      createProject([localAsset]),
+      createProject([localAsset], [createScene('scene-1', localAsset.id)]),
       'C:/Stories/Project.narrium',
       platformService,
     );
@@ -122,7 +178,7 @@ describe('validateStandaloneHtmlExport', () => {
     expect(result.status === 'blocked' ? result.missingLocalAssets : []).toEqual([localAsset]);
   });
 
-  it('blocks browser or draft exports when local assets cannot be resolved from a project file path', async () => {
+  it('blocks browser or draft exports when referenced local assets cannot be resolved from a project file path', async () => {
     const localAsset = createAsset({
       storageType: 'local',
       source: 'assets/backgrounds/forest.png',
@@ -131,10 +187,64 @@ describe('validateStandaloneHtmlExport', () => {
       resolveLocalAssetDisplaySource: vi.fn(),
     };
 
-    const result = await validateStandaloneHtmlExport(createProject([localAsset]), null, platformService);
+    const result = await validateStandaloneHtmlExport(
+      createProject([localAsset], [createScene('scene-1', localAsset.id)]),
+      null,
+      platformService,
+    );
 
     expect(result.status).toBe('blocked');
     expect(platformService.resolveLocalAssetDisplaySource).not.toHaveBeenCalled();
+  });
+
+  it('validates an asset referenced multiple times only once', async () => {
+    const localAsset = createAsset({
+      storageType: 'local',
+      source: 'assets/backgrounds/forest.png',
+    });
+    const platformService = {
+      resolveLocalAssetDisplaySource: vi.fn(() => Promise.resolve('http://asset.localhost/forest.png')),
+    };
+
+    const result = await validateStandaloneHtmlExport(
+      createProject([localAsset], [createScene('scene-1', localAsset.id), createScene('scene-2', localAsset.id)]),
+      'C:/Stories/Project.narrium',
+      platformService,
+    );
+
+    expect(result.status).toBe('warning');
+    expect(platformService.resolveLocalAssetDisplaySource).toHaveBeenCalledTimes(1);
+  });
+
+  it('validates local assets used through scene background references', async () => {
+    const localAsset = createAsset({
+      storageType: 'local',
+      source: 'assets/backgrounds/forest.png',
+    });
+    const referencedScene = createScene('referenced-scene', localAsset.id);
+    const referenceScene = createScene('reference-scene', null, {
+      background: {
+        mode: 'scene_reference',
+        assetId: null,
+        sourceSceneId: referencedScene.id,
+        url: '',
+      },
+    });
+    const platformService = {
+      resolveLocalAssetDisplaySource: vi.fn(() => Promise.resolve('http://asset.localhost/forest.png')),
+    };
+
+    const result = await validateStandaloneHtmlExport(
+      createProject([localAsset], [referencedScene, referenceScene]),
+      'C:/Stories/Project.narrium',
+      platformService,
+    );
+
+    expect(result.status).toBe('warning');
+    expect(platformService.resolveLocalAssetDisplaySource).toHaveBeenCalledWith(
+      'C:/Stories/Project.narrium',
+      'assets/backgrounds/forest.png',
+    );
   });
 });
 

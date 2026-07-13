@@ -91,7 +91,10 @@ Project file status:
 - `src/services/project-file/` owns desktop project-file orchestration.
 - Desktop projects currently use `.narrium` files.
 - `.narrium` files are JSON internally and contain `{ "format": "narrium.project", "formatVersion": 1, "project": { ... } }`.
-- Legacy raw Project JSON and old `project.narrium.json` files remain openable when selected as files.
+- Rust project-file reads accept `.narrium` and legacy `.json` files.
+- Rust project-file writes accept `.narrium` only.
+- Rust rejects project files larger than 25 MiB before reading them into memory; this comfortably exceeds current local-asset desktop projects while preventing arbitrarily large JSON reads.
+- Legacy raw Project JSON and old `project.narrium.json` files remain openable when selected as files, but new desktop saves use `.narrium`.
 - `project.narrium.json` is legacy/transitional and is no longer the default desktop save target.
 - The browser workflow still uses the `ProjectStorage` localStorage backend and legacy keys.
 - The workspace store carries the current desktop project file path only while a file-backed project is open.
@@ -192,6 +195,7 @@ Current E11-05B behavior:
 - desktop file-backed background uploads use a native image picker for PNG, JPG, JPEG, and WEBP,
 - copied files are placed under `assets/backgrounds/` beside the `.narrium` file,
 - the project stores `storageType: "local"` and a forward-slash relative source path,
+- Rust local-asset commands reject absolute asset paths, parent-directory traversal, empty paths, and paths that resolve outside the project directory,
 - desktop drafts must be saved as `.narrium` before local asset import,
 - browser uploads continue to store embedded Data URLs,
 - remote URL assets remain URLs and are not downloaded,

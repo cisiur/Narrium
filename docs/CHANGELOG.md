@@ -6,6 +6,14 @@ This changelog records milestone-level project changes. It is intentionally conc
 
 ## Unreleased / Next
 
+### Security - Validate desktop filesystem operations
+
+Changes:
+- Rust project-file commands now accept reads only for `.narrium` files and legacy `.json` files, while writes require `.narrium`.
+- Project reads reject files larger than 25 MiB before reading contents into memory.
+- Rust local-asset commands continue to reject absolute paths and path traversal, and Save As asset copying validates the destination project path before creating directories.
+- Added Rust-side tests for supported project extensions, invalid extensions, traversal, absolute asset paths, oversized project files, background import, Save As asset copying, and valid project writes.
+
 ### Security - Harden desktop asset protocol
 
 Changes:

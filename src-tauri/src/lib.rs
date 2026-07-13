@@ -14,6 +14,8 @@ pub fn run() {
         .expect("error while running Narrium desktop shell");
 }
 
+const MAX_PROJECT_FILE_BYTES: u64 = 25 * 1024 * 1024;
+
 #[tauri::command]
 async fn confirm_unsaved_changes(
     app: tauri::AppHandle,
@@ -78,9 +80,29 @@ async fn confirm_unsaved_changes(
 #[tauri::command]
 fn read_project_file(file_path: String) -> Result<(String, String), String> {
     let project_file_path = std::path::Path::new(&file_path);
-    let contents = std::fs::read_to_string(&project_file_path).map_err(|error| {
-        format!("Failed to read {}: {}", project_file_path.display(), error)
+    validate_project_file_path_for_read(project_file_path)?;
+
+    let metadata = std::fs::metadata(project_file_path).map_err(|error| {
+        format!(
+            "Failed to inspect project file {}: {}",
+            project_file_path.display(),
+            error
+        )
     })?;
+
+    if !metadata.is_file() {
+        return Err("Selected project path is not a file.".to_string());
+    }
+
+    if metadata.len() > MAX_PROJECT_FILE_BYTES {
+        return Err(format!(
+            "Project file is too large to open. Maximum supported size is {} MB.",
+            MAX_PROJECT_FILE_BYTES / 1024 / 1024
+        ));
+    }
+
+    let contents = std::fs::read_to_string(&project_file_path)
+        .map_err(|error| format!("Failed to read {}: {}", project_file_path.display(), error))?;
 
     Ok((project_file_path.to_string_lossy().to_string(), contents))
 }
@@ -88,22 +110,52 @@ fn read_project_file(file_path: String) -> Result<(String, String), String> {
 #[tauri::command]
 fn write_project_file(file_path: String, contents: String) -> Result<String, String> {
     let project_file_path = std::path::Path::new(&file_path);
+    let parent_path = validate_project_file_path_for_write(project_file_path)?;
 
-    if let Some(parent_path) = project_file_path.parent() {
-        std::fs::create_dir_all(parent_path).map_err(|error| {
-            format!("Failed to create {}: {}", parent_path.display(), error)
-        })?;
-    }
+    std::fs::create_dir_all(parent_path)
+        .map_err(|error| format!("Failed to create {}: {}", parent_path.display(), error))?;
 
-    std::fs::write(&project_file_path, contents).map_err(|error| {
-        format!("Failed to write {}: {}", project_file_path.display(), error)
-    })?;
+    std::fs::write(&project_file_path, contents)
+        .map_err(|error| format!("Failed to write {}: {}", project_file_path.display(), error))?;
 
     Ok(project_file_path.to_string_lossy().to_string())
 }
 
+fn extension_lowercase(path: &std::path::Path) -> Option<String> {
+    path.extension()
+        .and_then(|extension| extension.to_str())
+        .map(|extension| extension.to_ascii_lowercase())
+}
+
+fn validate_project_file_path_for_read(path: &std::path::Path) -> Result<(), String> {
+    match extension_lowercase(path).as_deref() {
+        Some("narrium") | Some("json") => Ok(()),
+        _ => Err(
+            "Unsupported project file type. Open .narrium files or legacy .json files.".to_string(),
+        ),
+    }
+}
+
+fn validate_project_file_path_for_write(
+    path: &std::path::Path,
+) -> Result<&std::path::Path, String> {
+    match extension_lowercase(path).as_deref() {
+        Some("narrium") => {}
+        _ => {
+            return Err(
+                "Unsupported project file type. Save projects as .narrium files.".to_string(),
+            );
+        }
+    }
+
+    path.parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .ok_or_else(|| "Project file must have a parent directory.".to_string())
+}
+
 fn project_dir_from_file_path(file_path: &str) -> Result<std::path::PathBuf, String> {
     let project_file_path = std::path::Path::new(file_path);
+    validate_project_file_path_for_read(project_file_path)?;
     let parent_path = project_file_path
         .parent()
         .ok_or_else(|| "Project file must have a parent directory.".to_string())?;
@@ -251,6 +303,7 @@ fn import_background_asset_file(
     project_file_path: String,
     source_file_path: String,
 ) -> Result<(String, String, String, u64), String> {
+    validate_project_file_path_for_write(std::path::Path::new(&project_file_path))?;
     let project_dir = project_dir_from_file_path(&project_file_path)?;
     let source_path = std::path::Path::new(&source_file_path)
         .canonicalize()
@@ -284,11 +337,11 @@ fn import_background_asset_file(
         )
     })?;
 
-    let relative_path = std::path::Path::new("assets")
-        .join("backgrounds")
-        .join(destination_path.file_name().ok_or_else(|| {
-            "Failed to determine copied background file name.".to_string()
-        })?);
+    let relative_path = std::path::Path::new("assets").join("backgrounds").join(
+        destination_path
+            .file_name()
+            .ok_or_else(|| "Failed to determine copied background file name.".to_string())?,
+    );
 
     Ok((
         source_path
@@ -303,7 +356,10 @@ fn import_background_asset_file(
 }
 
 #[tauri::command]
-fn resolve_local_asset_file(project_file_path: String, relative_path: String) -> Result<String, String> {
+fn resolve_local_asset_file(
+    project_file_path: String,
+    relative_path: String,
+) -> Result<String, String> {
     let project_dir = project_dir_from_file_path(&project_file_path)?;
     let asset_relative_path = ensure_relative_asset_path(&relative_path)?;
     let asset_path = project_dir.join(asset_relative_path);
@@ -330,9 +386,7 @@ fn copy_local_asset_for_project_save_as(
 ) -> Result<(), String> {
     let source_project_dir = project_dir_from_file_path(&source_project_file_path)?;
     let destination_project_file = std::path::Path::new(&destination_project_file_path);
-    let destination_project_dir = destination_project_file
-        .parent()
-        .ok_or_else(|| "Destination project file must have a parent directory.".to_string())?;
+    let destination_project_dir = validate_project_file_path_for_write(destination_project_file)?;
 
     std::fs::create_dir_all(destination_project_dir).map_err(|error| {
         format!(
@@ -384,4 +438,183 @@ fn copy_local_asset_for_project_save_as(
     })?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::io::Write;
+    use std::path::{Path, PathBuf};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_root(test_name: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time should be after unix epoch")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!(
+            "narrium-fs-policy-{}-{}",
+            std::process::id(),
+            nanos
+        ));
+        fs::create_dir_all(root.join(test_name)).expect("temp test directory should be created");
+        root.join(test_name)
+    }
+
+    fn write_file(path: &Path, contents: &[u8]) {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).expect("parent should be created");
+        }
+        let mut file = fs::File::create(path).expect("test file should be created");
+        file.write_all(contents)
+            .expect("test file should be written");
+    }
+
+    #[test]
+    fn reads_valid_narrium_project_files() {
+        let root = temp_root("reads-valid-narrium");
+        let project_path = root.join("Story.narrium");
+        write_file(&project_path, br#"{"format":"narrium.project"}"#);
+
+        let result = read_project_file(project_path.to_string_lossy().to_string())
+            .expect("read should succeed");
+
+        assert_eq!(result.0, project_path.to_string_lossy());
+        assert!(result.1.contains("narrium.project"));
+    }
+
+    #[test]
+    fn reads_valid_legacy_json_project_files() {
+        let root = temp_root("reads-valid-json");
+        let project_path = root.join("Legacy.json");
+        write_file(&project_path, br#"{"id":"legacy"}"#);
+
+        let result = read_project_file(project_path.to_string_lossy().to_string())
+            .expect("read should succeed");
+
+        assert_eq!(result.0, project_path.to_string_lossy());
+        assert!(result.1.contains("legacy"));
+    }
+
+    #[test]
+    fn rejects_unsupported_project_read_extensions() {
+        let root = temp_root("rejects-read-extension");
+        let project_path = root.join("Story.txt");
+        write_file(&project_path, b"not a project");
+
+        let error = read_project_file(project_path.to_string_lossy().to_string()).unwrap_err();
+
+        assert!(error.contains("Open .narrium files or legacy .json files"));
+    }
+
+    #[test]
+    fn rejects_unsupported_project_write_extensions() {
+        let root = temp_root("rejects-write-extension");
+        let project_path = root.join("Story.json");
+
+        let error =
+            write_project_file(project_path.to_string_lossy().to_string(), "{}".to_string())
+                .unwrap_err();
+
+        assert!(error.contains("Save projects as .narrium files"));
+        assert!(!project_path.exists());
+    }
+
+    #[test]
+    fn rejects_relative_asset_path_traversal() {
+        let error = ensure_relative_asset_path("../../outside.png").unwrap_err();
+
+        assert!(error.contains("cannot escape"));
+    }
+
+    #[test]
+    fn rejects_absolute_asset_paths() {
+        let absolute_path = std::env::temp_dir().join("outside.png");
+        let error = ensure_relative_asset_path(&absolute_path.to_string_lossy()).unwrap_err();
+
+        assert!(error.contains("project-relative"));
+    }
+
+    #[test]
+    fn rejects_oversized_project_files_before_reading() {
+        let root = temp_root("rejects-oversized-project");
+        let project_path = root.join("Huge.narrium");
+        let file = fs::File::create(&project_path).expect("project file should be created");
+        file.set_len(MAX_PROJECT_FILE_BYTES + 1)
+            .expect("project file length should be set");
+
+        let error = read_project_file(project_path.to_string_lossy().to_string()).unwrap_err();
+
+        assert!(error.contains("Project file is too large"));
+    }
+
+    #[test]
+    fn imports_valid_background_assets_into_project_folder() {
+        let root = temp_root("imports-valid-background");
+        let project_path = root.join("Story.narrium");
+        write_file(&project_path, b"{}");
+        let source_path = root.join("Source Art").join("Forest Hall.PNG");
+        write_file(&source_path, b"png bytes");
+
+        let result = import_background_asset_file(
+            project_path.to_string_lossy().to_string(),
+            source_path.to_string_lossy().to_string(),
+        )
+        .expect("import should succeed");
+
+        assert_eq!(result.0, "Forest Hall");
+        assert_eq!(result.1, "assets/backgrounds/forest-hall.png");
+        assert_eq!(result.2, "image/png");
+        assert_eq!(result.3, 9);
+        assert!(root
+            .join("assets")
+            .join("backgrounds")
+            .join("forest-hall.png")
+            .is_file());
+    }
+
+    #[test]
+    fn copies_valid_local_assets_for_project_save_as() {
+        let root = temp_root("copies-valid-save-as-assets");
+        let source_project = root.join("Original").join("Story.narrium");
+        let destination_project = root.join("Copied").join("Story Copy.narrium");
+        let source_asset = root
+            .join("Original")
+            .join("assets")
+            .join("backgrounds")
+            .join("forest.png");
+        write_file(&source_project, b"{}");
+        write_file(&source_asset, b"image");
+
+        copy_local_asset_for_project_save_as(
+            source_project.to_string_lossy().to_string(),
+            destination_project.to_string_lossy().to_string(),
+            "assets/backgrounds/forest.png".to_string(),
+        )
+        .expect("copy should succeed");
+
+        assert!(root
+            .join("Copied")
+            .join("assets")
+            .join("backgrounds")
+            .join("forest.png")
+            .is_file());
+    }
+
+    #[test]
+    fn writes_valid_narrium_project_files() {
+        let root = temp_root("writes-valid-narrium");
+        let project_path = root.join("Nested").join("Story.narrium");
+
+        let saved_path =
+            write_project_file(project_path.to_string_lossy().to_string(), "{}".to_string())
+                .expect("write should succeed");
+
+        assert_eq!(saved_path, project_path.to_string_lossy());
+        assert_eq!(
+            fs::read_to_string(project_path).expect("file should be readable"),
+            "{}"
+        );
+    }
 }

@@ -704,7 +704,17 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
       return true;
     }
 
-    const action: UnsavedChangesAction = await platformService.confirmUnsavedChanges(activeProject.name);
+    let action: UnsavedChangesAction;
+
+    try {
+      action = await platformService.confirmUnsavedChanges(activeProject.name);
+    } catch (error) {
+      set({
+        projectFileError: error instanceof Error ? error.message : 'Could not confirm unsaved changes.',
+      });
+
+      return false;
+    }
 
     if (action === 'cancel') {
       return false;

@@ -524,6 +524,34 @@ describe('workspace project file workflow', () => {
     expect(useWorkspaceStore.getState().activeProjectDirty).toBe(true);
   });
 
+  it('keeps desktop native close usable after the unsaved-changes dialog rejects', async () => {
+    const { useWorkspaceStore, project, platformService, getCloseRequestedHandler } =
+      await loadStoreWithProjectFileMocks('C:/Stories/Test Project.narrium', { isDesktop: true });
+
+    platformService.confirmUnsavedChanges
+      .mockRejectedValueOnce(new Error('Command plugin:dialog|confirm not allowed by ACL'))
+      .mockResolvedValueOnce('discard');
+    useWorkspaceStore.setState({
+      activeProject: project,
+      activeProjectId: project.id,
+      projects: [createProjectMeta(project)],
+      activeProjectFilePath: 'C:/Stories/Test Project.narrium',
+      activeProjectDirty: true,
+      projectFileError: null,
+    });
+
+    await useWorkspaceStore.getState().initializeDesktopLifecycle();
+
+    await expect(getCloseRequestedHandler()?.()).resolves.toBe(false);
+    expect(useWorkspaceStore.getState().activeProject?.id).toBe(project.id);
+    expect(useWorkspaceStore.getState().activeProjectDirty).toBe(true);
+    expect(useWorkspaceStore.getState().projectFileError).toBe('Command plugin:dialog|confirm not allowed by ACL');
+
+    await expect(getCloseRequestedHandler()?.()).resolves.toBe(true);
+    expect(platformService.confirmUnsavedChanges).toHaveBeenCalledTimes(2);
+    expect(useWorkspaceStore.getState().activeProjectDirty).toBe(false);
+  });
+
   it('keeps existing Create and Open Project File dirty guards working', async () => {
     const { useWorkspaceStore, project, projectFileService, platformService } =
       await loadStoreWithProjectFileMocks();

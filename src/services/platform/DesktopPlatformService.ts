@@ -1,5 +1,5 @@
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
-import { confirm, open, save } from '@tauri-apps/plugin-dialog';
+import { open, save } from '@tauri-apps/plugin-dialog';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import type {
   ImportedBackgroundAssetFile,
@@ -148,25 +148,7 @@ export class DesktopPlatformService implements PlatformService, PlatformProjectF
   }
 
   async confirmUnsavedChanges(projectName: string): Promise<UnsavedChangesAction> {
-    const shouldSave = await confirm(`Save changes to "${projectName}" before continuing?`, {
-      title: 'Unsaved Changes',
-      kind: 'warning',
-      okLabel: 'Save',
-      cancelLabel: "Don't Save",
-    });
-
-    if (shouldSave) {
-      return 'save';
-    }
-
-    const shouldDiscard = await confirm(`Discard unsaved changes to "${projectName}"?`, {
-      title: 'Unsaved Changes',
-      kind: 'warning',
-      okLabel: "Don't Save",
-      cancelLabel: 'Cancel',
-    });
-
-    return shouldDiscard ? 'discard' : 'cancel';
+    return invoke<UnsavedChangesAction>('confirm_unsaved_changes', { projectName });
   }
 
   async onCloseRequested(handler: () => Promise<boolean>): Promise<() => void> {
@@ -189,6 +171,8 @@ export class DesktopPlatformService implements PlatformService, PlatformProjectF
         }
 
         await nativeWindow.destroy();
+      } catch (error) {
+        console.error('Could not complete native close request.', error);
       } finally {
         this.isCloseDecisionPending = false;
       }

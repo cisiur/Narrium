@@ -3,6 +3,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
+            confirm_unsaved_changes,
             read_project_file,
             write_project_file,
             import_background_asset_file,
@@ -11,6 +12,67 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running Narrium desktop shell");
+}
+
+#[tauri::command]
+async fn confirm_unsaved_changes(
+    app: tauri::AppHandle,
+    project_name: String,
+) -> Result<String, String> {
+    use tauri_plugin_dialog::{
+        DialogExt, MessageDialogButtons, MessageDialogKind, MessageDialogResult,
+    };
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let save_result = app
+            .dialog()
+            .message(format!(
+                "Save changes to \"{}\" before continuing?",
+                project_name
+            ))
+            .title("Unsaved Changes")
+            .kind(MessageDialogKind::Warning)
+            .buttons(MessageDialogButtons::OkCancelCustom(
+                "Save".to_string(),
+                "Don't Save".to_string(),
+            ))
+            .blocking_show_with_result();
+
+        let should_save = match save_result {
+            MessageDialogResult::Ok => true,
+            MessageDialogResult::Custom(value) => value == "Save",
+            _ => false,
+        };
+
+        if should_save {
+            return "save".to_string();
+        }
+
+        let discard_result = app
+            .dialog()
+            .message(format!("Discard unsaved changes to \"{}\"?", project_name))
+            .title("Unsaved Changes")
+            .kind(MessageDialogKind::Warning)
+            .buttons(MessageDialogButtons::OkCancelCustom(
+                "Don't Save".to_string(),
+                "Cancel".to_string(),
+            ))
+            .blocking_show_with_result();
+
+        let should_discard = match discard_result {
+            MessageDialogResult::Ok => true,
+            MessageDialogResult::Custom(value) => value == "Don't Save",
+            _ => false,
+        };
+
+        if should_discard {
+            "discard".to_string()
+        } else {
+            "cancel".to_string()
+        }
+    })
+    .await
+    .map_err(|error| format!("Could not confirm unsaved changes: {}", error))
 }
 
 #[tauri::command]

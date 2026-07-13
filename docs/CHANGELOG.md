@@ -6,6 +6,12 @@ This changelog records milestone-level project changes. It is intentionally conc
 
 ## Unreleased / Next
 
+### Fixed - Dirty native close dialog workflow
+
+Changes:
+- Dirty native desktop close now uses an app-owned Tauri command for the Save / Don't Save / Cancel confirmation dialog because the installed JS dialog `confirm()` helper invokes a command not exposed by the resolved Rust dialog plugin ACL.
+- Native close decision failures now keep the app open, reset close-pending state, and surface the error through the existing project-file error state.
+
 ### Fixed - Native close dirty protection
 
 Changes:

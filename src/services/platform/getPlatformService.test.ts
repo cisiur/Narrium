@@ -60,6 +60,7 @@ describe('platform services', () => {
     if (typeof window !== 'undefined') {
       clearMocks();
     }
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
@@ -134,6 +135,32 @@ describe('platform services', () => {
     expect(nativeWindow.destroy).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps close usable after a close decision throws', async () => {
+    const nativeWindow = createNativeWindowMock();
+    const service = new DesktopPlatformService(() => nativeWindow);
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const handler = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('dialog rejected'))
+      .mockResolvedValueOnce(true);
+
+    const dispose = await service.onCloseRequested(handler);
+
+    const failedClose = await nativeWindow.requestClose();
+    const retryClose = await nativeWindow.requestClose();
+    dispose();
+
+    expect(failedClose.preventDefault).toHaveBeenCalledTimes(1);
+    expect(failedClose.isDestroyed).toBe(false);
+    expect(retryClose.isDestroyed).toBe(true);
+    expect(handler).toHaveBeenCalledTimes(2);
+    expect(nativeWindow.destroy).toHaveBeenCalledTimes(1);
+    expect(consoleError).toHaveBeenCalledWith(
+      'Could not complete native close request.',
+      expect.any(Error),
+    );
+  });
+
   it('reaches the terminal native destroy path after an approved decision', async () => {
     const nativeWindow = createNativeWindowMock();
     const service = new DesktopPlatformService(() => nativeWindow);
@@ -157,6 +184,18 @@ describe('platform services', () => {
     dispose();
 
     expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('requests desktop unsaved-change decisions through the app command', async () => {
+    const service = new DesktopPlatformService();
+    vi.stubGlobal('window', {});
+    mockIPC(<T,>(cmd: string, payload?: InvokeArgs): T => {
+      expect(cmd).toBe('confirm_unsaved_changes');
+      expect(payload).toEqual({ projectName: 'Test Project' });
+      return 'discard' as T;
+    });
+
+    await expect(service.confirmUnsavedChanges('Test Project')).resolves.toBe('discard');
   });
 
   it('resolves to browser when Tauri globals are unavailable', () => {

@@ -245,6 +245,8 @@ Migration does not need to happen in this documentation task. It is a future imp
 
 The current standalone HTML export belongs to the archived browser MVP. It is useful as a reference and compatibility feature, but it is not the final desktop requirement by itself.
 
+Standalone HTML export does not package desktop local asset files. Before export, Narrium warns when local assets are present because exported backgrounds may be missing, and blocks export when referenced local assets cannot be resolved. This preflight only protects the current export path; it does not add local asset packaging.
+
 Future playable export may be a playable folder or packaged build rather than one standalone HTML file. A folder/package export can include:
 - a runtime player,
 - a `.narrium` file, JSON payload, or compiled story payload,

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AppShell } from '../components/AppShell';
+import { useConfirmationDialog } from '../components';
 import { SceneCanvas } from '../features/canvas/SceneCanvas';
 import { CharactersScreen } from '../features/characters/CharactersScreen';
 import { SceneEditorPanel } from '../features/editor/SceneEditorPanel';
@@ -13,6 +14,8 @@ import { useWorkspaceStore } from '../store/workspaceStore';
 import type { Project } from '../types';
 import { exportProjectAsJson } from '../utils/projectExport';
 import { exportProjectAsStandaloneHtml } from '../utils/standaloneHtmlExport';
+import { shouldProceedWithStandaloneHtmlExport, validateStandaloneHtmlExport } from '../services/export';
+import { getPlatformService } from '../services/platform';
 
 function isTextEditingTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) {
@@ -33,6 +36,7 @@ export function getAssignableSceneGroupOptions(project: Project, selectedSceneId
 
 export function App() {
   const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const { confirm, confirmationDialog } = useConfirmationDialog();
   const activeProject = useWorkspaceStore((state) => state.activeProject);
   const activeProjectFilePath = useWorkspaceStore((state) => state.activeProjectFilePath);
   const activeProjectDirty = useWorkspaceStore((state) => state.activeProjectDirty);
@@ -151,6 +155,34 @@ export function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeProject, activeProjectView, isPreviewMode]);
 
+  const exportStandaloneHtml = async (project: Project) => {
+    const preflight = await validateStandaloneHtmlExport(project, activeProjectFilePath, getPlatformService());
+
+    const shouldProceed = await shouldProceedWithStandaloneHtmlExport(preflight, {
+      confirmLocalAssetWarning: () =>
+        confirm({
+          title: 'Export Standalone HTML',
+          message:
+            'Standalone HTML will not include local desktop assets. The exported game may display missing backgrounds.\n\nContinue export anyway?',
+          confirmLabel: 'Continue Export',
+          cancelLabel: 'Cancel',
+        }),
+      showBlockedExportError: (message, missingLocalAssets) => {
+        window.alert(
+          `${message}\n\nMissing local assets:\n${missingLocalAssets
+            .map((asset) => `- ${asset.name}: ${asset.source}`)
+            .join('\n')}`,
+        );
+      },
+    });
+
+    if (!shouldProceed) {
+      return;
+    }
+
+    exportProjectAsStandaloneHtml(project);
+  };
+
   if (activeProject) {
     if (isPreviewMode) {
       return <StoryPlayer project={activeProject} onExitPreview={() => setIsPreviewMode(false)} />;
@@ -196,13 +228,14 @@ export function App() {
         onSaveProject={canUseProjectFiles ? () => void saveActiveProjectToFile() : undefined}
         canSaveProject={Boolean(activeProjectFilePath)}
         onSaveProjectAs={canUseProjectFiles ? () => void saveActiveProjectAsFile() : undefined}
-        onExportHtml={() => exportProjectAsStandaloneHtml(activeProject)}
+        onExportHtml={() => void exportStandaloneHtml(activeProject)}
         onExportProject={() => exportProjectAsJson(activeProject)}
         onEnterPreview={() => setIsPreviewMode(true)}
         onProjectViewChange={setActiveProjectView}
         rightPanel={isCanvasView ? <SceneEditorPanel /> : null}
       >
         {projectScreen}
+        {confirmationDialog}
       </AppShell>
     );
   }

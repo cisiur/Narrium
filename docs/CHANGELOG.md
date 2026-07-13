@@ -6,6 +6,14 @@ This changelog records milestone-level project changes. It is intentionally conc
 
 ## Unreleased / Next
 
+### Added - Export preflight validation
+
+Changes:
+- Standalone HTML export now runs a preflight check before generating output.
+- Projects with local desktop assets show a warning that standalone HTML does not include those files and may display missing backgrounds.
+- Missing or unverifiable local assets block standalone HTML export with a clear error.
+- Standalone HTML generation itself remains unchanged; local asset packaging remains future work.
+
 ### Added - Native desktop preferences backend
 
 Changes:

@@ -1,9 +1,13 @@
+use tauri::Manager;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             confirm_unsaved_changes,
+            read_app_preferences_file,
+            write_app_preferences_file,
             read_project_file,
             write_project_file,
             import_background_asset_file,
@@ -15,6 +19,7 @@ pub fn run() {
 }
 
 const MAX_PROJECT_FILE_BYTES: u64 = 25 * 1024 * 1024;
+const APP_PREFERENCES_FILE_NAME: &str = "preferences.json";
 
 #[tauri::command]
 async fn confirm_unsaved_changes(
@@ -75,6 +80,61 @@ async fn confirm_unsaved_changes(
     })
     .await
     .map_err(|error| format!("Could not confirm unsaved changes: {}", error))
+}
+
+fn app_preferences_file_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    let app_data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| format!("Failed to resolve application data directory: {}", error))?;
+
+    Ok(app_data_dir.join(APP_PREFERENCES_FILE_NAME))
+}
+
+#[tauri::command]
+fn read_app_preferences_file(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let preferences_path = app_preferences_file_path(&app)?;
+
+    if !preferences_path.exists() {
+        return Ok(None);
+    }
+
+    if !preferences_path.is_file() {
+        return Err("Application preferences path is not a file.".to_string());
+    }
+
+    std::fs::read_to_string(&preferences_path)
+        .map(Some)
+        .map_err(|error| {
+            format!(
+                "Failed to read application preferences {}: {}",
+                preferences_path.display(),
+                error
+            )
+        })
+}
+
+#[tauri::command]
+fn write_app_preferences_file(app: tauri::AppHandle, contents: String) -> Result<(), String> {
+    let preferences_path = app_preferences_file_path(&app)?;
+
+    if let Some(parent_path) = preferences_path.parent() {
+        std::fs::create_dir_all(parent_path).map_err(|error| {
+            format!(
+                "Failed to create application preferences directory {}: {}",
+                parent_path.display(),
+                error
+            )
+        })?;
+    }
+
+    std::fs::write(&preferences_path, contents).map_err(|error| {
+        format!(
+            "Failed to write application preferences {}: {}",
+            preferences_path.display(),
+            error
+        )
+    })
 }
 
 #[tauri::command]

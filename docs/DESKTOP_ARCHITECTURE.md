@@ -114,6 +114,9 @@ Project file status:
 - The project header displays the current file path and dirty `*` indicator.
 - Drafts without a project file path show `Unsaved draft - use Save As to create a .narrium file`.
 - `src/services/app-preferences/` stores recent project file paths and the last opened project as app preferences.
+- Browser app preferences continue to use the `narrium_app_preferences` localStorage key.
+- Desktop app preferences are stored in Tauri's native application data directory as `preferences.json`, outside WebView localStorage.
+- On desktop startup, if native preferences already exist they are used directly; otherwise existing WebView localStorage preferences are migrated once into the native backend.
 - Recent project metadata stores `projectId` when known so My Projects cards can reopen associated `.narrium` files directly.
 - Cards without a file association remain localStorage drafts.
 - Older recent metadata may associate by unique project name only; duplicate names do not auto-open a file.

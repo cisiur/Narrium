@@ -19,6 +19,7 @@ const appPreferencesService = getAppPreferencesService();
 const platformService = getPlatformService();
 const initialAppPreferences = appPreferencesService.loadPreferences();
 let desktopLifecycleInitialized = false;
+let appPreferencesInitialized = false;
 
 interface WorkspaceStore extends WorkspaceState {
   activeProject: Project | null;
@@ -475,12 +476,27 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
     }
   },
   initializeDesktopLifecycle: async () => {
-    if (!platformService.isDesktop() || desktopLifecycleInitialized) {
+    if (!platformService.isDesktop()) {
       return;
     }
 
-    desktopLifecycleInitialized = true;
-    await platformService.onCloseRequested(() => get().ensureCanLeaveActiveProject());
+    if (!appPreferencesInitialized) {
+      appPreferencesInitialized = true;
+      const preferences = await appPreferencesService.initialize();
+
+      set({
+        recentProjects: preferences.recentProjects,
+        lastOpenedProject: getLastOpenedProject(
+          preferences.recentProjects,
+          preferences.lastOpenedProjectFilePath,
+        ),
+      });
+    }
+
+    if (!desktopLifecycleInitialized) {
+      desktopLifecycleInitialized = true;
+      await platformService.onCloseRequested(() => get().ensureCanLeaveActiveProject());
+    }
   },
   renameProject: (projectId, newName) => {
     set((state) => {

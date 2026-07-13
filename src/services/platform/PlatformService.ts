@@ -37,7 +37,12 @@ export interface PlatformProjectFileApi {
   ): Promise<void>;
 }
 
-export interface PlatformService extends PlatformProjectFileApi {
+export interface PlatformAppPreferencesApi {
+  readAppPreferences(): Promise<string | null>;
+  writeAppPreferences(contents: string): Promise<void>;
+}
+
+export interface PlatformService extends PlatformProjectFileApi, PlatformAppPreferencesApi {
   isBrowser(): boolean;
   isDesktop(): boolean;
   platformName(): PlatformName;

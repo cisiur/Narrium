@@ -6,6 +6,14 @@ This changelog records milestone-level project changes. It is intentionally conc
 
 ## Unreleased / Next
 
+### Added - Native desktop preferences backend
+
+Changes:
+- Desktop app preferences now persist through a native Tauri app-data preferences file instead of WebView `localStorage`.
+- Recent projects and the last-opened project migrate once from existing desktop `localStorage` preferences when no native preferences file exists.
+- Browser preferences continue using the existing `narrium_app_preferences` localStorage key.
+- Native preference read/write failures keep the in-memory app state usable and log diagnostics instead of crashing the app.
+
 ### Security - Validate desktop filesystem operations
 
 Changes:

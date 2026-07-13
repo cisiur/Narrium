@@ -1,5 +1,12 @@
-import { describe, expect, it } from 'vitest';
-import { normalizeRecentProjects, recordRecentProject, type AppPreferences, type RecentProject } from './AppPreferencesService';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  BrowserAppPreferencesService,
+  DesktopAppPreferencesService,
+  normalizeRecentProjects,
+  recordRecentProject,
+  type AppPreferences,
+  type RecentProject,
+} from './AppPreferencesService';
 
 function createRecentProject(index: number, overrides: Partial<RecentProject> = {}): RecentProject {
   return {
@@ -9,6 +16,38 @@ function createRecentProject(index: number, overrides: Partial<RecentProject> = 
     ...overrides,
   };
 }
+
+function createLocalStorageMock(initialEntries: Record<string, string> = {}) {
+  const values = new Map(Object.entries(initialEntries));
+
+  return {
+    getItem: vi.fn((key: string) => values.get(key) ?? null),
+    setItem: vi.fn((key: string, value: string) => {
+      values.set(key, value);
+    }),
+    removeItem: vi.fn((key: string) => {
+      values.delete(key);
+    }),
+  };
+}
+
+function createNativePreferencesMock(initialSource: string | null = null) {
+  let source = initialSource;
+
+  return {
+    readAppPreferences: vi.fn(() => Promise.resolve(source)),
+    writeAppPreferences: vi.fn((contents: string) => {
+      source = contents;
+      return Promise.resolve();
+    }),
+    getSource: () => source,
+  };
+}
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 describe('app preferences recent projects', () => {
   it('orders recent projects by last opened time descending', () => {
@@ -72,5 +111,183 @@ describe('app preferences recent projects', () => {
     );
 
     expect(nextPreferences.recentProjects[0].projectId).toBe('project-42');
+  });
+});
+
+describe('browser app preferences backend', () => {
+  it('continues using localStorage for browser preferences', async () => {
+    const localStorage = createLocalStorageMock({
+      browser_preferences: JSON.stringify({
+        recentProjects: [createRecentProject(1)],
+        lastOpenedProjectFilePath: 'C:/Stories/Project 1.narrium',
+      }),
+    });
+    vi.stubGlobal('window', { localStorage });
+    const service = new BrowserAppPreferencesService('browser_preferences');
+
+    await expect(service.initialize()).resolves.toEqual({
+      recentProjects: [createRecentProject(1)],
+      lastOpenedProjectFilePath: 'C:/Stories/Project 1.narrium',
+    });
+
+    const nextPreferences = service.recordRecentProject({
+      name: 'Project 2',
+      filePath: 'C:/Stories/Project 2.narrium',
+    });
+
+    expect(localStorage.getItem).toHaveBeenCalledWith('browser_preferences');
+    expect(localStorage.setItem).toHaveBeenCalledWith(
+      'browser_preferences',
+      JSON.stringify(nextPreferences),
+    );
+  });
+});
+
+describe('desktop app preferences backend', () => {
+  it('uses the native backend for desktop preferences', async () => {
+    const nativePreferences = createNativePreferencesMock(
+      JSON.stringify({
+        recentProjects: [createRecentProject(2)],
+        lastOpenedProjectFilePath: 'C:/Stories/Project 2.narrium',
+      }),
+    );
+    const migrationSource = {
+      loadPreferences: vi.fn(() => ({
+        recentProjects: [createRecentProject(1)],
+        lastOpenedProjectFilePath: 'C:/Stories/Project 1.narrium',
+      })),
+    };
+    const service = new DesktopAppPreferencesService(nativePreferences, migrationSource);
+
+    await expect(service.initialize()).resolves.toEqual({
+      recentProjects: [createRecentProject(2)],
+      lastOpenedProjectFilePath: 'C:/Stories/Project 2.narrium',
+    });
+
+    service.recordRecentProject({
+      name: 'Project 3',
+      filePath: 'C:/Stories/Project 3.narrium',
+    });
+    await vi.waitFor(() => expect(nativePreferences.writeAppPreferences).toHaveBeenCalledTimes(1));
+
+    expect(migrationSource.loadPreferences).not.toHaveBeenCalled();
+    expect(nativePreferences.getSource()).toContain('Project 3');
+  });
+
+  it('migrates localStorage preferences when native preferences do not exist', async () => {
+    const nativePreferences = createNativePreferencesMock(null);
+    const migrationSource = {
+      loadPreferences: vi.fn(() => ({
+        recentProjects: [createRecentProject(4)],
+        lastOpenedProjectFilePath: 'C:/Stories/Project 4.narrium',
+      })),
+    };
+    const service = new DesktopAppPreferencesService(nativePreferences, migrationSource);
+
+    await expect(service.initialize()).resolves.toEqual({
+      recentProjects: [createRecentProject(4)],
+      lastOpenedProjectFilePath: 'C:/Stories/Project 4.narrium',
+    });
+
+    expect(migrationSource.loadPreferences).toHaveBeenCalledTimes(1);
+    expect(nativePreferences.writeAppPreferences).toHaveBeenCalledTimes(1);
+    expect(nativePreferences.getSource()).toContain('Project 4');
+  });
+
+  it('skips migration when native preferences already exist', async () => {
+    const nativePreferences = createNativePreferencesMock(
+      JSON.stringify({
+        recentProjects: [createRecentProject(5)],
+        lastOpenedProjectFilePath: 'C:/Stories/Project 5.narrium',
+      }),
+    );
+    const migrationSource = {
+      loadPreferences: vi.fn(() => ({
+        recentProjects: [createRecentProject(6)],
+        lastOpenedProjectFilePath: 'C:/Stories/Project 6.narrium',
+      })),
+    };
+    const service = new DesktopAppPreferencesService(nativePreferences, migrationSource);
+
+    await service.initialize();
+
+    expect(migrationSource.loadPreferences).not.toHaveBeenCalled();
+    expect(nativePreferences.writeAppPreferences).not.toHaveBeenCalled();
+    expect(service.loadPreferences().lastOpenedProjectFilePath).toBe('C:/Stories/Project 5.narrium');
+  });
+
+  it('runs migration idempotently', async () => {
+    const nativePreferences = createNativePreferencesMock(null);
+    const migrationSource = {
+      loadPreferences: vi.fn(() => ({
+        recentProjects: [createRecentProject(7)],
+        lastOpenedProjectFilePath: 'C:/Stories/Project 7.narrium',
+      })),
+    };
+    const service = new DesktopAppPreferencesService(nativePreferences, migrationSource);
+
+    await service.initialize();
+    await service.initialize();
+
+    expect(nativePreferences.readAppPreferences).toHaveBeenCalledTimes(1);
+    expect(migrationSource.loadPreferences).toHaveBeenCalledTimes(1);
+    expect(nativePreferences.writeAppPreferences).toHaveBeenCalledTimes(1);
+  });
+
+  it('persists recent projects and last-opened project natively', async () => {
+    const nativePreferences = createNativePreferencesMock(null);
+    const migrationSource = {
+      loadPreferences: vi.fn(() => ({
+        recentProjects: [],
+        lastOpenedProjectFilePath: null,
+      })),
+    };
+    const service = new DesktopAppPreferencesService(nativePreferences, migrationSource);
+
+    await service.initialize();
+    const nextPreferences = service.recordRecentProject({
+      projectId: 'project-8',
+      name: 'Project 8',
+      filePath: 'C:/Stories/Project 8.narrium',
+    });
+    await vi.waitFor(() => expect(nativePreferences.writeAppPreferences).toHaveBeenCalledTimes(1));
+
+    expect(nextPreferences.recentProjects[0]).toEqual(
+      expect.objectContaining({
+        projectId: 'project-8',
+        name: 'Project 8',
+        filePath: 'C:/Stories/Project 8.narrium',
+      }),
+    );
+    expect(nextPreferences.lastOpenedProjectFilePath).toBe('C:/Stories/Project 8.narrium');
+    expect(nativePreferences.getSource()).toContain('Project 8');
+  });
+
+  it('does not crash when the native backend fails', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const nativePreferences = {
+      readAppPreferences: vi.fn(() => Promise.reject(new Error('read failed'))),
+      writeAppPreferences: vi.fn(() => Promise.reject(new Error('write failed'))),
+    };
+    const migrationSource = {
+      loadPreferences: vi.fn(() => ({
+        recentProjects: [createRecentProject(9)],
+        lastOpenedProjectFilePath: 'C:/Stories/Project 9.narrium',
+      })),
+    };
+    const service = new DesktopAppPreferencesService(nativePreferences, migrationSource);
+
+    await expect(service.initialize()).resolves.toEqual({
+      recentProjects: [],
+      lastOpenedProjectFilePath: null,
+    });
+    const nextPreferences = service.recordRecentProject({
+      name: 'Project 10',
+      filePath: 'C:/Stories/Project 10.narrium',
+    });
+    await vi.waitFor(() => expect(nativePreferences.writeAppPreferences).toHaveBeenCalledTimes(1));
+
+    expect(nextPreferences.recentProjects[0].name).toBe('Project 10');
+    expect(consoleError).toHaveBeenCalled();
   });
 });

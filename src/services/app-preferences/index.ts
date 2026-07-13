@@ -1,5 +1,6 @@
 export {
   BrowserAppPreferencesService,
+  DesktopAppPreferencesService,
   normalizeRecentProjects,
   recordRecentProject,
   type AppPreferences,

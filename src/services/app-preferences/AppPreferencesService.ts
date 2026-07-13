@@ -1,3 +1,5 @@
+import type { PlatformAppPreferencesApi } from '../platform';
+
 const APP_PREFERENCES_KEY = 'narrium_app_preferences';
 const MAX_RECENT_PROJECTS = 10;
 
@@ -14,6 +16,7 @@ export interface AppPreferences {
 }
 
 export interface AppPreferencesService {
+  initialize(): Promise<AppPreferences>;
   loadPreferences(): AppPreferences;
   savePreferences(preferences: AppPreferences): void;
   recordRecentProject(project: Omit<RecentProject, 'lastOpenedAt'>): AppPreferences;
@@ -73,8 +76,42 @@ export function recordRecentProject(
   };
 }
 
+function normalizePreferences(value: unknown): AppPreferences {
+  if (!isRecord(value)) {
+    return emptyPreferences;
+  }
+
+  const recentProjects = normalizeRecentProjects(
+    Array.isArray(value.recentProjects) ? value.recentProjects.filter(resemblesRecentProject) : [],
+  );
+
+  return {
+    recentProjects,
+    lastOpenedProjectFilePath:
+      typeof value.lastOpenedProjectFilePath === 'string' ? value.lastOpenedProjectFilePath : null,
+  };
+}
+
+function serializePreferences(preferences: AppPreferences): string {
+  return JSON.stringify({
+    recentProjects: normalizeRecentProjects(preferences.recentProjects),
+    lastOpenedProjectFilePath: preferences.lastOpenedProjectFilePath,
+  });
+}
+
+function clonePreferences(preferences: AppPreferences): AppPreferences {
+  return {
+    recentProjects: preferences.recentProjects.map((project) => ({ ...project })),
+    lastOpenedProjectFilePath: preferences.lastOpenedProjectFilePath,
+  };
+}
+
 export class BrowserAppPreferencesService implements AppPreferencesService {
   constructor(private readonly storageKey = APP_PREFERENCES_KEY) {}
+
+  initialize(): Promise<AppPreferences> {
+    return Promise.resolve(this.loadPreferences());
+  }
 
   loadPreferences(): AppPreferences {
     try {
@@ -84,32 +121,14 @@ export class BrowserAppPreferencesService implements AppPreferencesService {
         return emptyPreferences;
       }
 
-      const parsed = JSON.parse(source) as unknown;
-
-      if (!isRecord(parsed)) {
-        return emptyPreferences;
-      }
-
-      return {
-        recentProjects: normalizeRecentProjects(
-          Array.isArray(parsed.recentProjects) ? parsed.recentProjects.filter(resemblesRecentProject) : [],
-        ),
-        lastOpenedProjectFilePath:
-          typeof parsed.lastOpenedProjectFilePath === 'string' ? parsed.lastOpenedProjectFilePath : null,
-      };
+      return normalizePreferences(JSON.parse(source) as unknown);
     } catch {
       return emptyPreferences;
     }
   }
 
   savePreferences(preferences: AppPreferences): void {
-    window.localStorage.setItem(
-      this.storageKey,
-      JSON.stringify({
-        recentProjects: normalizeRecentProjects(preferences.recentProjects),
-        lastOpenedProjectFilePath: preferences.lastOpenedProjectFilePath,
-      }),
-    );
+    window.localStorage.setItem(this.storageKey, serializePreferences(preferences));
   }
 
   recordRecentProject(project: Omit<RecentProject, 'lastOpenedAt'>): AppPreferences {
@@ -129,5 +148,84 @@ export class BrowserAppPreferencesService implements AppPreferencesService {
     this.savePreferences(nextPreferences);
 
     return nextPreferences;
+  }
+}
+
+export class DesktopAppPreferencesService implements AppPreferencesService {
+  private preferences = emptyPreferences;
+  private initialized = false;
+
+  constructor(
+    private readonly nativePreferences: PlatformAppPreferencesApi,
+    private readonly migrationSource: Pick<AppPreferencesService, 'loadPreferences'> = new BrowserAppPreferencesService(),
+  ) {}
+
+  async initialize(): Promise<AppPreferences> {
+    if (this.initialized) {
+      return this.loadPreferences();
+    }
+
+    this.initialized = true;
+
+    try {
+      const nativeSource = await this.nativePreferences.readAppPreferences();
+
+      if (nativeSource) {
+        this.preferences = normalizePreferences(JSON.parse(nativeSource) as unknown);
+        return this.loadPreferences();
+      }
+    } catch (error) {
+      console.error('Could not load native app preferences.', error);
+      return this.loadPreferences();
+    }
+
+    const migratedPreferences = this.migrationSource.loadPreferences();
+    this.preferences = clonePreferences(migratedPreferences);
+
+    if (migratedPreferences.recentProjects.length > 0 || migratedPreferences.lastOpenedProjectFilePath) {
+      await this.persistPreferences(migratedPreferences);
+    }
+
+    return this.loadPreferences();
+  }
+
+  loadPreferences(): AppPreferences {
+    return clonePreferences(this.preferences);
+  }
+
+  savePreferences(preferences: AppPreferences): void {
+    this.preferences = {
+      recentProjects: normalizeRecentProjects(preferences.recentProjects),
+      lastOpenedProjectFilePath: preferences.lastOpenedProjectFilePath,
+    };
+
+    void this.persistPreferences(this.preferences);
+  }
+
+  recordRecentProject(project: Omit<RecentProject, 'lastOpenedAt'>): AppPreferences {
+    const nextPreferences = recordRecentProject(this.loadPreferences(), project);
+
+    this.savePreferences(nextPreferences);
+
+    return nextPreferences;
+  }
+
+  clearLastOpenedProject(): AppPreferences {
+    const nextPreferences = {
+      ...this.loadPreferences(),
+      lastOpenedProjectFilePath: null,
+    };
+
+    this.savePreferences(nextPreferences);
+
+    return nextPreferences;
+  }
+
+  private async persistPreferences(preferences: AppPreferences): Promise<void> {
+    try {
+      await this.nativePreferences.writeAppPreferences(serializePreferences(preferences));
+    } catch (error) {
+      console.error('Could not save native app preferences.', error);
+    }
   }
 }

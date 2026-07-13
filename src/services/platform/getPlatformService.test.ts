@@ -198,6 +198,43 @@ describe('platform services', () => {
     await expect(service.confirmUnsavedChanges('Test Project')).resolves.toBe('discard');
   });
 
+  it('reads and writes desktop app preferences through native commands', async () => {
+    const service = new DesktopPlatformService();
+    vi.stubGlobal('window', {});
+    const commands: Array<{ cmd: string; payload?: InvokeArgs }> = [];
+    mockIPC(<T,>(cmd: string, payload?: InvokeArgs): T => {
+      commands.push({ cmd, payload });
+
+      if (cmd === 'read_app_preferences_file') {
+        return '{"recentProjects":[],"lastOpenedProjectFilePath":null}' as T;
+      }
+
+      if (cmd === 'write_app_preferences_file') {
+        return undefined as T;
+      }
+
+      throw new Error(`Unexpected command: ${cmd}`);
+    });
+
+    await expect(service.readAppPreferences()).resolves.toBe(
+      '{"recentProjects":[],"lastOpenedProjectFilePath":null}',
+    );
+    await expect(service.writeAppPreferences('{"recentProjects":[]}')).resolves.toBeUndefined();
+
+    expect(commands).toEqual([
+      {
+        cmd: 'read_app_preferences_file',
+        payload: {},
+      },
+      {
+        cmd: 'write_app_preferences_file',
+        payload: {
+          contents: '{"recentProjects":[]}',
+        },
+      },
+    ]);
+  });
+
   it('resolves to browser when Tauri globals are unavailable', () => {
     vi.stubGlobal('window', {});
 

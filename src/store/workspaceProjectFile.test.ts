@@ -29,7 +29,13 @@ describe('workspace project file workflow', () => {
 
   async function loadStoreWithProjectFileMocks(
     projectFilePath = 'C:/Stories/Test Project.narrium',
-    options: { isDesktop?: boolean } = {},
+    options: {
+      isDesktop?: boolean;
+      appPreferences?: {
+        recentProjects: Array<{ projectId?: string; name: string; filePath: string; lastOpenedAt: string }>;
+        lastOpenedProjectFilePath: string | null;
+      };
+    } = {},
   ) {
     const project = createProject();
     let closeRequestedHandler: (() => Promise<boolean>) | null = null;
@@ -45,6 +51,14 @@ describe('workspace project file workflow', () => {
       deleteProject: vi.fn(),
     };
     const appPreferencesService = {
+      initialize: vi.fn(() =>
+        Promise.resolve(
+          options.appPreferences ?? {
+            recentProjects: [],
+            lastOpenedProjectFilePath: null,
+          },
+        ),
+      ),
       loadPreferences: vi.fn(() => ({
         recentProjects: [],
         lastOpenedProjectFilePath: null,
@@ -397,6 +411,35 @@ describe('workspace project file workflow', () => {
 
     await expect(getCloseRequestedHandler()?.()).resolves.toBe(true);
     expect(platformService.confirmUnsavedChanges).not.toHaveBeenCalled();
+  });
+
+  it('hydrates desktop recent projects from native app preferences during startup', async () => {
+    const nativePreferences = {
+      recentProjects: [
+        {
+          projectId: 'project-99',
+          name: 'Native Recent',
+          filePath: 'C:/Stories/Native Recent.narrium',
+          lastOpenedAt: '2026-07-13T00:00:00.000Z',
+        },
+      ],
+      lastOpenedProjectFilePath: 'C:/Stories/Native Recent.narrium',
+    };
+    const { useWorkspaceStore, appPreferencesService } = await loadStoreWithProjectFileMocks(
+      'C:/Stories/Test Project.narrium',
+      {
+        isDesktop: true,
+        appPreferences: nativePreferences,
+      },
+    );
+
+    expect(useWorkspaceStore.getState().recentProjects).toEqual([]);
+
+    await useWorkspaceStore.getState().initializeDesktopLifecycle();
+
+    expect(appPreferencesService.initialize).toHaveBeenCalledTimes(1);
+    expect(useWorkspaceStore.getState().recentProjects).toEqual(nativePreferences.recentProjects);
+    expect(useWorkspaceStore.getState().lastOpenedProject).toEqual(nativePreferences.recentProjects[0]);
   });
 
   it('saves dirty file-backed projects before desktop native close', async () => {

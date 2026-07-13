@@ -6,6 +6,7 @@ import type {
   PlatformName,
   PlatformProjectFile,
   PlatformProjectFileApi,
+  PlatformAppPreferencesApi,
   ProjectFileSaveOptions,
   ProjectFileSelectionOptions,
   PlatformService,
@@ -21,7 +22,7 @@ interface NativeWindowCloseApi {
   destroy(): Promise<void>;
 }
 
-export class DesktopPlatformService implements PlatformService, PlatformProjectFileApi {
+export class DesktopPlatformService implements PlatformService, PlatformProjectFileApi, PlatformAppPreferencesApi {
   private isCloseDecisionPending = false;
 
   constructor(private readonly getNativeWindow: () => NativeWindowCloseApi = getCurrentWindow) {}
@@ -84,6 +85,14 @@ export class DesktopPlatformService implements PlatformService, PlatformProjectF
 
   writeProjectFile(filePath: string, contents: string): Promise<string> {
     return invoke('write_project_file', { filePath, contents });
+  }
+
+  readAppPreferences(): Promise<string | null> {
+    return invoke('read_app_preferences_file');
+  }
+
+  writeAppPreferences(contents: string): Promise<void> {
+    return invoke('write_app_preferences_file', { contents });
   }
 
   async importBackgroundAssetFile(projectFilePath: string): Promise<ImportedBackgroundAssetFile | null> {

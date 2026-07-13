@@ -35,6 +35,14 @@ export class BrowserPlatformService implements PlatformService, PlatformProjectF
     return Promise.reject(new Error('Project files are only available in the desktop app.'));
   }
 
+  readAppPreferences(): Promise<null> {
+    return Promise.resolve(null);
+  }
+
+  writeAppPreferences(): Promise<void> {
+    return Promise.resolve();
+  }
+
   importBackgroundAssetFile(): Promise<null> {
     return Promise.resolve(null);
   }

@@ -19,7 +19,12 @@ Current implementation status:
 - A native `.narrium` project-file workflow exists for desktop builds: Open Project File, Save, and Save As read/write `.narrium` files.
 - Desktop project workflow hardening exists for dirty state, guarded Open/Create, recent projects, and last-opened project offers.
 - Native window close dirty protection is implemented through the platform lifecycle boundary.
+- Desktop app preferences now persist through Tauri native app data instead of WebView localStorage.
+- Tauri asset protocol scope is restricted to local background image files under `assets/backgrounds/`.
+- Rust filesystem commands validate project extensions, local asset relative paths, destinations, and project file size.
 - The background asset catalog now stores newly added background sources as embedded Data URL, remote URL, or desktop local project-relative background assets.
+- Standalone HTML export has preflight validation for referenced local desktop assets, but it still does not package local asset files.
+- JSON export still uses the browser-style Blob download path in desktop builds; desktop-native JSON export Save dialog support is the next implementation task.
 - Services can depend on domain code, but domain code must stay independent from stores, services, UI, and Tauri APIs.
 - Local desktop background asset storage is implemented; general asset categories beyond backgrounds, embedded-to-local migration, asset cleanup, duplicate detection, autosave, and playable export packaging are still planned future work.
 
@@ -85,6 +90,7 @@ Platform boundary status:
 - Current Tauri usage is limited to file open/save dialogs, unsaved-change confirmation, selected project-file reads/writes, and local background asset file import/display/relocation through service boundaries.
 - Native close dirty protection uses the same Save / Don't Save / Cancel orchestration as guarded Open/Create flows and prevents duplicate close decisions while a prompt or save is pending.
 - Project file reads and writes operate on explicit file paths selected by the user.
+- Rust validation currently enforces supported project extensions, local asset traversal protection, destination validation, and a 25 MiB project-read size limit. Session allowlists for dialog-selected paths remain future work.
 - No unrestricted filesystem, clipboard, shell, notifications, drag-and-drop, autosave, or playable package APIs are implemented.
 
 Project file status:
@@ -94,6 +100,9 @@ Project file status:
 - Rust project-file reads accept `.narrium` and legacy `.json` files.
 - Rust project-file writes accept `.narrium` only.
 - Rust rejects project files larger than 25 MiB before reading them into memory; this comfortably exceeds current local-asset desktop projects while preventing arbitrarily large JSON reads.
+- Rust local-asset commands reject absolute asset paths, parent-directory traversal, empty paths, and paths that resolve outside the project directory.
+- Rust Save As asset copying validates the destination `.narrium` path before creating asset directories.
+- Session allowlists for dialog-selected paths are not implemented yet.
 - Legacy raw Project JSON and old `project.narrium.json` files remain openable when selected as files, but new desktop saves use `.narrium`.
 - `project.narrium.json` is legacy/transitional and is no longer the default desktop save target.
 - The browser workflow still uses the `ProjectStorage` localStorage backend and legacy keys.
@@ -199,6 +208,7 @@ Current E11-05B behavior:
 - copied files are placed under `assets/backgrounds/` beside the `.narrium` file,
 - the project stores `storageType: "local"` and a forward-slash relative source path,
 - Rust local-asset commands reject absolute asset paths, parent-directory traversal, empty paths, and paths that resolve outside the project directory,
+- the Tauri asset protocol is scoped to `**/assets/backgrounds/*.png`, `*.jpg`, `*.jpeg`, and `*.webp`,
 - desktop drafts must be saved as `.narrium` before local asset import,
 - browser uploads continue to store embedded Data URLs,
 - remote URL assets remain URLs and are not downloaded,
@@ -245,7 +255,9 @@ Migration does not need to happen in this documentation task. It is a future imp
 
 The current standalone HTML export belongs to the archived browser MVP. It is useful as a reference and compatibility feature, but it is not the final desktop requirement by itself.
 
-Standalone HTML export does not package desktop local asset files. Before export, Narrium warns when local assets are present because exported backgrounds may be missing, and blocks export when referenced local assets cannot be resolved. This preflight only protects the current export path; it does not add local asset packaging.
+Standalone HTML export does not package desktop local asset files. Before export, Narrium warns when referenced local assets are present because exported backgrounds may be missing, and blocks export when referenced local assets cannot be resolved. Unused local Asset Library entries are ignored by preflight. This preflight only protects the current export path; it does not add local asset packaging.
+
+JSON export still uses the browser-style Blob URL and temporary download-anchor path in both browser and desktop builds. Desktop-native JSON export Save dialog support is the next approved implementation task. Browser JSON export should remain compatible.
 
 Future playable export may be a playable folder or packaged build rather than one standalone HTML file. A folder/package export can include:
 - a runtime player,
@@ -266,4 +278,6 @@ The current project-file foundation does not implement:
 - asset extraction,
 - asset cleanup or duplicate detection,
 - autosave,
+- desktop-native JSON export Save dialogs,
+- standalone local-asset packaging,
 - a new playable export format.

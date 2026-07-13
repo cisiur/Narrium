@@ -6,6 +6,14 @@ This changelog records milestone-level project changes. It is intentionally conc
 
 ## Unreleased / Next
 
+### Documentation - Desktop architecture roadmap reconciliation
+
+Changes:
+- Reconciled handoff documentation with completed Desktop Architecture Review implementation work.
+- Updated current/next-task status across `CONTEXT.md`, `docs/ROADMAP.md`, `docs/DESKTOP_ARCHITECTURE.md`, `docs/DATA_MODEL.md`, and the architecture review.
+- Clarified that the next implementation task is desktop-native JSON export Save dialog support.
+- Documentation-only change; no application behavior changed.
+
 ### Added - Export preflight validation
 
 Changes:

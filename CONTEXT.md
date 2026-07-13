@@ -5,6 +5,40 @@
 
 ---
 
+## Current Desktop Architecture Review Status
+
+Authoritative implementation plan:
+- `docs/reviews/DESKTOP_ARCHITECTURE_REVIEW_2026-07.md`
+
+Current status:
+- Narrium is desktop-first for the central project workflow: `.narrium` files are the persistent source of truth for file-backed desktop projects, local desktop background assets are stored beside the project with relative paths, and full file-backed Project payloads are no longer mirrored into WebView localStorage.
+- Browser compatibility remains intentional for Vite/browser mode, local drafts, imported JSON drafts before Save As, and standalone exported player runtime save slots.
+
+Completed review recommendations:
+- Native close dirty protection: implemented. Dirty native window close uses Save / Don't Save / Cancel; clean close proceeds immediately.
+- Tauri asset protocol hardening: implemented. Asset protocol scope is restricted to local background image paths under `assets/backgrounds/`.
+- Rust filesystem validation: partially implemented. Extension validation, traversal protection, absolute asset-path rejection, destination validation, and a 25 MiB project-read size limit are implemented.
+- Desktop app preferences backend: implemented. Desktop recent projects and last-opened project are stored in native Tauri app data with one-time migration from WebView localStorage.
+- Export preflight validation: implemented. Standalone HTML export warns for referenced local desktop assets and blocks when referenced local assets cannot be resolved.
+- Export preflight selection fix: implemented. Unused Asset Library entries no longer affect standalone HTML export preflight.
+
+Partially completed recommendations:
+- Rust filesystem policy: validation is implemented, but session allowlists for dialog-selected paths remain future work.
+- Standalone export local-asset handling: preflight warning/blocking exists, but standalone HTML still does not package local asset files.
+
+Next implementation task:
+- **Desktop-native JSON export Save dialog support**
+- This corresponds to the Architecture Review recommendation "JSON and HTML Export Use Browser Download APIs"; implement the JSON export part first, preserving browser export behavior and without changing standalone HTML generation.
+
+Important remaining known limitations:
+- Standalone HTML export does not package local desktop assets; future playable folder/package export remains planned.
+- General local asset storage beyond backgrounds remains future work.
+- Embedded-to-local migration, asset cleanup, duplicate detection, image limits/compression, autosave, performance instrumentation, and platform-service split remain postponed.
+- Legacy direct scene background fields remain for compatibility and should only be removed after migration and format-version planning.
+- Some browser file APIs remain in UI components for browser compatibility and transitional import/upload paths.
+
+---
+
 ## What is this project
 
 Narrium is a **no-code, desktop-first visual novel editor**.
@@ -24,7 +58,7 @@ Target user:
 
 Platform:
 - desktop-first editor on `main`
-- likely desktop shell around the existing React/TypeScript UI, with the final framework decision still open
+- Tauri v2 desktop shell around the existing React/TypeScript UI
 - local project folders and local asset file storage are the near-term production direction
 - browser-only web MVP is complete and archived on `MVP_web_legacy`
 - no mobile app for now
@@ -106,6 +140,9 @@ Strategic status:
 - The old single-item `WORKSPACE > My Projects` landing sidebar has been removed; editor navigation remains.
 - Current intended dependency direction is UI/features -> stores -> services -> domain -> types.
 - Local desktop background asset storage is implemented for file-backed projects: uploaded backgrounds are copied into `assets/backgrounds/` beside the `.narrium` file and stored as project-relative local assets.
+- The Tauri asset protocol is hardened to local background image paths, and Rust filesystem commands validate supported extensions, local asset paths, destinations, and project file size.
+- Desktop app preferences now use native app-data storage instead of WebView localStorage, with browser localStorage preserved for browser mode.
+- Standalone HTML export now has preflight validation: referenced local desktop assets warn, missing referenced local assets block, and unused Asset Library entries are ignored.
 - General local asset storage beyond backgrounds, embedded-to-local migration, asset cleanup, duplicate detection, autosave, and future playable export packaging remain future work.
 
 ```text
@@ -164,13 +201,8 @@ Completed milestones:
 
 Current recommended next milestone:
 - **EPIC 11 - Desktop Pivot & Local Project System**
-- Recommended next task should be selected by the project owner.
-
-Good candidates:
-- Safe native-close dirty protection.
-- Import/migration path from legacy web MVP JSON, including future extraction of embedded Data URLs.
-- Desktop preview parity with the validated web MVP preview.
-- Future playable export foundation.
+- Current approved next implementation task: **Desktop-native JSON export Save dialog support**.
+- This is driven by `docs/reviews/DESKTOP_ARCHITECTURE_REVIEW_2026-07.md`, P3 finding "JSON and HTML Export Use Browser Download APIs".
 
 ---
 
@@ -252,6 +284,7 @@ Good candidates:
 - Native window close uses the same Save / Don't Save / Cancel dirty decision as guarded Open Project File and Create Project flows.
 - If Save succeeds, native close continues; if Save As is canceled or saving fails, the app remains open and dirty state is preserved.
 - Recent project files are stored as app preferences, not as workspace project data.
+- Desktop app preferences are stored in Tauri native app data as `preferences.json`; browser preferences continue using `narrium_app_preferences` in localStorage.
 - The recent project list stores project id when known, project name, file path, and last opened timestamp.
 - The recent project list is capped at 10 entries.
 - The last opened desktop project is offered on launch but is not reopened automatically.
@@ -270,6 +303,7 @@ Good candidates:
 - Save is disabled until a desktop project has a known file path; Save As remains available.
 - Workspace/localStorage remains a compatibility layer for metadata and drafts, not the long-term desktop project database.
 - Local background asset folders, background image copying, and project-relative background asset paths exist for file-backed desktop projects.
+- Standalone HTML export preflight validates only local assets referenced by scene backgrounds, including one-level scene background references. Unused local Asset Library entries do not warn or block export.
 - General local asset categories beyond backgrounds, embedded-to-local migration, asset cleanup, duplicate detection, autosave, and playable export packages remain future work.
 
 ### Shared UI
@@ -569,6 +603,8 @@ Preview supports:
 ### JSON Import / Export
 
 - JSON export exports the full active `Project` object.
+- JSON export currently uses the browser-style Blob download path in both browser and desktop builds.
+- The next implementation task is desktop-native JSON export Save dialog support.
 - JSON import validates a Narrium Project-like object and normalizes it.
 - Uploaded Data URLs are preserved.
 - `Project.variables` is included naturally because it is part of the Project model.
@@ -590,6 +626,10 @@ Standalone HTML export:
 - supports targetless action choices
 - supports invalid-target disabled behavior
 - supports standalone runtime save/load when enabled by project settings
+- runs export preflight before generation
+- warns when referenced local desktop assets are present because standalone HTML does not package those files
+- blocks when referenced local desktop assets cannot be resolved
+- ignores unused local Asset Library entries
 
 Standalone save/load snapshots include:
 - `currentSceneId`
@@ -673,10 +713,10 @@ Important:
 - Resources are player-facing numeric values when marked visible.
 
 Next recommended tasks:
-1. Safe native-close dirty protection.
-2. Migration/import from legacy web MVP JSON.
-3. Future extraction of embedded Data URLs into local asset files.
-4. Desktop preview parity with the validated web MVP preview.
+1. Desktop-native JSON export Save dialog support.
+2. Image size limits and thumbnail compression/resizing.
+3. Embedded-to-local migration for file-backed desktop projects.
+4. Local asset cleanup/orphan detection and duplicate detection.
 5. Future playable export foundation.
 
 ---

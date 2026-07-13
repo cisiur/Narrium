@@ -72,6 +72,7 @@ Current preference data:
 
 ```typescript
 interface RecentProject {
+  projectId?: string;
   name: string;
   filePath: string;
   lastOpenedAt: string;
@@ -86,7 +87,10 @@ interface AppPreferences {
 Notes:
 - Recent projects are application preferences, not story data.
 - Recent projects are capped at 10 entries.
+- `projectId` is stored when known so My Projects cards can associate local draft metadata with a file-backed `.narrium` project.
 - `lastOpenedProjectFilePath` is used to offer reopening the last project; Narrium does not automatically reopen it.
+- Desktop preferences are stored in Tauri native app data as `preferences.json`.
+- Browser preferences continue using the `narrium_app_preferences` localStorage key.
 - These preferences do not change the canonical `Project` model or `.narrium` file wrapper.
 
 ---
@@ -152,6 +156,7 @@ Current implementation rules:
 - Remote background URLs are stored as remote URL assets in `assetLibrary`.
 - Newly assigned scene backgrounds should reference catalog assets by `assetId` instead of duplicating source URLs on scenes.
 - Legacy raw Project JSON, including old `project.narrium.json`, remains openable as a compatibility fallback when selected as a file.
+- Desktop Rust commands validate project extensions, reject traversal in local asset paths, and reject project files larger than 25 MiB when reading.
 
 Intended storage rules:
 - `.narrium` stores the JSON-compatible `Project` data inside the wrapper.
@@ -159,13 +164,14 @@ Intended storage rules:
 - Desktop file-backed background uploads are currently copied into `assets/backgrounds/` beside the `.narrium` file.
 - Imported or uploaded files for asset categories beyond backgrounds should eventually be copied into local project asset storage.
 - Large uploaded image Data URLs should not be stored inside the long-term saved project file.
+- Existing embedded Data URLs remain compatible and are not automatically migrated to local files yet.
 - The exact local asset file layout beyond background assets remains future work.
 
 Compatibility:
 - Current web MVP exports may still contain embedded Data URLs in `Project.thumbnail`, legacy `SceneBackground.url`, or legacy `AssetLibraryItem.url`.
 - Desktop import should accept legacy web MVP JSON.
 - Current normalization migrates legacy direct scene background URLs into `assetLibrary` where practical.
-- A future migration step should extract embedded Data URLs into local files where practical, then rewrite asset sources to a future local storage representation.
+- Embedded-to-local extraction is not implemented yet. A future migration step should extract embedded Data URLs into local files where practical, then rewrite asset sources to a future local storage representation.
 - The canonical story model should remain recognizable so existing validation, preview, and runtime logic can be reused.
 
 ---
@@ -534,6 +540,7 @@ Notes:
 - JSON project export/import preserves asset library items.
 - `.narrium` saves the normalized asset catalog inside the wrapped Project.
 - Standalone HTML export embeds the full Project, so embedded Data URL assets remain available in the exported player.
+- Standalone HTML export does not package local desktop asset files. Export preflight warns for referenced local assets and blocks when referenced local assets cannot be resolved; unused local Asset Library entries are ignored.
 - Asset display resolution is centralized. Embedded and remote sources are direct; local sources resolve through the desktop platform service with the active project file path.
 - Deleting a referenced asset clears affected scene background assignments.
 - Deleting a local asset entry does not delete the physical file yet.

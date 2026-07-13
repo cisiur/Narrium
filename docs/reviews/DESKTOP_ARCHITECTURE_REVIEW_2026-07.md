@@ -13,21 +13,50 @@ Strengths:
 - Runtime, validation, project normalization, and standalone export have useful boundaries and focused tests.
 
 Weaknesses:
-- Native window close still bypasses dirty-state protection.
-- Security configuration is broader than the current feature set needs, especially the asset protocol scope.
-- Standalone HTML export and JSON export are still browser-style download flows and do not package local desktop assets.
-- `localStorage` remains necessary for browser compatibility and drafts, but app preferences and workspace metadata still use the browser adapter even in desktop builds.
+- Standalone HTML export and JSON export are still browser-style download flows; standalone HTML does not package local desktop assets.
+- `localStorage` remains necessary for browser compatibility and transitional drafts.
+- Rust filesystem validation is improved, but session allowlists for dialog-selected paths remain future work.
 - Some UI components still contain browser file APIs directly for JSON import, thumbnails, and browser uploads.
-- Documentation has drifted in a few places and mixes completed desktop asset work with older planned language.
+- Some historical documentation and review findings need status overlays because several recommendations have since been implemented.
 
-Risk assessment: Medium. There are no signs of a failed desktop pivot, but unsaved-close behavior, asset protocol scope, and local-asset export gaps are high-leverage risks for real desktop use.
+Risk assessment: Medium. There are no signs of a failed desktop pivot, but local-asset export gaps, browser-style JSON export, remaining Rust session-policy work, and larger-asset performance concerns are high-leverage risks for real desktop use.
 
-Desktop readiness assessment: Good for early desktop authoring with explicit Open, Save, Save As, recent files, and local background assets. Not yet production-ready for data-loss protection, hardened security, or fully portable desktop exports.
+Desktop readiness assessment: Good for early desktop authoring with explicit Open, Save, Save As, recent files, native close dirty protection, native app preferences, and local background assets. Not yet production-ready for fully portable desktop exports, broad asset lifecycle management, or all filesystem policy hardening.
 
 Validation results:
 - `npm.cmd test`: Passed. 27 test files, 221 tests.
 - `npm.cmd run build`: Passed. Vite production build completed; main JS bundle was 455.56 kB before gzip.
 - `npm.cmd run desktop:build`: Failed after the frontend build passed. Tauri/Rust failed to remove `src-tauri/target/release/narrium.exe` with Windows access denied (`os error 5`). A running `narrium.exe` process was holding that release binary, so this looks like a local file lock rather than a compile failure.
+
+# Implementation Status
+
+This section reconciles implementation work completed after the original review. The findings below remain historical records of what the review identified at the time.
+
+## Completed Recommendations
+
+- Native close protection: implemented. Dirty native window close now uses Save / Don't Save / Cancel, clean close proceeds immediately, and failed/canceled saves keep the app open.
+- Tauri asset protocol hardening: implemented. The asset protocol is restricted to local background image files under `assets/backgrounds/` instead of broad `**` filesystem exposure.
+- Desktop app preferences: implemented. Desktop recent projects and last-opened project preferences now persist in Tauri native app data with one-time migration from WebView localStorage. Browser preferences still use localStorage intentionally.
+- Export preflight validation: implemented. Standalone HTML export warns when referenced local desktop assets are present and blocks when referenced local assets cannot be resolved. Unused Asset Library entries no longer influence export preflight.
+- Documentation reconciliation: completed by this documentation-only pass.
+
+## Partially Completed Recommendations
+
+- Rust filesystem validation: partially implemented. Extension validation, traversal protection, absolute local-asset path rejection, destination validation, and a 25 MiB project-read size limit are implemented. Session allowlists for dialog-selected paths remain future work.
+- Standalone export local-asset handling: partially implemented. Warning/blocking preflight exists, but standalone HTML still does not package local asset files.
+
+## Remaining Recommendations
+
+- Desktop-native JSON export Save dialog support. This is the next approved implementation task and corresponds to the review finding "JSON and HTML Export Use Browser Download APIs".
+- Image size limits and thumbnail compression/resizing.
+- Embedded asset migration from Data URLs to local files for file-backed desktop projects.
+- Local asset cleanup/orphan detection and duplicate detection.
+- Session allowlists for Rust filesystem commands.
+- Platform-service split when future work needs clearer ownership.
+- Performance instrumentation for project size, serialization, and undo/redo snapshots.
+- Documentation cleanup after remaining implementation batches.
+- Legacy direct scene background removal planning after migration and format-version design.
+- Future playable folder/package export with local asset packaging.
 
 # Findings
 
@@ -567,18 +596,16 @@ Blocks future work: No
 
 # Recommended Implementation Order
 
-1. Restore safe native-close dirty protection for desktop.
-2. Tighten Tauri asset protocol scope and add Rust-side policy checks for project file commands.
-3. Add a desktop app-preferences backend for recent projects and last-opened file.
-4. Add export preflight warnings for local assets and validation issues.
-5. Add desktop-native JSON export Save dialog support.
-6. Add image size limits plus thumbnail compression/resizing.
-7. Add embedded-background-to-local-asset migration for file-backed desktop projects.
-8. Add local asset cleanup/orphan detection and duplicate detection.
-9. Split the platform service only where new asset/file services need clearer ownership.
-10. Add project size/performance diagnostics for serialization and undo history.
-11. Reconcile `CONTEXT.md`, `ROADMAP.md`, `DATA_MODEL.md`, `DESKTOP_ARCHITECTURE.md`, and `CHANGELOG.md`.
-12. Eventually remove legacy direct scene background fields after migration and format-version planning.
+1. Add desktop-native JSON export Save dialog support.
+2. Add image size limits plus thumbnail compression/resizing.
+3. Add embedded-background-to-local-asset migration for file-backed desktop projects.
+4. Add local asset cleanup/orphan detection and duplicate detection.
+5. Add session allowlists for Rust filesystem commands.
+6. Split the platform service only where new asset/file services need clearer ownership.
+7. Add project size/performance diagnostics for serialization and undo history.
+8. Continue documentation cleanup after remaining implementation batches.
+9. Eventually remove legacy direct scene background fields after migration and format-version planning.
+10. Design future playable folder/package export with local asset packaging.
 
 # Final Verdict
 
@@ -586,4 +613,4 @@ MOSTLY YES
 
 Narrium is now architecturally desktop-first for the central project workflow: `.narrium` files are the persistent source of truth, local desktop background assets are stored beside the project with relative paths, Tauri APIs are mostly behind service boundaries, and full file-backed project payloads are no longer mirrored into `localStorage`.
 
-It is not a complete "YES" yet because several important desktop expectations remain transitional: native close can discard unsaved changes, security permissions are broader than necessary, app preferences still use webview storage, standalone export does not package local assets, and some UI surfaces still own browser file APIs. These are fixable incremental issues, not reasons to rewrite the application.
+It is not a complete "YES" yet because several important desktop expectations remain transitional: JSON export still uses browser-style download APIs in desktop builds, standalone export does not package local assets, Rust command policy still lacks session allowlists, general local asset lifecycle work remains incomplete, and some UI surfaces still own browser file APIs. These are fixable incremental issues, not reasons to rewrite the application.

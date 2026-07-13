@@ -27,6 +27,9 @@ Status note:
 - A native `.narrium` desktop project file workflow exists on `main`; files are JSON internally and wrap the current `Project`.
 - The background asset library is now the canonical catalog for newly added backgrounds; sources may be embedded Data URLs, remote URLs, or desktop local project-relative background files.
 - Desktop file-backed background uploads are copied into `assets/backgrounds/` beside the `.narrium` file.
+- Native close dirty protection, asset protocol hardening, Rust filesystem validation, native desktop app preferences, and standalone HTML export preflight validation have been implemented from the Desktop Architecture Review.
+- Rust filesystem validation is partial: extension validation, path traversal protection, destination validation, and project size limits are implemented; session allowlists remain future work.
+- Standalone HTML export preflight warns for referenced local desktop assets and blocks missing referenced local assets, but it does not package local asset files.
 - General local asset storage beyond backgrounds, embedded-to-local migration, asset cleanup, duplicate detection, autosave, and playable export packaging remain future work.
 
 ```text
@@ -365,7 +368,7 @@ Recommended implementation order from here:
 | E9-21 | Player-facing Resource display in Preview and standalone HTML | [BOTH] | ✅ Done |
 | E9-22 | Story Logic missing reference validation rules | [BOTH] | ✅ Done |
 | E9-23 | Choice Copy / Paste | [AI] | ✅ Done |
-| E9-24 | Export preflight using validation results | [BOTH] | Backlog |
+| E9-24 | Standalone HTML local-asset export preflight | [BOTH] | Done via E11-05B.7 |
 
 Validation batch details:
 - See `docs/EPIC9_VALIDATION.md`.
@@ -485,6 +488,11 @@ Purpose:
 | E11-05B | Local background asset files under project `assets/backgrounds/` folders | [BOTH] | Done |
 | E11-05B.2 | Synchronize project name with Save As `.narrium` filename | [BOTH] | Done |
 | E11-05B.3 | Safe native-close dirty protection | [BOTH] | Done |
+| E11-05B.4 | Tauri asset protocol hardening for local background assets | [BOTH] | Done |
+| E11-05B.5 | Rust filesystem validation for project and local asset commands | [BOTH] | Partially Complete - validation done; session allowlists remain future work |
+| E11-05B.6 | Native desktop app preferences backend | [BOTH] | Done |
+| E11-05B.7 | Standalone HTML export preflight for referenced local assets | [BOTH] | Done |
+| E11-05B.8 | Desktop-native JSON export Save dialog support | [BOTH] | Current approved task |
 | E11-06 | Relative asset paths in project JSON | [BOTH] | Planned |
 | E11-07 | Migration/import from legacy web MVP JSON | [BOTH] | Planned |
 | E11-08 | Extract legacy embedded Data URLs into local asset files during migration where practical | [BOTH] | Planned |
@@ -585,6 +593,37 @@ Current E11-05B.3 deliverable:
 - Repeated native close events while a close decision is pending do not create duplicate prompts or duplicate saves.
 - Approved native close destroys the window directly instead of requesting another close cycle.
 
+Current E11-05B.4 deliverable:
+- The Tauri asset protocol scope is restricted from broad filesystem access to local background image files under `**/assets/backgrounds/*.png`, `*.jpg`, `*.jpeg`, and `*.webp`.
+- Local background display still resolves through the existing Rust `resolve_local_asset_file` command before an asset protocol URL is produced.
+- Project serialization, exports, asset library behavior, and browser mode remain unchanged.
+
+Current E11-05B.5 deliverable:
+- Rust project-file reads accept only `.narrium` files and legacy `.json` files.
+- Rust project-file writes accept `.narrium` files only.
+- Project reads reject files larger than 25 MiB before reading contents into memory.
+- Rust local-asset commands reject absolute paths, empty paths, parent-directory traversal, and paths that resolve outside the project directory.
+- Save As asset copying validates the destination project path before creating directories.
+- Remaining future work: add session allowlists for dialog-selected paths so Rust commands can reject paths that were not selected or granted in the current desktop session.
+
+Current E11-05B.6 deliverable:
+- Desktop app preferences now persist through Tauri native app data as `preferences.json`, outside WebView localStorage.
+- Recent project file metadata and the last-opened project path migrate once from existing desktop localStorage if native preferences do not already exist.
+- Browser preferences continue using the existing `narrium_app_preferences` localStorage key.
+- Preference read/write failures keep in-memory behavior usable and log diagnostics instead of crashing the app.
+
+Current E11-05B.7 deliverable:
+- Standalone HTML export runs a preflight check before generation.
+- Export proceeds immediately when no referenced local desktop assets are required.
+- Referenced local desktop assets that resolve successfully show a warning because standalone HTML does not include local files and may display missing backgrounds.
+- Missing, rejected, or unverifiable referenced local assets block export.
+- Unused local Asset Library entries are ignored and cannot warn or block export.
+- Standalone HTML generation itself remains unchanged; local asset packaging remains future work.
+
+Current approved task:
+- E11-05B.8 - Desktop-native JSON export Save dialog support.
+- This implements the JSON-export part of the Architecture Review finding "JSON and HTML Export Use Browser Download APIs" while preserving browser export behavior.
+
 Full EPIC 11 deliverable intent:
 - A desktop app can create drafts, open `.narrium` files, save known project files, and preview Narrium projects.
 - Imported assets are copied into the project folder instead of being stored as large Data URLs in the long-term project file.
@@ -595,10 +634,14 @@ Full EPIC 11 deliverable intent:
 
 ## Next Immediate Step
 
-Continue EPIC 11 desktop project system work after the native `.narrium` project-file workflow.
+Continue EPIC 11 desktop project system work from the Desktop Architecture Review implementation order.
 
 Current approved task:
-- E11-05B.3 - Safe native-close dirty protection.
+- E11-05B.8 - Desktop-native JSON export Save dialog support.
 
 Later candidates:
+- Image size limits and thumbnail compression/resizing.
 - E11-07/E11-08 - Legacy web MVP JSON migration and Data URL extraction.
+- Asset cleanup/orphan detection and duplicate detection.
+- Session allowlists for Rust filesystem commands.
+- Future playable export foundation.

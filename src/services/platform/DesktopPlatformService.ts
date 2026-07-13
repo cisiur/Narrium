@@ -1,5 +1,6 @@
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { confirm, open, save } from '@tauri-apps/plugin-dialog';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import type {
   ImportedBackgroundAssetFile,
   PlatformName,
@@ -11,7 +12,21 @@ import type {
   UnsavedChangesAction,
 } from './PlatformService';
 
+interface NativeCloseEvent {
+  preventDefault(): void;
+}
+
+interface NativeWindowCloseApi {
+  onCloseRequested(handler: (event: NativeCloseEvent) => void | Promise<void>): Promise<() => void>;
+  close(): Promise<void>;
+}
+
 export class DesktopPlatformService implements PlatformService, PlatformProjectFileApi {
+  private isCloseDecisionPending = false;
+  private allowNextNativeClose = false;
+
+  constructor(private readonly getNativeWindow: () => NativeWindowCloseApi = getCurrentWindow) {}
+
   isBrowser(): boolean {
     return false;
   }
@@ -155,9 +170,40 @@ export class DesktopPlatformService implements PlatformService, PlatformProjectF
     return shouldDiscard ? 'discard' : 'cancel';
   }
 
-  onCloseRequested(_handler: () => Promise<boolean>): Promise<() => void> {
-    // TODO: Redesign native-close dirty protection. The previous async close guard
-    // could trap the app, so native window close must pass through for now.
-    return Promise.resolve(() => undefined);
+  async onCloseRequested(handler: () => Promise<boolean>): Promise<() => void> {
+    const nativeWindow = this.getNativeWindow();
+
+    return nativeWindow.onCloseRequested(async (event) => {
+      if (this.allowNextNativeClose) {
+        this.allowNextNativeClose = false;
+        return;
+      }
+
+      event.preventDefault();
+
+      if (this.isCloseDecisionPending) {
+        return;
+      }
+
+      this.isCloseDecisionPending = true;
+
+      try {
+        const canClose = await handler();
+
+        if (!canClose) {
+          return;
+        }
+
+        this.allowNextNativeClose = true;
+
+        try {
+          await nativeWindow.close();
+        } catch {
+          this.allowNextNativeClose = false;
+        }
+      } finally {
+        this.isCloseDecisionPending = false;
+      }
+    });
   }
 }

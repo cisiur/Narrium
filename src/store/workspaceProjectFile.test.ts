@@ -27,8 +27,12 @@ describe('workspace project file workflow', () => {
     vi.resetModules();
   });
 
-  async function loadStoreWithProjectFileMocks(projectFilePath = 'C:/Stories/Test Project.narrium') {
+  async function loadStoreWithProjectFileMocks(
+    projectFilePath = 'C:/Stories/Test Project.narrium',
+    options: { isDesktop?: boolean } = {},
+  ) {
     const project = createProject();
+    let closeRequestedHandler: (() => Promise<boolean>) | null = null;
     const workspace: WorkspaceState = {
       projects: [],
       activeProjectId: null,
@@ -68,11 +72,16 @@ describe('workspace project file workflow', () => {
       saveProjectAs: vi.fn((_project: Project) => Promise.resolve({ project: _project, filePath: projectFilePath })),
     };
     const platformService = {
-      isDesktop: vi.fn(() => false),
-      isBrowser: vi.fn(() => true),
-      platformName: vi.fn(() => 'browser'),
+      isDesktop: vi.fn(() => Boolean(options.isDesktop)),
+      isBrowser: vi.fn(() => !options.isDesktop),
+      platformName: vi.fn(() => (options.isDesktop ? 'desktop' : 'browser')),
       confirmUnsavedChanges: vi.fn(),
-      onCloseRequested: vi.fn(() => Promise.resolve(() => undefined)),
+      onCloseRequested: vi.fn((handler: () => Promise<boolean>) => {
+        closeRequestedHandler = handler;
+        return Promise.resolve(() => {
+          closeRequestedHandler = null;
+        });
+      }),
       selectProjectFileToOpen: vi.fn(),
       selectProjectFilePathForSaveAs: vi.fn(),
       readProjectFile: vi.fn(),
@@ -97,7 +106,15 @@ describe('workspace project file workflow', () => {
 
     const { useWorkspaceStore } = await import('./workspaceStore');
 
-    return { useWorkspaceStore, project, projectStorage, projectFileService, appPreferencesService };
+    return {
+      useWorkspaceStore,
+      project,
+      projectStorage,
+      projectFileService,
+      appPreferencesService,
+      platformService,
+      getCloseRequestedHandler: () => closeRequestedHandler,
+    };
   }
 
   it('sets the active project file path after opening a project file', async () => {
@@ -363,6 +380,171 @@ describe('workspace project file workflow', () => {
     expect(useWorkspaceStore.getState().activeProject?.assetLibrary).toHaveLength(5);
     expect(projectStorage.saveProject).not.toHaveBeenCalled();
     expect(useWorkspaceStore.getState().projectFileError).toBeNull();
+  });
+
+  it('lets clean desktop native close continue without prompting', async () => {
+    const { useWorkspaceStore, project, platformService, getCloseRequestedHandler } =
+      await loadStoreWithProjectFileMocks('C:/Stories/Test Project.narrium', { isDesktop: true });
+
+    useWorkspaceStore.setState({
+      activeProject: project,
+      activeProjectId: project.id,
+      activeProjectFilePath: 'C:/Stories/Test Project.narrium',
+      activeProjectDirty: false,
+    });
+
+    await useWorkspaceStore.getState().initializeDesktopLifecycle();
+
+    await expect(getCloseRequestedHandler()?.()).resolves.toBe(true);
+    expect(platformService.confirmUnsavedChanges).not.toHaveBeenCalled();
+  });
+
+  it('saves dirty file-backed projects before desktop native close', async () => {
+    const { useWorkspaceStore, project, projectFileService, platformService, getCloseRequestedHandler } =
+      await loadStoreWithProjectFileMocks('C:/Stories/Test Project.narrium', { isDesktop: true });
+
+    platformService.confirmUnsavedChanges.mockResolvedValueOnce('save');
+    useWorkspaceStore.setState({
+      activeProject: project,
+      activeProjectId: project.id,
+      projects: [createProjectMeta(project)],
+      activeProjectFilePath: 'C:/Stories/Test Project.narrium',
+      activeProjectDirty: true,
+    });
+
+    await useWorkspaceStore.getState().initializeDesktopLifecycle();
+
+    await expect(getCloseRequestedHandler()?.()).resolves.toBe(true);
+    expect(projectFileService.saveProject).toHaveBeenCalledWith(project, 'C:/Stories/Test Project.narrium');
+    expect(useWorkspaceStore.getState().activeProjectDirty).toBe(false);
+  });
+
+  it('runs Save As for dirty drafts before desktop native close', async () => {
+    const { useWorkspaceStore, project, projectFileService, platformService, getCloseRequestedHandler } =
+      await loadStoreWithProjectFileMocks('C:/Stories/Saved Draft.narrium', { isDesktop: true });
+
+    platformService.confirmUnsavedChanges.mockResolvedValueOnce('save');
+    useWorkspaceStore.setState({
+      activeProject: project,
+      activeProjectId: project.id,
+      projects: [createProjectMeta(project)],
+      activeProjectFilePath: null,
+      activeProjectDirty: true,
+    });
+
+    await useWorkspaceStore.getState().initializeDesktopLifecycle();
+
+    await expect(getCloseRequestedHandler()?.()).resolves.toBe(true);
+    expect(projectFileService.saveProjectAs).toHaveBeenCalledWith(project, null);
+    expect(useWorkspaceStore.getState().activeProjectFilePath).toBe('C:/Stories/Saved Draft.narrium');
+    expect(useWorkspaceStore.getState().activeProjectDirty).toBe(false);
+  });
+
+  it('keeps desktop native close open when draft Save As is canceled', async () => {
+    const { useWorkspaceStore, project, projectFileService, platformService, getCloseRequestedHandler } =
+      await loadStoreWithProjectFileMocks('C:/Stories/Saved Draft.narrium', { isDesktop: true });
+
+    projectFileService.saveProjectAs.mockResolvedValueOnce(null as never);
+    platformService.confirmUnsavedChanges.mockResolvedValueOnce('save');
+    useWorkspaceStore.setState({
+      activeProject: project,
+      activeProjectId: project.id,
+      projects: [createProjectMeta(project)],
+      activeProjectFilePath: null,
+      activeProjectDirty: true,
+    });
+
+    await useWorkspaceStore.getState().initializeDesktopLifecycle();
+
+    await expect(getCloseRequestedHandler()?.()).resolves.toBe(false);
+    expect(useWorkspaceStore.getState().activeProjectFilePath).toBeNull();
+    expect(useWorkspaceStore.getState().activeProjectDirty).toBe(true);
+  });
+
+  it('keeps desktop native close open when saving fails', async () => {
+    const { useWorkspaceStore, project, projectFileService, platformService, getCloseRequestedHandler } =
+      await loadStoreWithProjectFileMocks('C:/Stories/Test Project.narrium', { isDesktop: true });
+
+    projectFileService.saveProject.mockRejectedValueOnce(new Error('disk full'));
+    platformService.confirmUnsavedChanges.mockResolvedValueOnce('save');
+    useWorkspaceStore.setState({
+      activeProject: project,
+      activeProjectId: project.id,
+      projects: [createProjectMeta(project)],
+      activeProjectFilePath: 'C:/Stories/Test Project.narrium',
+      activeProjectDirty: true,
+      projectFileError: null,
+    });
+
+    await useWorkspaceStore.getState().initializeDesktopLifecycle();
+
+    await expect(getCloseRequestedHandler()?.()).resolves.toBe(false);
+    expect(useWorkspaceStore.getState().activeProjectDirty).toBe(true);
+    expect(useWorkspaceStore.getState().projectFileError).toBe('disk full');
+  });
+
+  it("lets desktop native close continue without saving when the author chooses Don't Save", async () => {
+    const { useWorkspaceStore, project, projectFileService, platformService, getCloseRequestedHandler } =
+      await loadStoreWithProjectFileMocks('C:/Stories/Test Project.narrium', { isDesktop: true });
+
+    platformService.confirmUnsavedChanges.mockResolvedValueOnce('discard');
+    useWorkspaceStore.setState({
+      activeProject: project,
+      activeProjectId: project.id,
+      projects: [createProjectMeta(project)],
+      activeProjectFilePath: 'C:/Stories/Test Project.narrium',
+      activeProjectDirty: true,
+    });
+
+    await useWorkspaceStore.getState().initializeDesktopLifecycle();
+
+    await expect(getCloseRequestedHandler()?.()).resolves.toBe(true);
+    expect(projectFileService.saveProject).not.toHaveBeenCalled();
+    expect(projectFileService.saveProjectAs).not.toHaveBeenCalled();
+    expect(useWorkspaceStore.getState().activeProjectDirty).toBe(false);
+  });
+
+  it('keeps desktop native close open and dirty when the author cancels', async () => {
+    const { useWorkspaceStore, project, platformService, getCloseRequestedHandler } =
+      await loadStoreWithProjectFileMocks('C:/Stories/Test Project.narrium', { isDesktop: true });
+
+    platformService.confirmUnsavedChanges.mockResolvedValueOnce('cancel');
+    useWorkspaceStore.setState({
+      activeProject: project,
+      activeProjectId: project.id,
+      projects: [createProjectMeta(project)],
+      activeProjectFilePath: 'C:/Stories/Test Project.narrium',
+      activeProjectDirty: true,
+    });
+
+    await useWorkspaceStore.getState().initializeDesktopLifecycle();
+
+    await expect(getCloseRequestedHandler()?.()).resolves.toBe(false);
+    expect(useWorkspaceStore.getState().activeProject?.id).toBe(project.id);
+    expect(useWorkspaceStore.getState().activeProjectDirty).toBe(true);
+  });
+
+  it('keeps existing Create and Open Project File dirty guards working', async () => {
+    const { useWorkspaceStore, project, projectFileService, platformService } =
+      await loadStoreWithProjectFileMocks();
+
+    platformService.confirmUnsavedChanges.mockResolvedValueOnce('cancel');
+    useWorkspaceStore.setState({
+      activeProject: project,
+      activeProjectId: project.id,
+      projects: [createProjectMeta(project)],
+      activeProjectFilePath: 'C:/Stories/Test Project.narrium',
+      activeProjectDirty: true,
+    });
+
+    await expect(useWorkspaceStore.getState().createProjectWithUnsavedCheck()).resolves.toBeNull();
+    expect(useWorkspaceStore.getState().activeProject?.id).toBe(project.id);
+
+    platformService.confirmUnsavedChanges.mockResolvedValueOnce('discard');
+    await useWorkspaceStore.getState().openProjectFile();
+
+    expect(projectFileService.openProjectFile).toHaveBeenCalledTimes(1);
+    expect(useWorkspaceStore.getState().activeProjectDirty).toBe(false);
   });
 });
 

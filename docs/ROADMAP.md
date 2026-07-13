@@ -25,8 +25,9 @@ Status note:
 - Completed MVP epics remain the product foundation and reference implementation.
 - A minimal Tauri v2 desktop shell foundation exists on `main`.
 - A native `.narrium` desktop project file workflow exists on `main`; files are JSON internally and wrap the current `Project`.
-- The background asset library is now the canonical catalog for newly added backgrounds; sources remain embedded Data URLs or remote URLs.
-- Local asset file storage and a new playable export format have not been implemented yet.
+- The background asset library is now the canonical catalog for newly added backgrounds; sources may be embedded Data URLs, remote URLs, or desktop local project-relative background files.
+- Desktop file-backed background uploads are copied into `assets/backgrounds/` beside the `.narrium` file.
+- General local asset storage beyond backgrounds, embedded-to-local migration, asset cleanup, duplicate detection, autosave, and playable export packaging remain future work.
 
 ```text
 Workspace Management       ██████████ 100%
@@ -483,6 +484,7 @@ Purpose:
 | E11-05A.1 | Desktop storage stabilization: stop mirroring file-backed projects into localStorage | [BOTH] | Done |
 | E11-05B | Local background asset files under project `assets/backgrounds/` folders | [BOTH] | Done |
 | E11-05B.2 | Synchronize project name with Save As `.narrium` filename | [BOTH] | Done |
+| E11-05B.3 | Safe native-close dirty protection | [BOTH] | Done |
 | E11-06 | Relative asset paths in project JSON | [BOTH] | Planned |
 | E11-07 | Migration/import from legacy web MVP JSON | [BOTH] | Planned |
 | E11-08 | Extract legacy embedded Data URLs into local asset files during migration where practical | [BOTH] | Planned |
@@ -510,13 +512,13 @@ Current E11-03B deliverable:
 - Project file reads and writes now delegate path joining to the platform/Rust layer.
 - Desktop projects track dirty state after edits and return clean after successful Save or Save As.
 - Desktop Open/Create flows prompt before discarding dirty changes.
-- Native window X close guard is temporarily disabled so the desktop app always closes; unsaved-change protection for native close should be redesigned in a future dedicated task.
+- Native window close dirty protection uses the same Save / Don't Save / Cancel decision as guarded Open/Create flows.
 - Desktop app preferences now keep up to 10 recent projects and the last opened project.
 - The My Projects screen offers to reopen the last project instead of reopening it automatically.
 - The project header shows the current project path and a `*` dirty indicator.
 - Save is disabled until the active desktop project has a known path; Save As remains available.
 - Browser/Vite workflow remains compatible.
-- Asset folders, image copying, local asset paths, autosave, Git integration, cloud sync, and playable export changes remain planned future work.
+- General asset folders beyond backgrounds, embedded-to-local migration, asset cleanup, duplicate detection, autosave, Git integration, cloud sync, and playable export changes remain planned future work.
 
 Current E11-03C deliverable:
 - Desktop Open Project File uses a native file picker for `.narrium` files and legacy `.json` files.
@@ -534,7 +536,7 @@ Current E11-03D deliverable:
 - Cards without a file association remain localStorage drafts.
 - File-backed cards show a `.narrium file` label and file path; draft cards show `Local draft`.
 - The old single-item `WORKSPACE > My Projects` landing sidebar was removed.
-- Native window X close remains pass-through.
+- Native window close no longer bypasses dirty-state protection.
 - Local asset storage, autosave, playable export changes, and Project model redesign remain out of scope.
 
 Current E11-05A deliverable:
@@ -574,6 +576,15 @@ Current E11-05B.2 deliverable:
 - Normal Save preserves the current in-app project name.
 - Canceled or failed Save As attempts leave the active project name and file path unchanged.
 
+Current E11-05B.3 deliverable:
+- Native desktop close protects dirty projects with the same Save / Don't Save / Cancel decision as guarded Open Project File and Create Project.
+- Clean projects close without prompting.
+- File-backed projects use normal Save before closing.
+- Drafts without a known `.narrium` path use Save As before closing.
+- Save As cancellation, save failure, and Cancel keep the app open and preserve dirty state.
+- Repeated native close events while a close decision is pending do not create duplicate prompts or duplicate saves.
+- Programmatic close after Save or Don't Save is allowed through without re-entering the dirty guard.
+
 Full EPIC 11 deliverable intent:
 - A desktop app can create drafts, open `.narrium` files, save known project files, and preview Narrium projects.
 - Imported assets are copied into the project folder instead of being stored as large Data URLs in the long-term project file.
@@ -586,8 +597,8 @@ Full EPIC 11 deliverable intent:
 
 Continue EPIC 11 desktop project system work after the native `.narrium` project-file workflow.
 
-Recommended next task:
-- E11-05B - Local asset file storage under project `assets/` folders behind the canonical asset catalog.
+Current approved task:
+- E11-05B.3 - Safe native-close dirty protection.
 
 Later candidates:
 - E11-07/E11-08 - Legacy web MVP JSON migration and Data URL extraction.

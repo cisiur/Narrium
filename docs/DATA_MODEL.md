@@ -156,9 +156,10 @@ Current implementation rules:
 Intended storage rules:
 - `.narrium` stores the JSON-compatible `Project` data inside the wrapper.
 - Local asset references inside the project file use relative paths such as `assets/backgrounds/castle.png`.
-- Imported or uploaded files should eventually be copied into local project asset storage.
+- Desktop file-backed background uploads are currently copied into `assets/backgrounds/` beside the `.narrium` file.
+- Imported or uploaded files for asset categories beyond backgrounds should eventually be copied into local project asset storage.
 - Large uploaded image Data URLs should not be stored inside the long-term saved project file.
-- The exact local asset file layout remains future work.
+- The exact local asset file layout beyond background assets remains future work.
 
 Compatibility:
 - Current web MVP exports may still contain embedded Data URLs in `Project.thumbnail`, legacy `SceneBackground.url`, or legacy `AssetLibraryItem.url`.

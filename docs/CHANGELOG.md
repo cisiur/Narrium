@@ -6,6 +6,24 @@ This changelog records milestone-level project changes. It is intentionally conc
 
 ## Unreleased / Next
 
+### Fixed - Native close dirty protection
+
+Changes:
+- Native desktop window close now protects dirty projects instead of bypassing dirty-state checks.
+- Clean projects close without prompting.
+- Dirty projects use the same Save / Don't Save / Cancel decision as guarded Open Project File and Create Project.
+- Save runs normal Save for file-backed projects and Save As for drafts without a known `.narrium` path.
+- Save As cancellation, save failure, and Cancel keep the app open and preserve dirty state.
+- Don't Save closes without saving.
+- Repeated native close events while a prompt or save is pending do not create duplicate prompts or duplicate saves.
+- Programmatic close after Save or Don't Save is allowed through without re-entering the dirty guard.
+- Browser/Vite execution remains unaffected.
+
+Validation:
+- `npm.cmd test` -> 27 test files passed, 233 tests passed.
+- `npm.cmd run build` -> passed.
+- `npm.cmd run desktop:build` -> passed after rerunning with escalation so the WiX bundler under AppData could execute; the first non-escalated attempt built the app binary but failed during MSI bundling at `light.exe`.
+
 ### Fixed - Save As project naming
 
 Changes:
@@ -30,7 +48,7 @@ Changes:
 - Save As copies referenced local background files to the new project directory before writing the relocated `.narrium`.
 - Deleting a catalog asset still clears scene references but does not delete the physical file.
 - Local asset standalone export packaging, physical cleanup, orphan detection, hashing, compression, and broad asset management remain future work.
-- Native X close remains pass-through and file-backed projects remain excluded from full localStorage mirroring.
+- Native close dirty protection is handled separately by the current native-close lifecycle guard.
 
 Validation:
 - Added tests for UI option cleanup, local asset normalization, local path serialization, Save As asset relocation success/failure, and continued browser/draft storage behavior.
@@ -101,6 +119,7 @@ Changes:
 - Kept explicit dirty checks for Open Project File and Create Project drafts.
 - Kept dirty state, Save, Save As, and recent projects intact.
 - Documented that native close dirty protection needs a dedicated redesign before it is restored.
+- Superseded by the current native close dirty protection entry above.
 
 Validation:
 - Added a platform test covering that desktop lifecycle close handling no longer invokes or blocks through the native close guard.

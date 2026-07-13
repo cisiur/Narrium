@@ -98,14 +98,15 @@ Strategic status:
 - Desktop project workflow hardening is implemented: dirty state, guarded Open/Create, recent project files, last-opened offer, platform-owned file read/write, file path display, and dirty `*` indicator.
 - Desktop file-backed `.narrium` projects no longer mirror full Project JSON into BrowserProjectStorage/localStorage.
 - For file-backed desktop projects, the active Project stays in memory and the `.narrium` file is the persistent source of truth.
-- Native window X close guard is temporarily disabled so the desktop app always closes; explicit Open/Create dirty checks remain active.
+- Native window close dirty protection is implemented through the platform lifecycle boundary; explicit Open/Create dirty checks remain active.
 - `.narrium` files are JSON internally and use `{ format: "narrium.project", formatVersion: 1, project }`.
 - Legacy raw Project JSON and old `project.narrium.json` files remain openable as compatibility fallbacks when selected as files.
 - My Projects cards open associated `.narrium` files directly when recent-project metadata links the card to a file-backed project.
 - LocalStorage cards without a file association remain local drafts.
 - The old single-item `WORKSPACE > My Projects` landing sidebar has been removed; editor navigation remains.
 - Current intended dependency direction is UI/features -> stores -> services -> domain -> types.
-- Local asset file storage, asset folder creation, asset migration, autosave, and future playable export packaging have not been implemented yet on `main`.
+- Local desktop background asset storage is implemented for file-backed projects: uploaded backgrounds are copied into `assets/backgrounds/` beside the `.narrium` file and stored as project-relative local assets.
+- General local asset storage beyond backgrounds, embedded-to-local migration, asset cleanup, duplicate detection, autosave, and future playable export packaging remain future work.
 
 ```text
 Workspace Management       ██████████ 100%
@@ -166,7 +167,7 @@ Current recommended next milestone:
 - Recommended next task should be selected by the project owner.
 
 Good candidates:
-- Local asset file storage for imported files.
+- Safe native-close dirty protection.
 - Import/migration path from legacy web MVP JSON, including future extraction of embedded Data URLs.
 - Desktop preview parity with the validated web MVP preview.
 - Future playable export foundation.
@@ -248,7 +249,8 @@ Good candidates:
 - Browser/localStorage projects and desktop drafts still persist full Project JSON as transitional draft storage.
 - Draft storage quota failures now surface a clear storage-full error instead of silently failing.
 - Desktop Open Project File and local draft Create Project prompt before discarding dirty changes.
-- Native window X close does not prompt for unsaved changes for now; a future dedicated task should redesign native-close unsaved-changes protection.
+- Native window close uses the same Save / Don't Save / Cancel dirty decision as guarded Open Project File and Create Project flows.
+- If Save succeeds, native close continues; if Save As is canceled or saving fails, the app remains open and dirty state is preserved.
 - Recent project files are stored as app preferences, not as workspace project data.
 - The recent project list stores project id when known, project name, file path, and last opened timestamp.
 - The recent project list is capped at 10 entries.
@@ -267,7 +269,8 @@ Good candidates:
 - Drafts with no known file path show `Unsaved draft - use Save As to create a .narrium file`.
 - Save is disabled until a desktop project has a known file path; Save As remains available.
 - Workspace/localStorage remains a compatibility layer for metadata and drafts, not the long-term desktop project database.
-- No local asset folders, image copying, local asset paths, autosave, or playable export package exists yet.
+- Local background asset folders, background image copying, and project-relative background asset paths exist for file-backed desktop projects.
+- General local asset categories beyond backgrounds, embedded-to-local migration, asset cleanup, duplicate detection, autosave, and playable export packages remain future work.
 
 ### Shared UI
 
@@ -600,7 +603,10 @@ Standalone save/load snapshots include:
 Implemented:
 - Vitest added.
 - `npm.cmd test` runs `vitest run`.
-- Current test count after local background asset files: **211 tests**.
+- Current validation commands:
+  - `npm.cmd test`
+  - `npm.cmd run build`
+  - `npm.cmd run desktop:build`
 - `runtimeState.test.ts` covers initial RuntimeState creation, including Variables.
 - `runtimeLogic.test.ts` covers representative behavior for:
   - `applyEffects()`
@@ -667,7 +673,7 @@ Important:
 - Resources are player-facing numeric values when marked visible.
 
 Next recommended tasks:
-1. Local asset file storage.
+1. Safe native-close dirty protection.
 2. Migration/import from legacy web MVP JSON.
 3. Future extraction of embedded Data URLs into local asset files.
 4. Desktop preview parity with the validated web MVP preview.

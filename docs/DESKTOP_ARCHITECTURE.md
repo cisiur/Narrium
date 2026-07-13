@@ -18,10 +18,10 @@ Current implementation status:
 - Platform identity now goes through `src/services/platform/`.
 - A native `.narrium` project-file workflow exists for desktop builds: Open Project File, Save, and Save As read/write `.narrium` files.
 - Desktop project workflow hardening exists for dirty state, guarded Open/Create, recent projects, and last-opened project offers.
-- Native window X close interception is temporarily disabled so the desktop app can always close.
-- The background asset catalog now stores newly added background sources as embedded Data URL or remote URL assets.
+- Native window close dirty protection is implemented through the platform lifecycle boundary.
+- The background asset catalog now stores newly added background sources as embedded Data URL, remote URL, or desktop local project-relative background assets.
 - Services can depend on domain code, but domain code must stay independent from stores, services, UI, and Tauri APIs.
-- Local asset storage, asset migration, autosave, and playable export packaging are still planned future work.
+- Local desktop background asset storage is implemented; general asset categories beyond backgrounds, embedded-to-local migration, asset cleanup, duplicate detection, autosave, and playable export packaging are still planned future work.
 
 ---
 
@@ -83,7 +83,7 @@ Platform boundary status:
 - `getPlatformService()` owns Tauri runtime detection using injected Tauri globals.
 - Future Tauri APIs must be introduced behind `services/platform/`; React components and Zustand stores must not import Tauri directly.
 - Current Tauri usage is limited to file open/save dialogs, unsaved-change confirmation, selected project-file reads/writes, and local background asset file import/display/relocation through service boundaries.
-- Native close dirty protection needs a dedicated redesign before it is restored; the previous async close guard could trap the app.
+- Native close dirty protection uses the same Save / Don't Save / Cancel orchestration as guarded Open/Create flows and prevents duplicate close decisions while a prompt or save is pending.
 - Project file reads and writes operate on explicit file paths selected by the user.
 - No unrestricted filesystem, clipboard, shell, notifications, drag-and-drop, autosave, or playable package APIs are implemented.
 
@@ -103,7 +103,10 @@ Project file status:
 - Browser/draft quota errors are surfaced as clear storage-full errors.
 - The workspace store tracks dirty state for active projects.
 - Dirty desktop projects prompt before Open Project File and local draft Create Project.
-- Native window X close does not prompt for unsaved changes for now; explicit Open/Create dirty checks remain active.
+- Native window close prompts for dirty projects; explicit Open/Create dirty checks remain active.
+- Clean projects close without prompting.
+- Choosing Save runs normal Save for file-backed projects and Save As for drafts; Save As cancellation or save failure keeps the app open and dirty.
+- Choosing Don't Save closes without saving, and choosing Cancel keeps the app open with dirty state preserved.
 - Successful Save and Save As mark the project clean.
 - The project header displays the current file path and dirty `*` indicator.
 - Drafts without a project file path show `Unsaved draft - use Save As to create a .narrium file`.
@@ -248,9 +251,10 @@ The exact export format should be designed later after the desktop project-file 
 ## Non-goals for the current project-file foundation
 
 The current project-file foundation does not implement:
-- asset folder creation,
-- image file copying,
-- local asset path migration,
+- general asset folder creation beyond desktop background imports,
+- image file copying beyond desktop background imports,
+- local asset path migration beyond current background asset references,
 - asset extraction,
+- asset cleanup or duplicate detection,
 - autosave,
 - a new playable export format.

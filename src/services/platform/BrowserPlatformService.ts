@@ -59,7 +59,7 @@ export class BrowserPlatformService implements PlatformService, PlatformProjectF
     return Promise.resolve(shouldDiscard ? 'discard' : 'cancel');
   }
 
-  onCloseRequested(): Promise<() => void> {
+  onCloseRequested(_handler?: () => Promise<boolean>): Promise<() => void> {
     return Promise.resolve(() => undefined);
   }
 }

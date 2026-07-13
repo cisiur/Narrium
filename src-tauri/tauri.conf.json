@@ -23,7 +23,12 @@
       "csp": null,
       "assetProtocol": {
         "enable": true,
-        "scope": ["**"]
+        "scope": [
+          "**/assets/backgrounds/*.png",
+          "**/assets/backgrounds/*.jpg",
+          "**/assets/backgrounds/*.jpeg",
+          "**/assets/backgrounds/*.webp"
+        ]
       }
     }
   },

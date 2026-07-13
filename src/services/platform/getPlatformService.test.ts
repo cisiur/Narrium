@@ -235,4 +235,29 @@ describe('platform services', () => {
       ),
     ).resolves.toBe('http://asset.localhost/D%3A%5CStories%5CTest%5Cassets%5Cbackgrounds%5Cforest.png');
   });
+
+  it('returns null when desktop local asset resolution fails', async () => {
+    const service = new DesktopPlatformService();
+    vi.stubGlobal('window', {});
+    mockIPC(<T,>(cmd: string): T => {
+      if (cmd === 'resolve_local_asset_file') {
+        throw new Error('Local asset file is missing.');
+      }
+
+      throw new Error(`Unexpected command: ${cmd}`);
+    });
+
+    await expect(
+      service.resolveLocalAssetDisplaySource(
+        'D:/Stories/Test/Test.narrium',
+        'assets/backgrounds/missing.png',
+      ),
+    ).resolves.toBeNull();
+  });
+
+  it('leaves browser local asset display resolution disabled', async () => {
+    const service = new BrowserPlatformService();
+
+    await expect(service.resolveLocalAssetDisplaySource()).resolves.toBeNull();
+  });
 });

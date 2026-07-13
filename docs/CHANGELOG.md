@@ -6,6 +6,13 @@ This changelog records milestone-level project changes. It is intentionally conc
 
 ## Unreleased / Next
 
+### Security - Harden desktop asset protocol
+
+Changes:
+- Restricted the Tauri asset protocol from a broad `**` filesystem scope to desktop local background image files under `**/assets/backgrounds/*.png`, `*.jpg`, `*.jpeg`, and `*.webp`.
+- Local background display still resolves through the existing `resolve_local_asset_file` Rust command before producing an asset protocol URL.
+- Project serialization, exports, asset library behavior, and browser mode are unchanged.
+
 ### Fixed - Dirty native close dialog workflow
 
 Changes:

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import tauriConfig from '../../../src-tauri/tauri.conf.json';
 
 describe('Tauri asset protocol config', () => {
-  it('enables the asset protocol used by convertFileSrc for local background rendering', () => {
+  it('limits the asset protocol to project-local background images', () => {
     const config = tauriConfig as {
       app?: {
         security?: {
@@ -16,7 +16,13 @@ describe('Tauri asset protocol config', () => {
 
     expect(config.app?.security?.assetProtocol).toEqual({
       enable: true,
-      scope: ['**'],
+      scope: [
+        '**/assets/backgrounds/*.png',
+        '**/assets/backgrounds/*.jpg',
+        '**/assets/backgrounds/*.jpeg',
+        '**/assets/backgrounds/*.webp',
+      ],
     });
+    expect(config.app?.security?.assetProtocol?.scope).not.toContain('**');
   });
 });

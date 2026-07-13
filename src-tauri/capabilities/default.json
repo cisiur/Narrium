@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Default desktop shell capability for Narrium.",
   "windows": ["main"],
-  "permissions": ["core:default", "dialog:default", "dialog:allow-open", "dialog:allow-save"]
+  "permissions": ["core:default", "core:window:allow-destroy", "dialog:default", "dialog:allow-open", "dialog:allow-save"]
 }

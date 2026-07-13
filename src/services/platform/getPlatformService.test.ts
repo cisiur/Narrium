@@ -16,10 +16,9 @@ function createDeferred<T>() {
 
 function createNativeWindowMock() {
   let closeHandler: ((event: { preventDefault(): void }) => void | Promise<void>) | null = null;
-  const close = vi.fn(async () => {
-    if (closeHandler) {
-      await closeHandler({ preventDefault: vi.fn() });
-    }
+  let isDestroyed = false;
+  const destroy = vi.fn(async () => {
+    isDestroyed = true;
   });
   const onCloseRequested = vi.fn(async (handler: typeof closeHandler) => {
     closeHandler = handler;
@@ -28,19 +27,29 @@ function createNativeWindowMock() {
     };
   });
   const requestClose = async () => {
+    let isPrevented = false;
     const preventDefault = vi.fn();
 
     if (!closeHandler) {
       throw new Error('No close handler registered.');
     }
 
-    await closeHandler({ preventDefault });
+    await closeHandler({
+      preventDefault: () => {
+        isPrevented = true;
+        preventDefault();
+      },
+    });
 
-    return { preventDefault };
+    if (!isPrevented) {
+      await destroy();
+    }
+
+    return { isDestroyed, preventDefault };
   };
 
   return {
-    close,
+    destroy,
     onCloseRequested,
     requestClose,
   };
@@ -70,18 +79,19 @@ describe('platform services', () => {
     expect(service.platformName()).toBe('desktop');
   });
 
-  it('closes desktop windows after a clean close decision', async () => {
+  it('destroys desktop windows after a clean close decision', async () => {
     const nativeWindow = createNativeWindowMock();
     const service = new DesktopPlatformService(() => nativeWindow);
     const handler = vi.fn().mockResolvedValue(true);
 
     const dispose = await service.onCloseRequested(handler);
-    const event = await nativeWindow.requestClose();
+    const closeResult = await nativeWindow.requestClose();
     dispose();
 
-    expect(event.preventDefault).toHaveBeenCalledTimes(1);
+    expect(closeResult.preventDefault).toHaveBeenCalledTimes(1);
+    expect(closeResult.isDestroyed).toBe(true);
     expect(handler).toHaveBeenCalledTimes(1);
-    expect(nativeWindow.close).toHaveBeenCalledTimes(1);
+    expect(nativeWindow.destroy).toHaveBeenCalledTimes(1);
   });
 
   it('keeps desktop windows open when a close decision is rejected', async () => {
@@ -94,8 +104,9 @@ describe('platform services', () => {
     dispose();
 
     expect(event.preventDefault).toHaveBeenCalledTimes(1);
+    expect(event.isDestroyed).toBe(false);
     expect(handler).toHaveBeenCalledTimes(1);
-    expect(nativeWindow.close).not.toHaveBeenCalled();
+    expect(nativeWindow.destroy).not.toHaveBeenCalled();
   });
 
   it('does not create duplicate close decisions while one is pending', async () => {
@@ -109,30 +120,33 @@ describe('platform services', () => {
     const secondClose = await nativeWindow.requestClose();
 
     expect(secondClose.preventDefault).toHaveBeenCalledTimes(1);
+    expect(secondClose.isDestroyed).toBe(false);
     expect(handler).toHaveBeenCalledTimes(1);
-    expect(nativeWindow.close).not.toHaveBeenCalled();
+    expect(nativeWindow.destroy).not.toHaveBeenCalled();
 
     closeDecision.resolve(true);
     const firstCloseEvent = await firstClose;
     dispose();
 
     expect(firstCloseEvent.preventDefault).toHaveBeenCalledTimes(1);
+    expect(firstCloseEvent.isDestroyed).toBe(true);
     expect(handler).toHaveBeenCalledTimes(1);
-    expect(nativeWindow.close).toHaveBeenCalledTimes(1);
+    expect(nativeWindow.destroy).toHaveBeenCalledTimes(1);
   });
 
-  it('allows the programmatic close after an approved decision without re-entering the guard', async () => {
+  it('reaches the terminal native destroy path after an approved decision', async () => {
     const nativeWindow = createNativeWindowMock();
     const service = new DesktopPlatformService(() => nativeWindow);
     const handler = vi.fn().mockResolvedValue(true);
 
     const dispose = await service.onCloseRequested(handler);
 
-    await nativeWindow.requestClose();
+    const closeResult = await nativeWindow.requestClose();
     dispose();
 
+    expect(closeResult.isDestroyed).toBe(true);
     expect(handler).toHaveBeenCalledTimes(1);
-    expect(nativeWindow.close).toHaveBeenCalledTimes(1);
+    expect(nativeWindow.destroy).toHaveBeenCalledTimes(1);
   });
 
   it('leaves browser close behavior unaffected', async () => {

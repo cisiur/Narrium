@@ -18,12 +18,11 @@ interface NativeCloseEvent {
 
 interface NativeWindowCloseApi {
   onCloseRequested(handler: (event: NativeCloseEvent) => void | Promise<void>): Promise<() => void>;
-  close(): Promise<void>;
+  destroy(): Promise<void>;
 }
 
 export class DesktopPlatformService implements PlatformService, PlatformProjectFileApi {
   private isCloseDecisionPending = false;
-  private allowNextNativeClose = false;
 
   constructor(private readonly getNativeWindow: () => NativeWindowCloseApi = getCurrentWindow) {}
 
@@ -174,11 +173,6 @@ export class DesktopPlatformService implements PlatformService, PlatformProjectF
     const nativeWindow = this.getNativeWindow();
 
     return nativeWindow.onCloseRequested(async (event) => {
-      if (this.allowNextNativeClose) {
-        this.allowNextNativeClose = false;
-        return;
-      }
-
       event.preventDefault();
 
       if (this.isCloseDecisionPending) {
@@ -194,13 +188,7 @@ export class DesktopPlatformService implements PlatformService, PlatformProjectF
           return;
         }
 
-        this.allowNextNativeClose = true;
-
-        try {
-          await nativeWindow.close();
-        } catch {
-          this.allowNextNativeClose = false;
-        }
+        await nativeWindow.destroy();
       } finally {
         this.isCloseDecisionPending = false;
       }

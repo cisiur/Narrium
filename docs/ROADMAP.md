@@ -583,7 +583,7 @@ Current E11-05B.3 deliverable:
 - Drafts without a known `.narrium` path use Save As before closing.
 - Save As cancellation, save failure, and Cancel keep the app open and preserve dirty state.
 - Repeated native close events while a close decision is pending do not create duplicate prompts or duplicate saves.
-- Programmatic close after Save or Don't Save is allowed through without re-entering the dirty guard.
+- Approved native close destroys the window directly instead of requesting another close cycle.
 
 Full EPIC 11 deliverable intent:
 - A desktop app can create drafts, open `.narrium` files, save known project files, and preview Narrium projects.

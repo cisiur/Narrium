@@ -16,7 +16,7 @@ Changes:
 - Save As cancellation, save failure, and Cancel keep the app open and preserve dirty state.
 - Don't Save closes without saving.
 - Repeated native close events while a prompt or save is pending do not create duplicate prompts or duplicate saves.
-- Programmatic close after Save or Don't Save is allowed through without re-entering the dirty guard.
+- Approved native close destroys the window directly instead of requesting another close cycle.
 - Browser/Vite execution remains unaffected.
 
 Validation:

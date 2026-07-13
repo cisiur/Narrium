@@ -6,6 +6,17 @@ This changelog records milestone-level project changes. It is intentionally conc
 
 ## Unreleased / Next
 
+### Fixed - Save As project naming
+
+Changes:
+- Successful Save As now updates `Project.name` from the selected `.narrium` filename without its extension.
+- The renamed project is written into the destination `.narrium` file and reflected immediately in active project state, workspace metadata, and recent projects.
+- Normal Save does not force the project name to match the file name.
+- Canceled or failed Save As attempts leave the project name and active file path unchanged.
+
+Validation:
+- Added tests for filename-derived project names, cancellation/failure safety, normal Save name preservation, and Save As metadata propagation.
+
 ### Added - Local background asset files
 
 Changes:

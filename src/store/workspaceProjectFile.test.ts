@@ -46,16 +46,14 @@ describe('workspace project file workflow', () => {
         lastOpenedProjectFilePath: null,
       })),
       savePreferences: vi.fn(),
-      recordRecentProject: vi.fn(() => ({
+      recordRecentProject: vi.fn((recentProject: { projectId: string; name: string; filePath: string }) => ({
         recentProjects: [
           {
-            projectId: project.id,
-            name: project.name,
-            filePath: projectFilePath,
+            ...recentProject,
             lastOpenedAt: '2026-01-01T00:00:00.000Z',
           },
         ],
-        lastOpenedProjectFilePath: projectFilePath,
+        lastOpenedProjectFilePath: recentProject.filePath,
       })),
       clearLastOpenedProject: vi.fn(() => ({
         recentProjects: [],
@@ -151,6 +149,72 @@ describe('workspace project file workflow', () => {
     expect(projectStorage.deleteProject).toHaveBeenCalledWith(project.id);
     expect(useWorkspaceStore.getState().activeProjectFilePath).toBe('C:/Stories/Test Project.narrium');
     expect(useWorkspaceStore.getState().activeProjectDirty).toBe(false);
+  });
+
+  it('updates active project, workspace metadata, and recent metadata with the Save As project name', async () => {
+    const { useWorkspaceStore, project, projectStorage, projectFileService, appPreferencesService } =
+      await loadStoreWithProjectFileMocks('C:/Stories/Szept.narrium');
+    const renamedProject = {
+      ...project,
+      name: 'Szept',
+    };
+    projectFileService.saveProjectAs.mockResolvedValueOnce({
+      project: renamedProject,
+      filePath: 'C:/Stories/Szept.narrium',
+    });
+
+    useWorkspaceStore.setState({
+      activeProject: project,
+      activeProjectId: project.id,
+      projects: [createProjectMeta(project)],
+      activeProjectFilePath: null,
+      activeProjectDirty: true,
+    });
+
+    const didSave = await useWorkspaceStore.getState().saveActiveProjectAsFile();
+
+    expect(didSave).toBe(true);
+    expect(useWorkspaceStore.getState().activeProject?.name).toBe('Szept');
+    expect(useWorkspaceStore.getState().activeProjectFilePath).toBe('C:/Stories/Szept.narrium');
+    expect(useWorkspaceStore.getState().activeProjectDirty).toBe(false);
+    expect(projectStorage.saveWorkspace).toHaveBeenLastCalledWith({
+      projects: [expect.objectContaining({ id: project.id, name: 'Szept' })],
+      activeProjectId: project.id,
+    });
+    expect(appPreferencesService.recordRecentProject).toHaveBeenCalledWith({
+      projectId: project.id,
+      name: 'Szept',
+      filePath: 'C:/Stories/Szept.narrium',
+    });
+    expect(useWorkspaceStore.getState().recentProjects[0]).toEqual(
+      expect.objectContaining({
+        projectId: project.id,
+        name: 'Szept',
+        filePath: 'C:/Stories/Szept.narrium',
+      }),
+    );
+  });
+
+  it('preserves active project name and path when Save As fails', async () => {
+    const { useWorkspaceStore, project, projectFileService } = await loadStoreWithProjectFileMocks();
+
+    projectFileService.saveProjectAs.mockRejectedValueOnce(new Error('copy failed'));
+    useWorkspaceStore.setState({
+      activeProject: project,
+      activeProjectId: project.id,
+      projects: [createProjectMeta(project)],
+      activeProjectFilePath: 'C:/Stories/Original.narrium',
+      activeProjectDirty: true,
+      projectFileError: null,
+    });
+
+    const didSave = await useWorkspaceStore.getState().saveActiveProjectAsFile();
+
+    expect(didSave).toBe(false);
+    expect(useWorkspaceStore.getState().activeProject?.name).toBe('Test Project');
+    expect(useWorkspaceStore.getState().activeProjectFilePath).toBe('C:/Stories/Original.narrium');
+    expect(useWorkspaceStore.getState().activeProjectDirty).toBe(true);
+    expect(useWorkspaceStore.getState().projectFileError).toBe('copy failed');
   });
 
   it('keeps desktop file-backed edits in memory without saving full Project JSON to BrowserProjectStorage', async () => {

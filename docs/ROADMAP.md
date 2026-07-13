@@ -482,6 +482,7 @@ Purpose:
 | E11-05A | Background asset catalog foundation using embedded/remote sources | [BOTH] | Done |
 | E11-05A.1 | Desktop storage stabilization: stop mirroring file-backed projects into localStorage | [BOTH] | Done |
 | E11-05B | Local background asset files under project `assets/backgrounds/` folders | [BOTH] | Done |
+| E11-05B.2 | Synchronize project name with Save As `.narrium` filename | [BOTH] | Done |
 | E11-06 | Relative asset paths in project JSON | [BOTH] | Planned |
 | E11-07 | Migration/import from legacy web MVP JSON | [BOTH] | Planned |
 | E11-08 | Extract legacy embedded Data URLs into local asset files during migration where practical | [BOTH] | Planned |
@@ -566,6 +567,12 @@ Current E11-05B deliverable:
 - Save As copies referenced local background files to the new project directory before writing the relocated `.narrium`.
 - Deleting a catalog asset clears scene references but does not delete physical files.
 - Standalone local-asset packaging remains future work.
+
+Current E11-05B.2 deliverable:
+- Successful Save As updates `Project.name` to the selected `.narrium` filename without its extension.
+- The renamed project is written to the destination `.narrium`, reflected immediately in active state, workspace metadata, and recent-project metadata.
+- Normal Save preserves the current in-app project name.
+- Canceled or failed Save As attempts leave the active project name and file path unchanged.
 
 Full EPIC 11 deliverable intent:
 - A desktop app can create drafts, open `.narrium` files, save known project files, and preview Narrium projects.

@@ -6,6 +6,7 @@ import {
   NARRIUM_PROJECT_EXTENSION,
   NARRIUM_PROJECT_FORMAT,
   NARRIUM_PROJECT_FORMAT_VERSION,
+  deriveProjectNameFromNarriumFilePath,
   parseNarriumProjectFile,
   serializeNarriumProjectFile,
 } from './ProjectFileService';
@@ -157,6 +158,14 @@ describe('native Narrium project file serialization', () => {
 });
 
 describe('DesktopProjectFileService', () => {
+  it('derives project names from .narrium file paths', () => {
+    expect(deriveProjectNameFromNarriumFilePath('D:/Stories/Szept/Szept.narrium')).toBe('Szept');
+    expect(deriveProjectNameFromNarriumFilePath('D:/Stories/My Story.narrium')).toBe('My Story');
+    expect(deriveProjectNameFromNarriumFilePath('D:\\Stories\\Chapter One.NARRIUM')).toBe('Chapter One');
+    expect(deriveProjectNameFromNarriumFilePath('D:/Stories/.narrium', 'Original Name')).toBe('Original Name');
+    expect(deriveProjectNameFromNarriumFilePath('D:/Stories/.narrium', '  ')).toBe('Untitled Project');
+  });
+
   it('opens a selected Narrium project file and records its file path', async () => {
     const platformFileApi = createPlatformFileApi();
     const service = new DesktopProjectFileService(platformFileApi);
@@ -182,9 +191,10 @@ describe('DesktopProjectFileService', () => {
       serializeNarriumProjectFile(project),
     );
     expect(result.filePath).toBe('C:/Stories/My Story.narrium');
+    expect(result.project.name).toBe('Test Project');
   });
 
-  it('uses Save As to select a .narrium file path', async () => {
+  it('uses Save As to select a .narrium file path and rename the saved project', async () => {
     const platformFileApi = createPlatformFileApi();
     const service = new DesktopProjectFileService(platformFileApi);
     const project = createProject({ name: 'Moonlit Road' });
@@ -196,6 +206,28 @@ describe('DesktopProjectFileService', () => {
       defaultFileName: `Moonlit Road.${NARRIUM_PROJECT_EXTENSION}`,
     });
     expect(result?.filePath).toBe('C:/Stories/My Story.narrium');
+    expect(result?.project.name).toBe('My Story');
+    expect(platformFileApi.writeProjectFile).toHaveBeenCalledWith(
+      'C:/Stories/My Story.narrium',
+      serializeNarriumProjectFile({
+        ...project,
+        name: 'My Story',
+      }),
+    );
+    expect(project.name).toBe('Moonlit Road');
+  });
+
+  it('preserves spaces and removes uppercase .NARRIUM when Save As renames the project', async () => {
+    const platformFileApi = createPlatformFileApi({
+      selectProjectFilePathForSaveAs: vi.fn((_options: ProjectFileSaveOptions) =>
+        Promise.resolve('D:/Stories/Chapter One.NARRIUM'),
+      ),
+    });
+    const service = new DesktopProjectFileService(platformFileApi);
+
+    const result = await service.saveProjectAs(createProject({ name: 'Draft Name' }));
+
+    expect(result?.project.name).toBe('Chapter One');
   });
 
   it('copies referenced local background assets before Save As writes the relocated project', async () => {
@@ -228,9 +260,13 @@ describe('DesktopProjectFileService', () => {
     );
     expect(platformFileApi.writeProjectFile).toHaveBeenCalledWith(
       'D:/Stories/Relocated.narrium',
-      expect.any(String),
+      serializeNarriumProjectFile({
+        ...project,
+        name: 'Relocated',
+      }),
     );
     expect(result?.filePath).toBe('D:/Stories/Relocated.narrium');
+    expect(result?.project.name).toBe('Relocated');
   });
 
   it('does not write Save As when local asset relocation fails', async () => {
@@ -256,6 +292,7 @@ describe('DesktopProjectFileService', () => {
       'copy failed',
     );
     expect(platformFileApi.writeProjectFile).not.toHaveBeenCalled();
+    expect(project.name).toBe('Test Project');
   });
 
   it('adds the .narrium extension when Save As returns a path without it', async () => {
@@ -274,6 +311,33 @@ describe('DesktopProjectFileService', () => {
       expect.any(String),
     );
     expect(result?.filePath).toBe('C:/Stories/My Story.narrium');
+    expect(result?.project.name).toBe('My Story');
+  });
+
+  it('does not rename or write when Save As is canceled', async () => {
+    const platformFileApi = createPlatformFileApi({
+      selectProjectFilePathForSaveAs: vi.fn((_options: ProjectFileSaveOptions) => Promise.resolve(null)),
+      writeProjectFile: vi.fn((filePath: string) => Promise.resolve(filePath)),
+    });
+    const service = new DesktopProjectFileService(platformFileApi);
+    const project = createProject({ name: 'Original Name' });
+
+    await expect(service.saveProjectAs(project)).resolves.toBeNull();
+
+    expect(platformFileApi.writeProjectFile).not.toHaveBeenCalled();
+    expect(project.name).toBe('Original Name');
+  });
+
+  it('does not mutate the project name when Save As write fails', async () => {
+    const platformFileApi = createPlatformFileApi({
+      writeProjectFile: vi.fn(() => Promise.reject(new Error('write failed'))),
+    });
+    const service = new DesktopProjectFileService(platformFileApi);
+    const project = createProject({ name: 'Original Name' });
+
+    await expect(service.saveProjectAs(project)).rejects.toThrow('write failed');
+
+    expect(project.name).toBe('Original Name');
   });
 
   it('does not write legacy project.narrium.json as the default save target', async () => {

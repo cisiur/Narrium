@@ -239,6 +239,9 @@ Good candidates:
 - Browser/Vite workflow still uses `narrium_workspace` and `narrium_project_{id}` in localStorage.
 - The workspace store currently keeps the active desktop project file path while a file-backed project is open.
 - Desktop file-backed projects become dirty after edits and clean after successful Save or Save As.
+- Successful desktop Save As synchronizes `Project.name` with the selected `.narrium` filename without its extension.
+- Normal Save preserves the current in-app project name and does not force it back to the file name.
+- Canceled or failed Save As attempts leave the active project name and file path unchanged.
 - Desktop file-backed project edits, undo, redo, Save, and Save As do not write the full Project payload to localStorage.
 - Workspace metadata, recent-project metadata, file associations, and thumbnails remain persisted separately.
 - Save As removes any old local draft payload for that project id once the `.narrium` file is written.

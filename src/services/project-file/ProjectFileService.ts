@@ -35,6 +35,14 @@ function ensureNarriumProjectExtension(filePath: string): string {
     : `${filePath}.${NARRIUM_PROJECT_EXTENSION}`;
 }
 
+export function deriveProjectNameFromNarriumFilePath(filePath: string, fallbackName = 'Untitled Project'): string {
+  const filename = filePath.split(/[\\/]/).pop() ?? '';
+  const name = filename.replace(/\.narrium$/i, '').trim();
+  const fallback = fallbackName.trim();
+
+  return name || fallback || 'Untitled Project';
+}
+
 export function serializeNarriumProjectFile(project: Project): string {
   const wrappedProject: NarriumProjectFile = {
     format: NARRIUM_PROJECT_FORMAT,
@@ -145,7 +153,12 @@ export class DesktopProjectFileService implements ProjectFileService {
       );
     }
 
-    return this.saveProject(project, destinationFilePath);
+    const renamedProject = {
+      ...project,
+      name: deriveProjectNameFromNarriumFilePath(destinationFilePath, project.name),
+    };
+
+    return this.saveProject(renamedProject, destinationFilePath);
   }
 }
 

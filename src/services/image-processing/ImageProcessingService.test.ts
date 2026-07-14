@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   MAX_BACKGROUND_UPLOAD_BYTES,
   MAX_THUMBNAIL_INPUT_BYTES,
+  THUMBNAIL_BACKGROUND_COLOR,
   THUMBNAIL_IMAGE_QUALITY,
   processBrowserBackgroundUpload,
   processProjectThumbnail,
@@ -22,6 +23,7 @@ function createFile(input: Partial<ImageFileLike> = {}): ImageFileLike {
 
 function createEnvironment(decodedImage: DecodedImage) {
   const canvases: ImageCanvas[] = [];
+  const canvasOperations: string[] = [];
   const environment: ImageProcessingEnvironment = {
     readAsDataUrl: vi.fn(() => Promise.resolve('data:image/png;base64,input')),
     decodeImage: vi.fn(() => Promise.resolve(decodedImage)),
@@ -29,7 +31,12 @@ function createEnvironment(decodedImage: DecodedImage) {
       const canvas: ImageCanvas = {
         width,
         height,
-        drawImage: vi.fn(),
+        fillBackground: vi.fn((color: string) => {
+          canvasOperations.push(`fill:${color}`);
+        }),
+        drawImage: vi.fn(() => {
+          canvasOperations.push('draw');
+        }),
         toDataUrl: vi.fn((type: string, quality?: number) => `data:${type};quality=${quality};${width}x${height}`),
       };
       canvases.push(canvas);
@@ -37,7 +44,7 @@ function createEnvironment(decodedImage: DecodedImage) {
     }),
   };
 
-  return { environment, canvases };
+  return { environment, canvases, canvasOperations };
 }
 
 describe('processProjectThumbnail', () => {
@@ -51,7 +58,34 @@ describe('processProjectThumbnail', () => {
       width: 640,
       height: 360,
     });
+    expect(canvases[0].fillBackground).toHaveBeenCalledWith(THUMBNAIL_BACKGROUND_COLOR);
     expect(canvases[0].drawImage).toHaveBeenCalledWith({ width: 1600, height: 900 }, 640, 360);
+  });
+
+  it('fills transparent thumbnail backgrounds before drawing PNG images', async () => {
+    const { environment, canvases, canvasOperations } = createEnvironment({ width: 640, height: 360 });
+
+    await processProjectThumbnail(createFile({ type: 'image/png' }), environment);
+
+    expect(canvases[0].fillBackground).toHaveBeenCalledWith(THUMBNAIL_BACKGROUND_COLOR);
+    expect(canvasOperations).toEqual([`fill:${THUMBNAIL_BACKGROUND_COLOR}`, 'draw']);
+  });
+
+  it('fills transparent thumbnail backgrounds before drawing WEBP images', async () => {
+    const { environment, canvases, canvasOperations } = createEnvironment({ width: 640, height: 360 });
+
+    await processProjectThumbnail(createFile({ type: 'image/webp' }), environment);
+
+    expect(canvases[0].fillBackground).toHaveBeenCalledWith(THUMBNAIL_BACKGROUND_COLOR);
+    expect(canvasOperations).toEqual([`fill:${THUMBNAIL_BACKGROUND_COLOR}`, 'draw']);
+  });
+
+  it('keeps thumbnail encoding as JPEG with the existing quality', async () => {
+    const { environment, canvases } = createEnvironment({ width: 640, height: 360 });
+
+    await processProjectThumbnail(createFile({ type: 'image/png' }), environment);
+
+    expect(canvases[0].toDataUrl).toHaveBeenCalledWith('image/jpeg', THUMBNAIL_IMAGE_QUALITY);
   });
 
   it('resizes portrait images while preserving aspect ratio', async () => {

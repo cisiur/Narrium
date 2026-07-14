@@ -4,6 +4,7 @@ export const MAX_BACKGROUND_UPLOAD_BYTES = 15 * 1024 * 1024;
 export const THUMBNAIL_MAX_WIDTH = 640;
 export const THUMBNAIL_MAX_HEIGHT = 360;
 export const THUMBNAIL_IMAGE_QUALITY = 0.82;
+export const THUMBNAIL_BACKGROUND_COLOR = '#ffffff';
 
 export interface ImageFileLike {
   type: string;
@@ -20,6 +21,7 @@ export interface DecodedImage {
 export interface ImageCanvas {
   width: number;
   height: number;
+  fillBackground(color: string): void;
   drawImage(image: DecodedImage, width: number, height: number): void;
   toDataUrl(type: string, quality?: number): string;
 }
@@ -94,6 +96,7 @@ export async function processProjectThumbnail(
   );
   const canvas = environment.createCanvas(size.width, size.height);
 
+  canvas.fillBackground(THUMBNAIL_BACKGROUND_COLOR);
   canvas.drawImage(decodedImage, size.width, size.height);
 
   return {
@@ -156,6 +159,16 @@ export const browserImageProcessingEnvironment: ImageProcessingEnvironment = {
     return {
       width,
       height,
+      fillBackground(color) {
+        const context = canvas.getContext('2d');
+
+        if (!context) {
+          throw new Error('Could not prepare thumbnail canvas.');
+        }
+
+        context.fillStyle = color;
+        context.fillRect(0, 0, width, height);
+      },
       drawImage(image, targetWidth, targetHeight) {
         const context = canvas.getContext('2d');
 

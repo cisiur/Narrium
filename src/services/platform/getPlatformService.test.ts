@@ -297,4 +297,27 @@ describe('platform services', () => {
 
     await expect(service.resolveLocalAssetDisplaySource()).resolves.toBeNull();
   });
+
+  it('rejects browser embedded background materialization clearly', async () => {
+    const service = new BrowserPlatformService();
+
+    await expect(
+      service.materializeEmbeddedBackgroundAssets('D:/Stories/Test.narrium', []),
+    ).rejects.toThrow('only available in the desktop app');
+  });
+
+  it('rejects desktop embedded background materialization without invoking Tauri', async () => {
+    const service = new DesktopPlatformService();
+    vi.stubGlobal('window', {});
+    let invokeCallCount = 0;
+    mockIPC(async <T,>(): Promise<T> => {
+      invokeCallCount += 1;
+      throw new Error('Unexpected invoke');
+    });
+
+    await expect(
+      service.materializeEmbeddedBackgroundAssets('D:/Stories/Test.narrium', []),
+    ).rejects.toThrow('not implemented yet');
+    expect(invokeCallCount).toBe(0);
+  });
 });

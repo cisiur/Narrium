@@ -1,4 +1,8 @@
 import type {
+  EmbeddedBackgroundAssetMaterializationRequest,
+  MaterializedBackgroundAsset,
+} from '../background-assets/BackgroundAssetMigrationService';
+import type {
   PlatformName,
   PlatformProjectFile,
   PlatformProjectFileApi,
@@ -53,6 +57,13 @@ export class BrowserPlatformService implements PlatformService, PlatformProjectF
 
   copyLocalAssetForProjectSaveAs(): Promise<void> {
     return Promise.resolve();
+  }
+
+  materializeEmbeddedBackgroundAssets(
+    _projectFilePath: string,
+    _assets: EmbeddedBackgroundAssetMaterializationRequest[],
+  ): Promise<MaterializedBackgroundAsset[]> {
+    return Promise.reject(new Error('Embedded background materialization is only available in the desktop app.'));
   }
 
   confirmUnsavedChanges(projectName: string): Promise<UnsavedChangesAction> {

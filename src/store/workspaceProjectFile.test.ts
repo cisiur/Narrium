@@ -103,6 +103,7 @@ describe('workspace project file workflow', () => {
       importBackgroundAssetFile: vi.fn(() => Promise.resolve(null)),
       resolveLocalAssetDisplaySource: vi.fn(() => Promise.resolve(null)),
       copyLocalAssetForProjectSaveAs: vi.fn(() => Promise.resolve()),
+      materializeEmbeddedBackgroundAssets: vi.fn(() => Promise.reject(new Error('not implemented'))),
     };
 
     vi.doMock('../services/project-storage', () => ({

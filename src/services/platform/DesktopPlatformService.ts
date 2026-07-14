@@ -2,6 +2,10 @@ import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { open, save } from '@tauri-apps/plugin-dialog';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import type {
+  EmbeddedBackgroundAssetMaterializationRequest,
+  MaterializedBackgroundAsset,
+} from '../background-assets/BackgroundAssetMigrationService';
+import type {
   ImportedBackgroundAssetFile,
   PlatformName,
   PlatformProjectFile,
@@ -154,6 +158,13 @@ export class DesktopPlatformService implements PlatformService, PlatformProjectF
       destinationProjectFilePath,
       relativePath,
     });
+  }
+
+  materializeEmbeddedBackgroundAssets(
+    _projectFilePath: string,
+    _assets: EmbeddedBackgroundAssetMaterializationRequest[],
+  ): Promise<MaterializedBackgroundAsset[]> {
+    return Promise.reject(new Error('Embedded background materialization is not implemented yet.'));
   }
 
   async confirmUnsavedChanges(projectName: string): Promise<UnsavedChangesAction> {

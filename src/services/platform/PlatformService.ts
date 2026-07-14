@@ -1,3 +1,8 @@
+import type {
+  EmbeddedBackgroundAssetMaterializationRequest,
+  MaterializedBackgroundAsset,
+} from '../background-assets/BackgroundAssetMigrationService';
+
 export type PlatformName = 'browser' | 'desktop';
 
 export interface ProjectFileSelectionOptions {
@@ -35,6 +40,10 @@ export interface PlatformProjectFileApi {
     destinationProjectFilePath: string,
     relativePath: string,
   ): Promise<void>;
+  materializeEmbeddedBackgroundAssets(
+    projectFilePath: string,
+    assets: EmbeddedBackgroundAssetMaterializationRequest[],
+  ): Promise<MaterializedBackgroundAsset[]>;
 }
 
 export interface PlatformAppPreferencesApi {

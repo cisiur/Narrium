@@ -20,6 +20,7 @@ pub fn run() {
 }
 
 const MAX_PROJECT_FILE_BYTES: u64 = 25 * 1024 * 1024;
+const MAX_BACKGROUND_IMAGE_BYTES: u64 = 15 * 1024 * 1024;
 const APP_PREFERENCES_FILE_NAME: &str = "preferences.json";
 
 #[tauri::command]
@@ -415,6 +416,14 @@ fn import_background_asset_file(
     let extension = safe_background_extension(&source_path)?;
     let metadata = std::fs::metadata(&source_path)
         .map_err(|error| format!("Failed to read selected image metadata: {}", error))?;
+
+    if metadata.len() > MAX_BACKGROUND_IMAGE_BYTES {
+        return Err(format!(
+            "Background image is too large to import. Maximum supported size is {} MiB.",
+            MAX_BACKGROUND_IMAGE_BYTES / 1024 / 1024
+        ));
+    }
+
     let backgrounds_dir = project_dir.join("assets").join("backgrounds");
 
     std::fs::create_dir_all(&backgrounds_dir).map_err(|error| {
@@ -713,6 +722,26 @@ mod tests {
             .join("backgrounds")
             .join("forest-hall.png")
             .is_file());
+    }
+
+    #[test]
+    fn rejects_oversized_background_assets_before_copying() {
+        let root = temp_root("rejects-oversized-background");
+        let project_path = root.join("Story.narrium");
+        write_file(&project_path, b"{}");
+        let source_path = root.join("Huge.png");
+        let file = fs::File::create(&source_path).expect("source image should be created");
+        file.set_len(MAX_BACKGROUND_IMAGE_BYTES + 1)
+            .expect("source image length should be set");
+
+        let error = import_background_asset_file(
+            project_path.to_string_lossy().to_string(),
+            source_path.to_string_lossy().to_string(),
+        )
+        .unwrap_err();
+
+        assert!(error.contains("Background image is too large"));
+        assert!(!root.join("assets").join("backgrounds").exists());
     }
 
     #[test]

@@ -53,4 +53,17 @@ describe('workspace dirty state', () => {
     useWorkspaceStore.getState().createProject();
     expect(useWorkspaceStore.getState().activeProjectDirty).toBe(false);
   });
+
+  it('updates thumbnail data in both the Project and workspace metadata', () => {
+    const projectMeta = useWorkspaceStore.getState().createProject();
+
+    useWorkspaceStore.getState().updateProjectThumbnail(projectMeta.id, 'data:image/jpeg;base64,optimized');
+
+    expect(useWorkspaceStore.getState().activeProject?.thumbnail).toBe('data:image/jpeg;base64,optimized');
+    expect(useWorkspaceStore.getState().projects[0]).toMatchObject({
+      id: projectMeta.id,
+      thumbnailDataUrl: 'data:image/jpeg;base64,optimized',
+    });
+    expect(useWorkspaceStore.getState().activeProjectDirty).toBe(true);
+  });
 });

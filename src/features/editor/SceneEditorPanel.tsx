@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useCanvasStore } from '../../store/useCanvasStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
+import { processBrowserBackgroundUpload } from '../../services/image-processing';
 import { getPlatformService } from '../../services/platform';
 import { ConditionGroupsEditor } from '../story-logic/ConditionGroupsEditor';
 import { EffectsEditor } from '../story-logic/EffectsEditor';
@@ -238,25 +239,21 @@ export function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProp
     });
   };
 
-  const importBrowserUpload = (file: File | undefined) => {
+  const importBrowserUpload = async (file: File | undefined) => {
     if (!file) {
       return;
     }
 
-    const reader = new FileReader();
-
-    reader.onload = () => {
-      if (typeof reader.result !== 'string') {
-        return;
-      }
+    try {
+      const upload = await processBrowserBackgroundUpload(file);
 
       const assetId = addBackgroundAsset({
         name: uploadAssetName || file.name || 'Uploaded Background',
         storageType: 'embedded',
-        source: reader.result,
+        source: upload.dataUrl,
         metadata: {
-          mimeType: file.type || undefined,
-          fileSize: file.size,
+          mimeType: upload.mimeType,
+          fileSize: upload.fileSize,
         },
       });
 
@@ -265,9 +262,9 @@ export function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProp
         setUploadAssetName('');
         setAssetError(null);
       }
-    };
-
-    reader.readAsDataURL(file);
+    } catch (error) {
+      setAssetError(error instanceof Error ? error.message : 'Could not import background image.');
+    }
   };
 
   const importDesktopUpload = async () => {
@@ -430,9 +427,9 @@ export function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProp
             <input
               type="file"
               ref={browserUploadInputRef}
-              accept="image/*"
+              accept="image/png,image/jpeg,image/webp"
               onChange={(event) => {
-                importBrowserUpload(event.target.files?.[0]);
+                void importBrowserUpload(event.target.files?.[0]);
                 event.currentTarget.value = '';
               }}
               className="hidden"

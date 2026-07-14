@@ -3,6 +3,7 @@ import { useConfirmationDialog } from '../../components';
 import { RightSidebar } from '../../components/RightSidebar';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import type { RecentProject } from '../../services/app-preferences';
+import { processProjectThumbnail } from '../../services/image-processing';
 import type { Project, WorkspaceProjectMeta } from '../../types';
 import { parseProjectImport } from '../../utils/projectImport';
 
@@ -102,6 +103,29 @@ interface ProjectSettingsSidebarProps {
   onUpdateThumbnail: (projectId: string, thumbnail: string | null) => void;
 }
 
+export async function updateProjectThumbnailFromFile(
+  projectId: string,
+  file: File | undefined,
+  onUpdateThumbnail: (projectId: string, thumbnail: string | null) => void,
+  onError: (message: string | null) => void,
+  processor = processProjectThumbnail,
+): Promise<boolean> {
+  if (!file) {
+    return false;
+  }
+
+  try {
+    const thumbnail = await processor(file);
+
+    onUpdateThumbnail(projectId, thumbnail.dataUrl);
+    onError(null);
+    return true;
+  } catch (error) {
+    onError(error instanceof Error ? error.message : 'Could not process thumbnail image.');
+    return false;
+  }
+}
+
 function ProjectSettingsSidebar({
   project,
   onClose,
@@ -111,12 +135,14 @@ function ProjectSettingsSidebar({
 }: ProjectSettingsSidebarProps) {
   const { confirm, confirmationDialog } = useConfirmationDialog();
   const [draftName, setDraftName] = useState(project?.name ?? '');
+  const [thumbnailError, setThumbnailError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const thumbnailInputRef = useRef<HTMLInputElement | null>(null);
   const isOpen = Boolean(project);
 
   useEffect(() => {
     setDraftName(project?.name ?? '');
+    setThumbnailError(null);
 
     if (!project?.id) {
       return;
@@ -154,22 +180,12 @@ function ProjectSettingsSidebar({
     onDelete(project.id);
   };
 
-  const updateThumbnail = (file: File | undefined) => {
+  const updateThumbnail = async (file: File | undefined) => {
     if (!project || !file) {
       return;
     }
 
-    const reader = new FileReader();
-
-    reader.onload = () => {
-      if (typeof reader.result !== 'string') {
-        return;
-      }
-
-      onUpdateThumbnail(project.id, reader.result);
-    };
-
-    reader.readAsDataURL(file);
+    await updateProjectThumbnailFromFile(project.id, file, onUpdateThumbnail, setThumbnailError);
   };
 
   const removeThumbnail = () => {
@@ -177,6 +193,7 @@ function ProjectSettingsSidebar({
       return;
     }
 
+    setThumbnailError(null);
     onUpdateThumbnail(project.id, null);
   };
 
@@ -243,9 +260,9 @@ function ProjectSettingsSidebar({
             <input
               ref={thumbnailInputRef}
               type="file"
-              accept="image/*"
+              accept="image/png,image/jpeg,image/webp"
               onChange={(event) => {
-                updateThumbnail(event.target.files?.[0]);
+                void updateThumbnail(event.target.files?.[0]);
                 event.currentTarget.value = '';
               }}
               className="hidden"
@@ -265,6 +282,11 @@ function ProjectSettingsSidebar({
               >
                 Remove Thumbnail
               </button>
+            ) : null}
+            {thumbnailError ? (
+              <p className="mt-3 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+                {thumbnailError}
+              </p>
             ) : null}
           </section>
         </>

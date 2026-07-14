@@ -185,6 +185,29 @@ describe('normalizeProject', () => {
     });
   });
 
+  it('keeps existing larger embedded images loadable during normalization', () => {
+    const largeDataUrl = `data:image/png;base64,${'a'.repeat(16 * 1024 * 1024)}`;
+    const project = createProject({
+      thumbnail: largeDataUrl,
+      assetLibrary: [
+        {
+          id: 'asset-large',
+          kind: 'background',
+          name: 'Legacy Large Background',
+          storageType: 'embedded',
+          source: largeDataUrl,
+          createdAt: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    });
+
+    const normalizedProject = normalizeProject(project);
+
+    expect(normalizedProject.changed).toBe(false);
+    expect(normalizedProject.project.thumbnail).toBe(largeDataUrl);
+    expect(normalizedProject.project.assetLibrary[0].source).toBe(largeDataUrl);
+  });
+
   it('migrates legacy direct scene remote URLs into the asset catalog', () => {
     const remoteUrl = 'https://example.com/castle.jpg';
     const normalizedProject = normalizeProject(

@@ -1,8 +1,8 @@
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { RecentProject } from '../../services/app-preferences';
 import type { WorkspaceProjectMeta } from '../../types';
-import { findAssociatedRecentProject, ProjectCard } from './MyProjectsScreen';
+import { findAssociatedRecentProject, ProjectCard, updateProjectThumbnailFromFile } from './MyProjectsScreen';
 
 function createProject(overrides: Partial<WorkspaceProjectMeta> = {}): WorkspaceProjectMeta {
   return {
@@ -101,5 +101,40 @@ describe('My Projects file-backed cards', () => {
 
     expect(html).toContain('Local draft');
     expect(html).not.toContain('.narrium file');
+  });
+});
+
+describe('project thumbnail processing', () => {
+  it('updates the selected project thumbnail after successful processing', async () => {
+    const onUpdateThumbnail = vi.fn();
+    const onError = vi.fn();
+    const file = new File(['thumbnail'], 'thumbnail.png', { type: 'image/png' });
+    const processor = vi.fn(() => Promise.resolve({ dataUrl: 'data:image/jpeg;base64,optimized', width: 640, height: 360 }));
+
+    await expect(
+      updateProjectThumbnailFromFile('project-1', file, onUpdateThumbnail, onError, processor),
+    ).resolves.toBe(true);
+
+    expect(processor).toHaveBeenCalledWith(file);
+    expect(onUpdateThumbnail).toHaveBeenCalledWith('project-1', 'data:image/jpeg;base64,optimized');
+    expect(onError).toHaveBeenCalledWith(null);
+  });
+
+  it('keeps the previous thumbnail when processing fails', async () => {
+    let thumbnail = 'data:image/jpeg;base64,previous';
+    const onUpdateThumbnail = vi.fn((_projectId: string, nextThumbnail: string | null) => {
+      thumbnail = nextThumbnail ?? '';
+    });
+    const onError = vi.fn();
+    const file = new File(['thumbnail'], 'thumbnail.gif', { type: 'image/gif' });
+    const processor = vi.fn(() => Promise.reject(new Error('Thumbnail must be a PNG, JPEG, or WEBP image.')));
+
+    await expect(
+      updateProjectThumbnailFromFile('project-1', file, onUpdateThumbnail, onError, processor),
+    ).resolves.toBe(false);
+
+    expect(onUpdateThumbnail).not.toHaveBeenCalled();
+    expect(onError).toHaveBeenCalledWith('Thumbnail must be a PNG, JPEG, or WEBP image.');
+    expect(thumbnail).toBe('data:image/jpeg;base64,previous');
   });
 });

@@ -10,10 +10,6 @@ function resolveDirectBackgroundUrl(project: Project, scene: Scene): string | nu
   if (scene.background.mode === 'asset' && scene.background.assetId) {
     const asset = project.assetLibrary.find((item) => item.id === scene.background.assetId);
 
-    if (asset?.storageType === 'local') {
-      return null;
-    }
-
     return resolveBackgroundAssetDisplaySource(asset ?? null, null).source;
   }
 

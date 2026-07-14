@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { resolveAssetDisplaySource } from '../../domain/assets/assetSources';
-import { getPlatformService } from '../../services/platform';
+import {
+  resolveBackgroundAssetDisplaySource,
+  type BackgroundAssetDisplayResolution,
+} from '../../services/background-assets';
 import type { AssetLibraryItem, Project, Scene } from '../../types';
 
 export function resolveSceneBackgroundAsset(project: Project, scene: Scene): AssetLibraryItem | null {
@@ -43,58 +45,41 @@ export function useAssetDisplaySource(
   asset: AssetLibraryItem | null,
   projectFilePath: string | null,
 ): string | null {
-  const immediateSource = useMemo(() => {
-    if (!asset) {
-      return null;
-    }
-
-    if (asset.storageType === 'local') {
-      return null;
-    }
-
-    return resolveAssetDisplaySource(asset);
-  }, [asset]);
-  const [source, setSource] = useState<string | null>(immediateSource);
+  const resolution = useMemo(
+    () => resolveBackgroundAssetDisplaySource(asset, projectFilePath),
+    [asset, projectFilePath],
+  );
+  const [source, setSource] = useState<string | null>(resolution.source);
 
   useEffect(() => {
-    let isCurrent = true;
+    return subscribeToAssetDisplaySource(resolution, setSource);
+  }, [resolution]);
 
-    if (!asset) {
-      setSource(null);
-      return () => {
-        isCurrent = false;
-      };
-    }
+  return source;
+}
 
-    if (asset.storageType !== 'local') {
-      setSource(resolveAssetDisplaySource(asset));
-      return () => {
-        isCurrent = false;
-      };
-    }
+export function subscribeToAssetDisplaySource(
+  resolution: BackgroundAssetDisplayResolution,
+  setSource: (source: string | null) => void,
+): () => void {
+  let isCurrent = true;
 
-    if (!projectFilePath) {
-      setSource(null);
-      return () => {
-        isCurrent = false;
-      };
-    }
+  setSource(resolution.source);
 
-    setSource(null);
-    getPlatformService()
-      .resolveLocalAssetDisplaySource(projectFilePath, asset.source)
+  if (resolution.loadSource) {
+    void resolution
+      .loadSource()
+      .catch(() => null)
       .then((resolvedSource) => {
         if (isCurrent) {
           setSource(resolvedSource);
         }
       });
+  }
 
-    return () => {
-      isCurrent = false;
-    };
-  }, [asset, projectFilePath]);
-
-  return source;
+  return () => {
+    isCurrent = false;
+  };
 }
 
 export function useSceneBackgroundDisplaySource(

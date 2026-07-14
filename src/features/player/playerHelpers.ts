@@ -1,4 +1,4 @@
-import { resolveAssetDisplaySource } from '../../domain/assets/assetSources';
+import { resolveBackgroundAssetDisplaySource } from '../../services/background-assets';
 import type { Project, Scene } from '../../types';
 export { createChoiceViewModels, type ChoiceViewModel } from '../../domain/runtime';
 
@@ -14,7 +14,7 @@ function resolveDirectBackgroundUrl(project: Project, scene: Scene): string | nu
       return null;
     }
 
-    return asset ? resolveAssetDisplaySource(asset) : null;
+    return resolveBackgroundAssetDisplaySource(asset ?? null, null).source;
   }
 
   return null;

@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { AssetLibraryItem, Project, Scene } from '../../types';
-import { resolveLegacySceneBackgroundSource, resolveSceneBackgroundAsset } from './assetDisplay';
+import {
+  resolveLegacySceneBackgroundSource,
+  resolveSceneBackgroundAsset,
+  subscribeToAssetDisplaySource,
+} from './assetDisplay';
 
 function createBackgroundAsset(overrides: Partial<AssetLibraryItem> = {}): AssetLibraryItem {
   return {
@@ -32,13 +36,15 @@ function createScene(overrides: Partial<Scene> = {}): Scene {
   };
 }
 
-function createProject(scene: Scene, assetLibrary: AssetLibraryItem[]): Project {
+function createProject(scenes: Scene | Scene[], assetLibrary: AssetLibraryItem[]): Project {
+  const projectScenes = Array.isArray(scenes) ? scenes : [scenes];
+
   return {
     id: 'project-1',
     name: 'Project',
     thumbnail: null,
-    startSceneId: scene.id,
-    scenes: [scene],
+    startSceneId: projectScenes[0]?.id ?? '',
+    scenes: projectScenes,
     characters: [],
     resources: [],
     variables: [],
@@ -69,6 +75,31 @@ describe('scene background asset display resolution', () => {
     expect(resolveLegacySceneBackgroundSource(project, scene)).toBeNull();
   });
 
+  it('resolves scene-reference backgrounds through the referenced scene asset', () => {
+    const asset = createBackgroundAsset();
+    const referencedScene = createScene({
+      id: 'scene-source',
+      background: {
+        mode: 'asset',
+        assetId: asset.id,
+        sourceSceneId: null,
+        url: '',
+      },
+    });
+    const scene = createScene({
+      id: 'scene-reference',
+      background: {
+        mode: 'scene_reference',
+        assetId: null,
+        sourceSceneId: referencedScene.id,
+        url: '',
+      },
+    });
+    const project = createProject([scene, referencedScene], [asset]);
+
+    expect(resolveSceneBackgroundAsset(project, scene)).toBe(asset);
+  });
+
   it('keeps embedded browser background sources on the immediate display path', () => {
     const scene = createScene({
       background: {
@@ -82,5 +113,102 @@ describe('scene background asset display resolution', () => {
 
     expect(resolveSceneBackgroundAsset(project, scene)).toBeNull();
     expect(resolveLegacySceneBackgroundSource(project, scene)).toBe('data:image/png;base64,abc');
+  });
+
+  it('keeps legacy direct scene-reference upload backgrounds on the immediate display path', () => {
+    const referencedScene = createScene({
+      id: 'scene-source',
+      background: {
+        mode: 'upload',
+        assetId: null,
+        sourceSceneId: null,
+        url: 'data:image/png;base64,legacy',
+      },
+    });
+    const scene = createScene({
+      id: 'scene-reference',
+      background: {
+        mode: 'scene_reference',
+        assetId: null,
+        sourceSceneId: referencedScene.id,
+        url: '',
+      },
+    });
+    const project = createProject([scene, referencedScene], []);
+
+    expect(resolveSceneBackgroundAsset(project, scene)).toBeNull();
+    expect(resolveLegacySceneBackgroundSource(project, scene)).toBe('data:image/png;base64,legacy');
+  });
+});
+
+describe('asset display source subscription', () => {
+  it('ignores stale asynchronous local-resolution results after the selected asset changes', async () => {
+    let resolveLocalSource: (source: string | null) => void = () => undefined;
+    const updates: Array<string | null> = [];
+    const cleanupLocal = subscribeToAssetDisplaySource(
+      {
+        source: null,
+        loadSource: () =>
+          new Promise<string | null>((resolve) => {
+            resolveLocalSource = resolve;
+          }),
+      },
+      (source) => updates.push(source),
+    );
+
+    cleanupLocal();
+    subscribeToAssetDisplaySource(
+      {
+        source: 'data:image/png;base64,new',
+      },
+      (source) => updates.push(source),
+    );
+    resolveLocalSource('asset://localhost/backgrounds/old.png');
+    await Promise.resolve();
+
+    expect(updates).toEqual([null, 'data:image/png;base64,new']);
+  });
+
+  it('updates immediately when switching from a local asset to a remote asset', async () => {
+    let resolveLocalSource: (source: string | null) => void = () => undefined;
+    const updates: Array<string | null> = [];
+    const cleanupLocal = subscribeToAssetDisplaySource(
+      {
+        source: null,
+        loadSource: () =>
+          new Promise<string | null>((resolve) => {
+            resolveLocalSource = resolve;
+          }),
+      },
+      (source) => updates.push(source),
+    );
+
+    cleanupLocal();
+    subscribeToAssetDisplaySource(
+      {
+        source: 'https://example.com/new-background.jpg',
+      },
+      (source) => updates.push(source),
+    );
+    resolveLocalSource('asset://localhost/backgrounds/old.png');
+    await Promise.resolve();
+
+    expect(updates).toEqual([null, 'https://example.com/new-background.jpg']);
+  });
+
+  it('treats failed local display resolution as a missing source', async () => {
+    const updates: Array<string | null> = [];
+
+    subscribeToAssetDisplaySource(
+      {
+        source: null,
+        loadSource: () => Promise.reject(new Error('missing local file')),
+      },
+      (source) => updates.push(source),
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(updates).toEqual([null, null]);
   });
 });

@@ -12,9 +12,9 @@ import { useCanvasStore } from '../store/useCanvasStore';
 import { useProjectViewStore } from '../store/useProjectViewStore';
 import { useWorkspaceStore } from '../store/workspaceStore';
 import type { Project } from '../types';
-import { exportProjectAsJson } from '../utils/projectExport';
 import { exportProjectAsStandaloneHtml } from '../utils/standaloneHtmlExport';
 import { shouldProceedWithStandaloneHtmlExport, validateStandaloneHtmlExport } from '../services/export';
+import { getJsonExportService } from '../services/json-export';
 import { getPlatformService } from '../services/platform';
 
 function isTextEditingTarget(target: EventTarget | null) {
@@ -183,6 +183,14 @@ export function App() {
     exportProjectAsStandaloneHtml(project);
   };
 
+  const exportProjectJson = async (project: Project) => {
+    try {
+      await getJsonExportService().exportProject(project);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'Could not export project JSON.');
+    }
+  };
+
   if (activeProject) {
     if (isPreviewMode) {
       return <StoryPlayer project={activeProject} onExitPreview={() => setIsPreviewMode(false)} />;
@@ -229,7 +237,7 @@ export function App() {
         canSaveProject={Boolean(activeProjectFilePath)}
         onSaveProjectAs={canUseProjectFiles ? () => void saveActiveProjectAsFile() : undefined}
         onExportHtml={() => void exportStandaloneHtml(activeProject)}
-        onExportProject={() => exportProjectAsJson(activeProject)}
+        onExportProject={() => void exportProjectJson(activeProject)}
         onEnterPreview={() => setIsPreviewMode(true)}
         onProjectViewChange={setActiveProjectView}
         rightPanel={isCanvasView ? <SceneEditorPanel /> : null}

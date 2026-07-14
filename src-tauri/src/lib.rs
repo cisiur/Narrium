@@ -10,6 +10,7 @@ pub fn run() {
             write_app_preferences_file,
             read_project_file,
             write_project_file,
+            write_json_export_file,
             import_background_asset_file,
             resolve_local_asset_file,
             copy_local_asset_for_project_save_as
@@ -181,6 +182,26 @@ fn write_project_file(file_path: String, contents: String) -> Result<String, Str
     Ok(project_file_path.to_string_lossy().to_string())
 }
 
+#[tauri::command]
+fn write_json_export_file(file_path: String, contents: String) -> Result<String, String> {
+    let export_file_path = std::path::Path::new(&file_path);
+    let parent_path = validate_json_export_file_path_for_write(export_file_path)?;
+
+    if !parent_path.is_dir() {
+        return Err("JSON export destination directory does not exist.".to_string());
+    }
+
+    std::fs::write(&export_file_path, contents).map_err(|error| {
+        format!(
+            "Failed to write JSON export {}: {}",
+            export_file_path.display(),
+            error
+        )
+    })?;
+
+    Ok(export_file_path.to_string_lossy().to_string())
+}
+
 fn extension_lowercase(path: &std::path::Path) -> Option<String> {
     path.extension()
         .and_then(|extension| extension.to_str())
@@ -211,6 +232,24 @@ fn validate_project_file_path_for_write(
     path.parent()
         .filter(|parent| !parent.as_os_str().is_empty())
         .ok_or_else(|| "Project file must have a parent directory.".to_string())
+}
+
+fn validate_json_export_file_path_for_write(
+    path: &std::path::Path,
+) -> Result<&std::path::Path, String> {
+    match extension_lowercase(path).as_deref() {
+        Some("json") => {}
+        _ => {
+            return Err(
+                "Unsupported JSON export file type. Export JSON files with a .json extension."
+                    .to_string(),
+            );
+        }
+    }
+
+    path.parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .ok_or_else(|| "JSON export file must have a parent directory.".to_string())
 }
 
 fn project_dir_from_file_path(file_path: &str) -> Result<std::path::PathBuf, String> {
@@ -579,6 +618,48 @@ mod tests {
 
         assert!(error.contains("Save projects as .narrium files"));
         assert!(!project_path.exists());
+    }
+
+    #[test]
+    fn writes_valid_json_export_files() {
+        let root = temp_root("writes-valid-json-export");
+        let export_path = root.join("Story.json");
+
+        let saved_path =
+            write_json_export_file(export_path.to_string_lossy().to_string(), "{}".to_string())
+                .expect("json export write should succeed");
+
+        assert_eq!(saved_path, export_path.to_string_lossy());
+        assert_eq!(
+            fs::read_to_string(export_path).expect("export file should be readable"),
+            "{}"
+        );
+    }
+
+    #[test]
+    fn rejects_non_json_export_extensions() {
+        let root = temp_root("rejects-json-export-extension");
+        let export_path = root.join("Story.narrium");
+
+        let error =
+            write_json_export_file(export_path.to_string_lossy().to_string(), "{}".to_string())
+                .unwrap_err();
+
+        assert!(error.contains("Export JSON files with a .json extension"));
+        assert!(!export_path.exists());
+    }
+
+    #[test]
+    fn rejects_json_exports_without_existing_parent_directory() {
+        let root = temp_root("rejects-json-export-missing-parent");
+        let export_path = root.join("Missing").join("Story.json");
+
+        let error =
+            write_json_export_file(export_path.to_string_lossy().to_string(), "{}".to_string())
+                .unwrap_err();
+
+        assert!(error.contains("destination directory does not exist"));
+        assert!(!export_path.exists());
     }
 
     #[test]

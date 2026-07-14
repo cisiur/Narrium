@@ -55,4 +55,12 @@ describe('createStandaloneHtml', () => {
     expect(html).toContain('runtimeState.variables.resources[resource.key]');
     expect(html).not.toContain('runtimeState.variables.variables[resource.key]');
   });
+
+  it('continues embedding the Project directly for standalone HTML export', () => {
+    const html = createStandaloneHtml(createProject());
+
+    expect(html).toContain('const project = {');
+    expect(html).toContain('"id":"project-1"');
+    expect(html).not.toContain('"format":"narrium.project"');
+  });
 });

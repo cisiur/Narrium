@@ -105,6 +105,7 @@ describe('workspace project file workflow', () => {
       copyLocalAssetForProjectSaveAs: vi.fn(() => Promise.resolve()),
       materializeEmbeddedBackgroundAssets: vi.fn(() => Promise.reject(new Error('not implemented'))),
       listLocalBackgroundFiles: vi.fn(() => Promise.resolve([])),
+      fingerprintLocalBackgroundFiles: vi.fn(() => Promise.resolve([])),
       deleteLocalBackgroundFiles: vi.fn(() => Promise.resolve({ deleted: [], skipped: [], failed: [] })),
     };
 

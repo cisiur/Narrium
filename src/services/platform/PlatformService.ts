@@ -32,6 +32,10 @@ export interface PhysicalBackgroundFile {
   fileSize: number;
 }
 
+export interface FingerprintedBackgroundFile extends PhysicalBackgroundFile {
+  contentHash: string;
+}
+
 export interface DeletedBackgroundFile {
   relativePath: string;
   fileSize: number;
@@ -72,6 +76,7 @@ export interface PlatformProjectFileApi {
     assets: EmbeddedBackgroundAssetMaterializationRequest[],
   ): Promise<MaterializedBackgroundAsset[]>;
   listLocalBackgroundFiles(projectFilePath: string): Promise<PhysicalBackgroundFile[]>;
+  fingerprintLocalBackgroundFiles(projectFilePath: string): Promise<FingerprintedBackgroundFile[]>;
   deleteLocalBackgroundFiles(
     projectFilePath: string,
     relativePaths: string[],

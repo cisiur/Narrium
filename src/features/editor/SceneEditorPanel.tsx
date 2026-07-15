@@ -4,8 +4,10 @@ import { useCanvasStore } from '../../store/useCanvasStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import {
   BackgroundAssetCleanupService,
+  BackgroundAssetDuplicateService,
   type BackgroundAssetCleanupDeletionResult,
   type BackgroundAssetCleanupReport,
+  type BackgroundAssetDuplicateReport,
 } from '../../services/background-assets';
 import { processBrowserBackgroundUpload } from '../../services/image-processing';
 import { getPlatformService } from '../../services/platform';
@@ -136,6 +138,25 @@ interface CleanupDeletionWorkflowResult {
   cleanupError: string | null;
 }
 
+interface DuplicateScanWorkflowService {
+  scanDuplicateLocalBackgroundFiles(
+    project: Project,
+    projectFilePath: string | null,
+  ): ReturnType<BackgroundAssetDuplicateService['scanDuplicateLocalBackgroundFiles']>;
+}
+
+interface DuplicateScanWorkflowInput {
+  duplicateService: DuplicateScanWorkflowService;
+  project: Project;
+  projectFilePath: string | null;
+  getLatestWorkspaceState: () => CleanupWorkspaceSnapshot;
+}
+
+interface DuplicateScanWorkflowResult {
+  duplicateReport: BackgroundAssetDuplicateReport | null;
+  duplicateError: string | null;
+}
+
 export async function runBackgroundCleanupDeletionWorkflow({
   cleanupService,
   cleanupReport,
@@ -185,6 +206,39 @@ export async function runBackgroundCleanupDeletionWorkflow({
       cleanupResult: deletionResult,
       cleanupReport: null,
       cleanupError: BACKGROUND_CLEANUP_REFRESH_WARNING,
+    };
+  }
+}
+
+export async function runBackgroundDuplicateScanWorkflow({
+  duplicateService,
+  project,
+  projectFilePath,
+  getLatestWorkspaceState,
+}: DuplicateScanWorkflowInput): Promise<DuplicateScanWorkflowResult> {
+  try {
+    const duplicateReport = await duplicateService.scanDuplicateLocalBackgroundFiles(project, projectFilePath);
+    const latestState = getLatestWorkspaceState();
+
+    if (
+      !latestState.activeProject ||
+      latestState.activeProject.id !== duplicateReport.projectId ||
+      latestState.activeProjectFilePath !== duplicateReport.projectFilePath
+    ) {
+      return {
+        duplicateReport: null,
+        duplicateError: null,
+      };
+    }
+
+    return {
+      duplicateReport,
+      duplicateError: null,
+    };
+  } catch (error) {
+    return {
+      duplicateReport: null,
+      duplicateError: error instanceof Error ? error.message : 'Could not scan for duplicate background files.',
     };
   }
 }
@@ -289,6 +343,10 @@ export function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProp
     () => new BackgroundAssetCleanupService(getPlatformService()),
     [],
   );
+  const duplicateService = useMemo(
+    () => new BackgroundAssetDuplicateService(getPlatformService()),
+    [],
+  );
   const availableReferenceScenes = scenes.filter((candidate) => candidate.id !== scene.id);
   const referencedScene =
     availableReferenceScenes.find((candidate) => candidate.id === scene.background.sourceSceneId) ?? null;
@@ -304,14 +362,21 @@ export function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProp
   const [isCleanupScanning, setIsCleanupScanning] = useState(false);
   const [isCleanupDeleting, setIsCleanupDeleting] = useState(false);
   const [cleanupError, setCleanupError] = useState<string | null>(null);
+  const [duplicateReport, setDuplicateReport] = useState<BackgroundAssetDuplicateReport | null>(null);
+  const [isDuplicateScanning, setIsDuplicateScanning] = useState(false);
+  const [duplicateError, setDuplicateError] = useState<string | null>(null);
   const browserUploadInputRef = useRef<HTMLInputElement | null>(null);
   const selectedAssetSource = useAssetDisplaySource(selectedAsset, activeProjectFilePath);
   const canCleanUpLocalBackgroundFiles = cleanupService.canCleanUpLocalBackgroundFiles(activeProjectFilePath);
+  const canFindDuplicateLocalBackgroundFiles =
+    duplicateService.canFindDuplicateLocalBackgroundFiles(activeProjectFilePath);
 
   useEffect(() => {
     setCleanupReport(null);
     setCleanupResult(null);
     setCleanupError(null);
+    setDuplicateReport(null);
+    setDuplicateError(null);
   }, [activeProject?.id, activeProjectFilePath]);
 
   const updateBackground = (background: SceneBackground) => {
@@ -489,6 +554,37 @@ export function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProp
     }
   };
 
+  const scanDuplicateLocalBackgroundFiles = async () => {
+    if (!activeProject) {
+      setDuplicateReport(null);
+      return;
+    }
+
+    setIsDuplicateScanning(true);
+    setDuplicateError(null);
+
+    try {
+      const workflowResult = await runBackgroundDuplicateScanWorkflow({
+        duplicateService,
+        project: activeProject,
+        projectFilePath: activeProjectFilePath,
+        getLatestWorkspaceState: () => {
+          const state = useWorkspaceStore.getState();
+
+          return {
+            activeProject: state.activeProject,
+            activeProjectFilePath: state.activeProjectFilePath,
+          };
+        },
+      });
+
+      setDuplicateReport(workflowResult.duplicateReport);
+      setDuplicateError(workflowResult.duplicateError);
+    } finally {
+      setIsDuplicateScanning(false);
+    }
+  };
+
   const deleteUnusedLocalBackgroundFiles = async () => {
     if (!cleanupReport || cleanupReport.orphanedFiles.length === 0) {
       return;
@@ -662,16 +758,28 @@ export function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProp
         <div className="mt-4 space-y-2">
           <div className="flex items-center justify-between gap-2">
             <div className="text-xs font-semibold text-gray-300">Project background assets</div>
-            {canCleanUpLocalBackgroundFiles ? (
-              <button
-                type="button"
-                onClick={() => void scanUnusedLocalBackgroundFiles()}
-                disabled={isCleanupScanning || isCleanupDeleting}
-                className="rounded bg-gray-700 px-2 py-1 text-[11px] font-medium text-gray-100 hover:bg-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isCleanupScanning ? 'Scanning...' : 'Clean Up Unused Files'}
-              </button>
-            ) : null}
+            <div className="flex flex-wrap justify-end gap-1">
+              {canFindDuplicateLocalBackgroundFiles ? (
+                <button
+                  type="button"
+                  onClick={() => void scanDuplicateLocalBackgroundFiles()}
+                  disabled={isDuplicateScanning}
+                  className="rounded bg-gray-700 px-2 py-1 text-[11px] font-medium text-gray-100 hover:bg-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isDuplicateScanning ? 'Scanning...' : 'Find Duplicate Files'}
+                </button>
+              ) : null}
+              {canCleanUpLocalBackgroundFiles ? (
+                <button
+                  type="button"
+                  onClick={() => void scanUnusedLocalBackgroundFiles()}
+                  disabled={isCleanupScanning || isCleanupDeleting}
+                  className="rounded bg-gray-700 px-2 py-1 text-[11px] font-medium text-gray-100 hover:bg-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isCleanupScanning ? 'Scanning...' : 'Clean Up Unused Files'}
+                </button>
+              ) : null}
+            </div>
           </div>
           {backgroundAssets.length === 0 ? (
             <p className="rounded-md border border-dashed border-gray-700 px-3 py-3 text-xs text-gray-500">
@@ -715,6 +823,57 @@ export function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProp
             ))
           )}
         </div>
+
+        {duplicateError ? (
+          <p className="mt-3 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+            {duplicateError}
+          </p>
+        ) : null}
+
+        {duplicateReport ? (
+          <div className="mt-3 space-y-3 rounded-md border border-gray-700 bg-gray-900 p-3 text-xs text-gray-300">
+            <div className="font-semibold text-gray-100">
+              {duplicateReport.groups.length === 0
+                ? 'No duplicate local background files found.'
+                : `${duplicateReport.groups.length} duplicate group(s) found, ${formatBytes(
+                    duplicateReport.totalPotentialReclaimableBytes,
+                  )} potential reclaimable space`}
+            </div>
+            <p className="text-gray-400">
+              Duplicate detection does not delete files or change Asset Library references.
+            </p>
+            {duplicateReport.groups.map((group) => (
+              <div key={group.contentHash} className="rounded border border-gray-700 bg-gray-950 p-2">
+                <div className="mb-2 flex items-center justify-between gap-2 text-[11px] text-gray-400">
+                  <span>{group.files.length} matching file(s)</span>
+                  <span>
+                    Group size {formatBytes(group.totalSize)}; potential reclaimable{' '}
+                    {formatBytes(group.potentialReclaimableBytes)}
+                  </span>
+                </div>
+                <ul className="space-y-1">
+                  {group.files.map((file) => (
+                    <li key={file.relativePath} className="flex min-w-0 items-center justify-between gap-2">
+                      <span className="truncate" title={file.relativePath}>
+                        {file.relativePath} ({formatBytes(file.fileSize)})
+                      </span>
+                      <span
+                        className={[
+                          'shrink-0 rounded px-1.5 py-0.5 text-[10px]',
+                          file.referenced
+                            ? 'bg-blue-500/20 text-blue-100'
+                            : 'bg-gray-700 text-gray-300',
+                        ].join(' ')}
+                      >
+                        {file.referenced ? 'Referenced' : 'Unreferenced'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        ) : null}
 
         {cleanupError ? (
           <p className="mt-3 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-200">

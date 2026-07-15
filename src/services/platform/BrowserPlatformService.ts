@@ -4,6 +4,7 @@ import type {
 } from '../background-assets/BackgroundAssetMigrationService';
 import type {
   DeleteLocalBackgroundFilesResult,
+  FingerprintedBackgroundFile,
   PhysicalBackgroundFile,
   PlatformName,
   PlatformProjectFile,
@@ -70,6 +71,10 @@ export class BrowserPlatformService implements PlatformService, PlatformProjectF
 
   listLocalBackgroundFiles(): Promise<PhysicalBackgroundFile[]> {
     return Promise.reject(new Error('Local background cleanup is only available in the desktop app.'));
+  }
+
+  fingerprintLocalBackgroundFiles(): Promise<FingerprintedBackgroundFile[]> {
+    return Promise.reject(new Error('Local background duplicate detection is only available in the desktop app.'));
   }
 
   deleteLocalBackgroundFiles(): Promise<DeleteLocalBackgroundFilesResult> {

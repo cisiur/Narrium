@@ -7,7 +7,9 @@ use base64::{
     Engine as _,
 };
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::HashSet;
+use std::io::Read;
 use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -26,6 +28,7 @@ pub fn run() {
             resolve_local_asset_file,
             copy_local_asset_for_project_save_as,
             list_local_background_files,
+            fingerprint_local_background_files,
             delete_local_background_files
         ])
         .run(tauri::generate_context!())
@@ -76,6 +79,15 @@ struct PhysicalBackgroundFile {
     relative_path: String,
     file_name: String,
     file_size: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct FingerprintedBackgroundFile {
+    relative_path: String,
+    file_name: String,
+    file_size: u64,
+    content_hash: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -1076,6 +1088,122 @@ fn list_local_background_files(project_file_path: String) -> Result<Vec<Physical
 
     files.sort_by(|a, b| a.relative_path.cmp(&b.relative_path));
     Ok(files)
+}
+
+#[tauri::command]
+fn fingerprint_local_background_files(project_file_path: String) -> Result<Vec<FingerprintedBackgroundFile>, String> {
+    fingerprint_local_background_files_impl(&project_file_path, |_| {})
+}
+
+fn fingerprint_local_background_files_impl<F>(
+    project_file_path: &str,
+    mut before_open: F,
+) -> Result<Vec<FingerprintedBackgroundFile>, String>
+where
+    F: FnMut(&std::path::Path),
+{
+    let project_dir = project_dir_from_narrium_file_path(project_file_path)?;
+    let backgrounds_dir = project_dir.join("assets").join("backgrounds");
+
+    if !backgrounds_dir.exists() {
+        return Ok(Vec::new());
+    }
+
+    if !backgrounds_dir.is_dir() {
+        return Err("Project background asset path is not a directory.".to_string());
+    }
+
+    let canonical_backgrounds_dir = backgrounds_dir.canonicalize().map_err(|error| {
+        format!(
+            "Failed to resolve background asset directory {}: {}",
+            backgrounds_dir.display(),
+            error
+        )
+    })?;
+
+    if !canonical_backgrounds_dir.starts_with(&project_dir) {
+        return Err("Project background asset directory escapes the project directory.".to_string());
+    }
+
+    let mut files = Vec::new();
+
+    for entry in std::fs::read_dir(&backgrounds_dir).map_err(|error| {
+        format!(
+            "Failed to read background asset directory {}: {}",
+            backgrounds_dir.display(),
+            error
+        )
+    })? {
+        let entry = entry.map_err(|error| format!("Failed to read background asset entry: {}", error))?;
+        let file_type = entry
+            .file_type()
+            .map_err(|error| format!("Failed to inspect background asset entry: {}", error))?;
+
+        if !file_type.is_file() || safe_background_extension(&entry.path()).is_err() {
+            continue;
+        }
+
+        let file_name = entry.file_name().to_string_lossy().to_string();
+        let entry_path = entry.path();
+        let canonical_entry_path = entry_path.canonicalize().map_err(|error| {
+            format!(
+                "Failed to resolve background asset {}: {}",
+                file_name,
+                error
+            )
+        })?;
+
+        if !canonical_entry_path.starts_with(&canonical_backgrounds_dir)
+            || canonical_entry_path.parent() != Some(canonical_backgrounds_dir.as_path())
+        {
+            return Err("Background asset path escapes the project background directory.".to_string());
+        }
+
+        let metadata = std::fs::metadata(&canonical_entry_path)
+            .map_err(|error| format!("Failed to inspect background asset {}: {}", file_name, error))?;
+
+        if !metadata.is_file() {
+            continue;
+        }
+
+        before_open(&canonical_entry_path);
+
+        let content_hash = sha256_file_hex(&canonical_entry_path, &file_name)?;
+        let relative_path = std::path::Path::new("assets")
+            .join("backgrounds")
+            .join(&file_name);
+
+        files.push(FingerprintedBackgroundFile {
+            relative_path: relative_path_with_forward_slashes(&relative_path),
+            file_name,
+            file_size: metadata.len(),
+            content_hash,
+        });
+    }
+
+    files.sort_by(|a, b| a.relative_path.cmp(&b.relative_path));
+    Ok(files)
+}
+
+fn sha256_file_hex(path: &std::path::Path, file_name: &str) -> Result<String, String> {
+    let mut file = std::fs::File::open(path)
+        .map_err(|error| format!("Failed to open background file {}: {}", file_name, error))?;
+    let mut hasher = Sha256::new();
+    let mut buffer = [0_u8; 8192];
+
+    loop {
+        let bytes_read = file
+            .read(&mut buffer)
+            .map_err(|error| format!("Failed to read background file {}: {}", file_name, error))?;
+
+        if bytes_read == 0 {
+            break;
+        }
+
+        hasher.update(&buffer[..bytes_read]);
+    }
+
+    Ok(format!("{:x}", hasher.finalize()))
 }
 
 #[tauri::command]
@@ -2309,6 +2437,209 @@ mod tests {
         assert!(result.deleted.is_empty());
         assert_eq!(result.skipped.len(), 1);
         assert!(asset_path.is_file());
+    }
+
+    #[test]
+    fn missing_background_directory_fingerprints_as_empty() {
+        let root = temp_root("fingerprint-missing-background-directory");
+        let project_path = cleanup_project(&root);
+
+        let files = fingerprint_local_background_files(project_path.to_string_lossy().to_string())
+            .expect("fingerprint should succeed");
+
+        assert!(files.is_empty());
+    }
+
+    #[test]
+    fn supported_direct_background_files_are_fingerprinted() {
+        let root = temp_root("fingerprint-supported-backgrounds");
+        let project_path = cleanup_project(&root);
+        write_file(&background_path(&root, "forest.png"), b"abc");
+        write_file(&background_path(&root, "lake.JPG"), b"xyz");
+
+        let files = fingerprint_local_background_files(project_path.to_string_lossy().to_string())
+            .expect("fingerprint should succeed");
+
+        assert_eq!(
+            files.iter().map(|file| file.relative_path.as_str()).collect::<Vec<_>>(),
+            vec!["assets/backgrounds/forest.png", "assets/backgrounds/lake.JPG"]
+        );
+        assert_eq!(files[0].file_name, "forest.png");
+        assert_eq!(files[0].file_size, 3);
+        assert_eq!(
+            files[0].content_hash,
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+    }
+
+    #[test]
+    fn unsupported_extensions_are_ignored_by_fingerprinting() {
+        let root = temp_root("fingerprint-ignores-unsupported");
+        let project_path = cleanup_project(&root);
+        write_file(&background_path(&root, "notes.txt"), b"text");
+
+        let files = fingerprint_local_background_files(project_path.to_string_lossy().to_string())
+            .expect("fingerprint should succeed");
+
+        assert!(files.is_empty());
+    }
+
+    #[test]
+    fn nested_background_files_are_ignored_by_fingerprinting() {
+        let root = temp_root("fingerprint-ignores-nested");
+        let project_path = cleanup_project(&root);
+        write_file(
+            &root
+                .join("assets")
+                .join("backgrounds")
+                .join("nested")
+                .join("deep.png"),
+            b"deep",
+        );
+
+        let files = fingerprint_local_background_files(project_path.to_string_lossy().to_string())
+            .expect("fingerprint should succeed");
+
+        assert!(files.is_empty());
+    }
+
+    #[test]
+    fn identical_file_bytes_produce_identical_hashes() {
+        let root = temp_root("fingerprint-identical-hashes");
+        let project_path = cleanup_project(&root);
+        write_file(&background_path(&root, "one.png"), b"same");
+        write_file(&background_path(&root, "two.webp"), b"same");
+
+        let files = fingerprint_local_background_files(project_path.to_string_lossy().to_string())
+            .expect("fingerprint should succeed");
+
+        assert_eq!(files[0].content_hash, files[1].content_hash);
+    }
+
+    #[test]
+    fn different_file_bytes_produce_different_hashes() {
+        let root = temp_root("fingerprint-different-hashes");
+        let project_path = cleanup_project(&root);
+        write_file(&background_path(&root, "one.png"), b"one");
+        write_file(&background_path(&root, "two.webp"), b"two");
+
+        let files = fingerprint_local_background_files(project_path.to_string_lossy().to_string())
+            .expect("fingerprint should succeed");
+
+        assert_ne!(files[0].content_hash, files[1].content_hash);
+    }
+
+    #[test]
+    fn file_hashes_are_deterministic() {
+        let root = temp_root("fingerprint-deterministic");
+        let project_path = cleanup_project(&root);
+        write_file(&background_path(&root, "forest.png"), b"stable");
+
+        let first = fingerprint_local_background_files(project_path.to_string_lossy().to_string())
+            .expect("first fingerprint should succeed");
+        let second = fingerprint_local_background_files(project_path.to_string_lossy().to_string())
+            .expect("second fingerprint should succeed");
+
+        assert_eq!(first, second);
+    }
+
+    #[test]
+    fn fingerprint_relative_paths_use_forward_slashes() {
+        let root = temp_root("fingerprint-forward-slashes");
+        let project_path = cleanup_project(&root);
+        write_file(&background_path(&root, "forest.png"), b"abc");
+
+        let files = fingerprint_local_background_files(project_path.to_string_lossy().to_string())
+            .expect("fingerprint should succeed");
+
+        assert_eq!(files[0].relative_path, "assets/backgrounds/forest.png");
+    }
+
+    #[test]
+    fn nonexistent_project_paths_are_rejected_for_fingerprinting() {
+        let root = temp_root("fingerprint-rejects-missing-project");
+        let project_path = root.join("Missing.narrium");
+
+        let error = fingerprint_local_background_files(project_path.to_string_lossy().to_string())
+            .unwrap_err();
+
+        assert!(error.contains("Selected project path is not a .narrium file"));
+    }
+
+    #[test]
+    fn non_narrium_project_paths_are_rejected_for_fingerprinting() {
+        let root = temp_root("fingerprint-rejects-non-narrium");
+        let project_path = root.join("Story.json");
+        write_file(&project_path, b"{}");
+
+        let error = fingerprint_local_background_files(project_path.to_string_lossy().to_string())
+            .unwrap_err();
+
+        assert!(error.contains("Save projects as .narrium files"));
+    }
+
+    #[test]
+    fn fingerprinting_does_not_scan_outside_backgrounds() {
+        let root = temp_root("fingerprint-does-not-scan-outside");
+        let project_path = cleanup_project(&root);
+        write_file(&background_path(&root, "inside.png"), b"inside");
+        write_file(&root.join("assets").join("outside.png"), b"outside");
+
+        let files = fingerprint_local_background_files(project_path.to_string_lossy().to_string())
+            .expect("fingerprint should succeed");
+
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].relative_path, "assets/backgrounds/inside.png");
+    }
+
+    #[test]
+    fn symlink_escape_does_not_expose_outside_files_when_supported() {
+        let root = temp_root("fingerprint-symlink-escape");
+        let project_path = cleanup_project(&root);
+        let outside_path = root.join("outside.png");
+        let symlink_path = background_path(&root, "linked.png");
+        write_file(&outside_path, b"outside");
+
+        #[cfg(unix)]
+        {
+            if std::os::unix::fs::symlink(&outside_path, &symlink_path).is_err() {
+                return;
+            }
+        }
+
+        #[cfg(windows)]
+        {
+            if std::os::windows::fs::symlink_file(&outside_path, &symlink_path).is_err() {
+                return;
+            }
+        }
+
+        #[cfg(not(any(unix, windows)))]
+        {
+            return;
+        }
+
+        let files = fingerprint_local_background_files(project_path.to_string_lossy().to_string())
+            .expect("fingerprint should succeed");
+
+        assert!(files.is_empty());
+    }
+
+    #[test]
+    fn fingerprint_read_failures_return_useful_errors() {
+        let root = temp_root("fingerprint-read-failure");
+        let project_path = cleanup_project(&root);
+        write_file(&background_path(&root, "vanish.png"), b"vanish");
+
+        let error = fingerprint_local_background_files_impl(
+            &project_path.to_string_lossy(),
+            |path| {
+                let _ = fs::remove_file(path);
+            },
+        )
+        .unwrap_err();
+
+        assert!(error.contains("Failed to open background file vanish.png"));
     }
 
     #[test]

@@ -11,6 +11,7 @@ export type {
   DeleteLocalBackgroundFilesResult,
   DeletedBackgroundFile,
   FailedBackgroundFileDeletion,
+  FingerprintedBackgroundFile,
   PlatformProjectFile,
   PlatformProjectFileApi,
   PlatformService,

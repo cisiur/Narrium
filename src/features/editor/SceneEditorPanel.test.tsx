@@ -5,6 +5,7 @@ import {
   BACKGROUND_CLEANUP_REFRESH_WARNING,
   BackgroundEditor,
   runBackgroundCleanupDeletionWorkflow,
+  runBackgroundDuplicateScanWorkflow,
 } from './SceneEditorPanel';
 
 function createScene(overrides: Partial<Scene> = {}): Scene {
@@ -107,5 +108,70 @@ describe('BackgroundEditor', () => {
     expect(result.cleanupResult).toBe(deletionResult);
     expect(result.cleanupReport).toBeNull();
     expect(result.cleanupError).toBe(BACKGROUND_CLEANUP_REFRESH_WARNING);
+  });
+
+  it('invalidates duplicate reports when the active project id changes', async () => {
+    const result = await runBackgroundDuplicateScanWorkflow({
+      duplicateService: {
+        scanDuplicateLocalBackgroundFiles: () =>
+          Promise.resolve({
+            projectId: 'project-1',
+            projectFilePath: 'C:/Stories/Story.narrium',
+            groups: [],
+            totalPotentialReclaimableBytes: 0,
+          }),
+      },
+      project: createProject(),
+      projectFilePath: 'C:/Stories/Story.narrium',
+      getLatestWorkspaceState: () => ({
+        activeProject: { ...createProject(), id: 'project-2' },
+        activeProjectFilePath: 'C:/Stories/Story.narrium',
+      }),
+    });
+
+    expect(result.duplicateReport).toBeNull();
+    expect(result.duplicateError).toBeNull();
+  });
+
+  it('invalidates duplicate reports when the active project file path changes', async () => {
+    const result = await runBackgroundDuplicateScanWorkflow({
+      duplicateService: {
+        scanDuplicateLocalBackgroundFiles: () =>
+          Promise.resolve({
+            projectId: 'project-1',
+            projectFilePath: 'C:/Stories/Story.narrium',
+            groups: [],
+            totalPotentialReclaimableBytes: 0,
+          }),
+      },
+      project: createProject(),
+      projectFilePath: 'C:/Stories/Story.narrium',
+      getLatestWorkspaceState: () => ({
+        activeProject: createProject(),
+        activeProjectFilePath: 'C:/Stories/Other.narrium',
+      }),
+    });
+
+    expect(result.duplicateReport).toBeNull();
+    expect(result.duplicateError).toBeNull();
+  });
+
+  it('returns duplicate scan failures without changing cleanup state', async () => {
+    const cleanupState = { report: 'kept', result: 'kept', error: null };
+    const result = await runBackgroundDuplicateScanWorkflow({
+      duplicateService: {
+        scanDuplicateLocalBackgroundFiles: () => Promise.reject(new Error('fingerprint failed')),
+      },
+      project: createProject(),
+      projectFilePath: 'C:/Stories/Story.narrium',
+      getLatestWorkspaceState: () => ({
+        activeProject: createProject(),
+        activeProjectFilePath: 'C:/Stories/Story.narrium',
+      }),
+    });
+
+    expect(result.duplicateReport).toBeNull();
+    expect(result.duplicateError).toBe('fingerprint failed');
+    expect(cleanupState).toEqual({ report: 'kept', result: 'kept', error: null });
   });
 });

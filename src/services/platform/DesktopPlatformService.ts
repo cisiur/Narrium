@@ -8,6 +8,7 @@ import type {
 import type {
   ImportedBackgroundAssetFile,
   DeleteLocalBackgroundFilesResult,
+  FingerprintedBackgroundFile,
   PhysicalBackgroundFile,
   PlatformName,
   PlatformProjectFile,
@@ -174,6 +175,10 @@ export class DesktopPlatformService implements PlatformService, PlatformProjectF
 
   listLocalBackgroundFiles(projectFilePath: string): Promise<PhysicalBackgroundFile[]> {
     return invoke('list_local_background_files', { projectFilePath });
+  }
+
+  fingerprintLocalBackgroundFiles(projectFilePath: string): Promise<FingerprintedBackgroundFile[]> {
+    return invoke('fingerprint_local_background_files', { projectFilePath });
   }
 
   deleteLocalBackgroundFiles(

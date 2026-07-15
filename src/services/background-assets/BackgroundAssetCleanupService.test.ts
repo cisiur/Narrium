@@ -58,6 +58,7 @@ function createPlatform(overrides: Partial<PlatformService> = {}): PlatformServi
     copyLocalAssetForProjectSaveAs: vi.fn(),
     materializeEmbeddedBackgroundAssets: vi.fn(),
     listLocalBackgroundFiles: vi.fn(() => Promise.resolve([])),
+    fingerprintLocalBackgroundFiles: vi.fn(() => Promise.resolve([])),
     deleteLocalBackgroundFiles: vi.fn(() =>
       Promise.resolve({
         deleted: [],

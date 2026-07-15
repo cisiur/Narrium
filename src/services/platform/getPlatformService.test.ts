@@ -306,6 +306,14 @@ describe('platform services', () => {
     ).rejects.toThrow('only available in the desktop app');
   });
 
+  it('rejects browser duplicate fingerprinting clearly', async () => {
+    const service = new BrowserPlatformService();
+
+    await expect(service.fingerprintLocalBackgroundFiles()).rejects.toThrow(
+      'duplicate detection is only available',
+    );
+  });
+
   it('invokes desktop embedded background materialization through the native command', async () => {
     const service = new DesktopPlatformService();
     vi.stubGlobal('window', {});
@@ -338,6 +346,29 @@ describe('platform services', () => {
     await expect(
       service.materializeEmbeddedBackgroundAssets('D:/Stories/Test.narrium', request),
     ).resolves.toEqual(response);
+  });
+
+  it('invokes desktop local background fingerprinting through the native command', async () => {
+    const service = new DesktopPlatformService();
+    vi.stubGlobal('window', {});
+    const response = [
+      {
+        relativePath: 'assets/backgrounds/forest.png',
+        fileName: 'forest.png',
+        fileSize: 8,
+        contentHash: 'abc123',
+      },
+    ];
+    mockIPC(<T,>(cmd: string, payload?: InvokeArgs): T => {
+      expect(cmd).toBe('fingerprint_local_background_files');
+      expect(payload).toEqual({
+        projectFilePath: 'D:/Stories/Test.narrium',
+      });
+
+      return response as T;
+    });
+
+    await expect(service.fingerprintLocalBackgroundFiles('D:/Stories/Test.narrium')).resolves.toEqual(response);
   });
 
   it('propagates desktop embedded background materialization errors unchanged', async () => {

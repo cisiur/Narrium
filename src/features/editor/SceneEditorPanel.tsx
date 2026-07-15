@@ -22,6 +22,7 @@ import type {
   Character,
   Choice,
   DialoguePage,
+  Project,
   Scene,
   SceneBackground,
 } from '../../types';
@@ -103,6 +104,89 @@ interface BackgroundEditorProps {
   scene: Scene;
   scenes: Scene[];
   assets: AssetLibraryItem[];
+}
+
+export const BACKGROUND_CLEANUP_REFRESH_WARNING =
+  'Background files were deleted successfully, but the cleanup list could not be refreshed. Run a new cleanup scan to refresh the current state.';
+
+interface CleanupWorkspaceSnapshot {
+  activeProject: Project | null;
+  activeProjectFilePath: string | null;
+}
+
+interface CleanupDeletionWorkflowService {
+  deleteOrphanedLocalBackgroundFiles(
+    input: Parameters<BackgroundAssetCleanupService['deleteOrphanedLocalBackgroundFiles']>[0],
+  ): ReturnType<BackgroundAssetCleanupService['deleteOrphanedLocalBackgroundFiles']>;
+  scanLocalBackgroundFiles(
+    project: Project,
+    projectFilePath: string | null,
+  ): ReturnType<BackgroundAssetCleanupService['scanLocalBackgroundFiles']>;
+}
+
+interface CleanupDeletionWorkflowInput {
+  cleanupService: CleanupDeletionWorkflowService;
+  cleanupReport: BackgroundAssetCleanupReport;
+  getLatestWorkspaceState: () => CleanupWorkspaceSnapshot;
+}
+
+interface CleanupDeletionWorkflowResult {
+  cleanupResult: BackgroundAssetCleanupDeletionResult | null;
+  cleanupReport: BackgroundAssetCleanupReport | null;
+  cleanupError: string | null;
+}
+
+export async function runBackgroundCleanupDeletionWorkflow({
+  cleanupService,
+  cleanupReport,
+  getLatestWorkspaceState,
+}: CleanupDeletionWorkflowInput): Promise<CleanupDeletionWorkflowResult> {
+  let deletionResult: BackgroundAssetCleanupDeletionResult;
+
+  try {
+    deletionResult = await cleanupService.deleteOrphanedLocalBackgroundFiles({
+      projectFilePath: cleanupReport.projectFilePath,
+      orphanCandidates: cleanupReport.orphanedFiles,
+      getLatestProject: () => getLatestWorkspaceState().activeProject,
+    });
+  } catch (error) {
+    return {
+      cleanupResult: null,
+      cleanupReport,
+      cleanupError: error instanceof Error ? error.message : 'Could not delete unused local background files.',
+    };
+  }
+
+  const latestStateAfterDelete = getLatestWorkspaceState();
+
+  if (
+    !latestStateAfterDelete.activeProject ||
+    latestStateAfterDelete.activeProject.id !== cleanupReport.projectId ||
+    latestStateAfterDelete.activeProjectFilePath !== cleanupReport.projectFilePath
+  ) {
+    return {
+      cleanupResult: deletionResult,
+      cleanupReport: null,
+      cleanupError: null,
+    };
+  }
+
+  try {
+    return {
+      cleanupResult: deletionResult,
+      cleanupReport: await cleanupService.scanLocalBackgroundFiles(
+        latestStateAfterDelete.activeProject,
+        cleanupReport.projectFilePath,
+      ),
+      cleanupError: null,
+    };
+  } catch {
+    return {
+      cleanupResult: deletionResult,
+      cleanupReport: null,
+      cleanupError: BACKGROUND_CLEANUP_REFRESH_WARNING,
+    };
+  }
 }
 
 interface BackgroundAssetRowProps {
@@ -444,32 +528,22 @@ export function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProp
     setCleanupError(null);
 
     try {
-      const deletionResult = await cleanupService.deleteOrphanedLocalBackgroundFiles({
-        projectFilePath: cleanupReport.projectFilePath,
-        orphanCandidates: cleanupReport.orphanedFiles,
-        getLatestProject: () => useWorkspaceStore.getState().activeProject,
+      const workflowResult = await runBackgroundCleanupDeletionWorkflow({
+        cleanupService,
+        cleanupReport,
+        getLatestWorkspaceState: () => {
+          const state = useWorkspaceStore.getState();
+
+          return {
+            activeProject: state.activeProject,
+            activeProjectFilePath: state.activeProjectFilePath,
+          };
+        },
       });
-      const latestStateAfterDelete = useWorkspaceStore.getState();
 
-      setCleanupResult(deletionResult);
-
-      if (
-        latestStateAfterDelete.activeProject &&
-        latestStateAfterDelete.activeProject.id === cleanupReport.projectId &&
-        latestStateAfterDelete.activeProjectFilePath === cleanupReport.projectFilePath
-      ) {
-        setCleanupReport(
-          await cleanupService.scanLocalBackgroundFiles(
-            latestStateAfterDelete.activeProject,
-            cleanupReport.projectFilePath,
-          ),
-        );
-      } else {
-        setCleanupReport(null);
-      }
-    } catch (error) {
-      setCleanupResult(null);
-      setCleanupError(error instanceof Error ? error.message : 'Could not delete unused local background files.');
+      setCleanupResult(workflowResult.cleanupResult);
+      setCleanupReport(workflowResult.cleanupReport);
+      setCleanupError(workflowResult.cleanupError);
     } finally {
       setIsCleanupDeleting(false);
     }

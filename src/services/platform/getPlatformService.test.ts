@@ -306,18 +306,50 @@ describe('platform services', () => {
     ).rejects.toThrow('only available in the desktop app');
   });
 
-  it('rejects desktop embedded background materialization without invoking Tauri', async () => {
+  it('invokes desktop embedded background materialization through the native command', async () => {
     const service = new DesktopPlatformService();
     vi.stubGlobal('window', {});
-    let invokeCallCount = 0;
-    mockIPC(async <T,>(): Promise<T> => {
-      invokeCallCount += 1;
-      throw new Error('Unexpected invoke');
+    const request = [
+      {
+        assetId: 'asset-1',
+        suggestedName: 'forest-a1',
+        mimeType: 'image/png' as const,
+        base64Data: 'iVBORw0KGgo=',
+      },
+    ];
+    const response = [
+      {
+        assetId: 'asset-1',
+        relativePath: 'assets/backgrounds/forest-a1.png',
+        mimeType: 'image/png' as const,
+        fileSize: 8,
+      },
+    ];
+    mockIPC(<T,>(cmd: string, payload?: InvokeArgs): T => {
+      expect(cmd).toBe('materialize_embedded_background_assets');
+      expect(payload).toEqual({
+        projectFilePath: 'D:/Stories/Test.narrium',
+        assets: request,
+      });
+
+      return response as T;
+    });
+
+    await expect(
+      service.materializeEmbeddedBackgroundAssets('D:/Stories/Test.narrium', request),
+    ).resolves.toEqual(response);
+  });
+
+  it('propagates desktop embedded background materialization errors unchanged', async () => {
+    const service = new DesktopPlatformService();
+    vi.stubGlobal('window', {});
+    const nativeError = new Error('materialization failed');
+    mockIPC(() => {
+      throw nativeError;
     });
 
     await expect(
       service.materializeEmbeddedBackgroundAssets('D:/Stories/Test.narrium', []),
-    ).rejects.toThrow('not implemented yet');
-    expect(invokeCallCount).toBe(0);
+    ).rejects.toBe(nativeError);
   });
 });

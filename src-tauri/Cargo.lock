@@ -1752,6 +1752,8 @@ dependencies = [
 name = "narrium"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
+ "serde",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",

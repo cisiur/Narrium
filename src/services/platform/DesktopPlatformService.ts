@@ -161,10 +161,13 @@ export class DesktopPlatformService implements PlatformService, PlatformProjectF
   }
 
   materializeEmbeddedBackgroundAssets(
-    _projectFilePath: string,
-    _assets: EmbeddedBackgroundAssetMaterializationRequest[],
+    projectFilePath: string,
+    assets: EmbeddedBackgroundAssetMaterializationRequest[],
   ): Promise<MaterializedBackgroundAsset[]> {
-    return Promise.reject(new Error('Embedded background materialization is not implemented yet.'));
+    return invoke('materialize_embedded_background_assets', {
+      projectFilePath,
+      assets,
+    });
   }
 
   async confirmUnsavedChanges(projectName: string): Promise<UnsavedChangesAction> {

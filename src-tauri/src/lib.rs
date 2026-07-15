@@ -555,14 +555,38 @@ fn rename_file(from: &std::path::Path, to: &std::path::Path) -> std::io::Result<
     std::fs::rename(from, to)
 }
 
+fn remove_staging_dir(staging_dir: &std::path::Path) -> std::io::Result<()> {
+    std::fs::remove_dir_all(staging_dir)
+}
+
 fn materialize_embedded_background_assets_impl<F>(
     project_file_path: &str,
     assets: Vec<EmbeddedBackgroundAssetMaterializationRequest>,
     limits: MaterializationLimits,
-    mut move_file: F,
+    move_file: F,
 ) -> Result<Vec<MaterializedBackgroundAsset>, String>
 where
     F: FnMut(&std::path::Path, &std::path::Path) -> std::io::Result<()>,
+{
+    materialize_embedded_background_assets_impl_with_cleanup(
+        project_file_path,
+        assets,
+        limits,
+        move_file,
+        remove_staging_dir,
+    )
+}
+
+fn materialize_embedded_background_assets_impl_with_cleanup<F, R>(
+    project_file_path: &str,
+    assets: Vec<EmbeddedBackgroundAssetMaterializationRequest>,
+    limits: MaterializationLimits,
+    mut move_file: F,
+    mut remove_staging_dir: R,
+) -> Result<Vec<MaterializedBackgroundAsset>, String>
+where
+    F: FnMut(&std::path::Path, &std::path::Path) -> std::io::Result<()>,
+    R: FnMut(&std::path::Path) -> std::io::Result<()>,
 {
     if assets.len() > limits.max_assets {
         return Err(format!(
@@ -745,13 +769,16 @@ where
         results.push(staged_asset.result);
     }
 
-    std::fs::remove_dir_all(&staging_dir).map_err(|error| {
-        format!(
+    if let Err(error) = remove_staging_dir(&staging_dir) {
+        cleanup_created_files(&created_final_paths);
+        cleanup_staging_dir(&staging_dir);
+
+        return Err(format!(
             "Failed to remove embedded background staging directory {}: {}",
             staging_dir.display(),
             error
-        )
-    })?;
+        ));
+    }
 
     Ok(results)
 }
@@ -1456,6 +1483,48 @@ mod tests {
             .join("assets")
             .join("backgrounds")
             .join("forest-2.png")
+            .exists());
+    }
+
+    #[test]
+    fn rolls_back_final_files_when_staging_cleanup_fails_after_successful_moves() {
+        let root = temp_root("rolls-back-staging-cleanup-failure");
+        let project_path = materialization_project(&root);
+        let existing_path = root.join("assets").join("backgrounds").join("forest.png");
+        write_file(&existing_path, b"existing");
+
+        let error = materialize_embedded_background_assets_impl_with_cleanup(
+            &project_path.to_string_lossy(),
+            vec![
+                materialization_request("asset-1", "Forest", "image/png", PNG_BYTES),
+                materialization_request("asset-2", "Lake", "image/png", PNG_BYTES),
+            ],
+            default_test_limits(),
+            rename_file,
+            |_staging_dir| {
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::PermissionDenied,
+                    "simulated staging cleanup failure",
+                ))
+            },
+        )
+        .unwrap_err();
+
+        assert!(error.contains("simulated staging cleanup failure"));
+        assert!(staging_dirs(&root).is_empty());
+        assert_eq!(
+            fs::read(&existing_path).expect("existing file should remain"),
+            b"existing"
+        );
+        assert!(!root
+            .join("assets")
+            .join("backgrounds")
+            .join("forest-2.png")
+            .exists());
+        assert!(!root
+            .join("assets")
+            .join("backgrounds")
+            .join("lake.png")
             .exists());
     }
 

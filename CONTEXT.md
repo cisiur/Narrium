@@ -21,19 +21,23 @@ Completed review recommendations:
 - Desktop app preferences backend: implemented. Desktop recent projects and last-opened project are stored in native Tauri app data with one-time migration from WebView localStorage.
 - Export preflight validation: implemented. Standalone HTML export warns for referenced local desktop assets and blocks when referenced local assets cannot be resolved.
 - Export preflight selection fix: implemented. Unused Asset Library entries no longer affect standalone HTML export preflight.
+- Desktop-native JSON export: implemented. Browser JSON export still uses the Blob/download flow; desktop JSON export uses a native Save dialog and writes raw full `Project` JSON.
+- Image size validation and thumbnail optimization: implemented. Thumbnail uploads are validated and resized/compressed through an image-processing service; background uploads/imports enforce size limits without background compression.
+- Background asset display boundary: implemented. `BackgroundAssetDisplayService` is the service-level boundary for resolving embedded, remote, and desktop local background display sources.
+- Embedded background migration: implemented. Desktop Save and Save As plan embedded background migration, materialize files through Rust, rewrite background asset references to local project-relative paths, and write the final `.narrium`.
 
 Partially completed recommendations:
 - Rust filesystem policy: validation is implemented, but session allowlists for dialog-selected paths remain future work.
 - Standalone export local-asset handling: preflight warning/blocking exists, but standalone HTML still does not package local asset files.
 
 Next implementation task:
-- **Desktop-native JSON export Save dialog support**
-- This corresponds to the Architecture Review recommendation "JSON and HTML Export Use Browser Download APIs"; implement the JSON export part first, preserving browser export behavior and without changing standalone HTML generation.
+- **Asset Cleanup (orphan detection and safe local background cleanup)**
+- This follows the completed embedded background migration and should focus on safe detection/cleanup of unused local background files.
 
 Important remaining known limitations:
 - Standalone HTML export does not package local desktop assets; future playable folder/package export remains planned.
 - General local asset storage beyond backgrounds remains future work.
-- Embedded-to-local migration, asset cleanup, duplicate detection, image limits/compression, autosave, performance instrumentation, and platform-service split remain postponed.
+- Asset cleanup, duplicate detection, autosave, performance instrumentation, session allowlists, format-version planning, and platform-service split remain postponed.
 - Legacy direct scene background fields remain for compatibility and should only be removed after migration and format-version planning.
 - Some browser file APIs remain in UI components for browser compatibility and transitional import/upload paths.
 
@@ -140,10 +144,13 @@ Strategic status:
 - The old single-item `WORKSPACE > My Projects` landing sidebar has been removed; editor navigation remains.
 - Current intended dependency direction is UI/features -> stores -> services -> domain -> types.
 - Local desktop background asset storage is implemented for file-backed projects: uploaded backgrounds are copied into `assets/backgrounds/` beside the `.narrium` file and stored as project-relative local assets.
+- Desktop Save and Save As migrate eligible embedded background assets into `assets/backgrounds/` and update the saved and active project to local project-relative references. Browser projects and desktop drafts before Save As continue to use embedded background assets.
 - The Tauri asset protocol is hardened to local background image paths, and Rust filesystem commands validate supported extensions, local asset paths, destinations, and project file size.
 - Desktop app preferences now use native app-data storage instead of WebView localStorage, with browser localStorage preserved for browser mode.
 - Standalone HTML export now has preflight validation: referenced local desktop assets warn, missing referenced local assets block, and unused Asset Library entries are ignored.
-- General local asset storage beyond backgrounds, embedded-to-local migration, asset cleanup, duplicate detection, autosave, and future playable export packaging remain future work.
+- Desktop JSON export now uses a native Save dialog; browser JSON export remains browser-compatible.
+- Thumbnail image processing now validates image type/size and writes optimized thumbnails; browser and desktop background imports enforce size limits without background compression.
+- General local asset storage beyond backgrounds, asset cleanup, duplicate detection, autosave, and future playable export packaging remain future work.
 
 ```text
 Workspace Management       ██████████ 100%
@@ -201,8 +208,8 @@ Completed milestones:
 
 Current recommended next milestone:
 - **EPIC 11 - Desktop Pivot & Local Project System**
-- Current approved next implementation task: **Desktop-native JSON export Save dialog support**.
-- This is driven by `docs/reviews/DESKTOP_ARCHITECTURE_REVIEW_2026-07.md`, P3 finding "JSON and HTML Export Use Browser Download APIs".
+- Current approved next implementation task: **Asset Cleanup (orphan detection and safe local background cleanup)**.
+- This follows the completed desktop JSON export, image-processing, display-boundary, and embedded background migration batches.
 
 ---
 
@@ -304,7 +311,7 @@ Current recommended next milestone:
 - Workspace/localStorage remains a compatibility layer for metadata and drafts, not the long-term desktop project database.
 - Local background asset folders, background image copying, and project-relative background asset paths exist for file-backed desktop projects.
 - Standalone HTML export preflight validates only local assets referenced by scene backgrounds, including one-level scene background references. Unused local Asset Library entries do not warn or block export.
-- General local asset categories beyond backgrounds, embedded-to-local migration, asset cleanup, duplicate detection, autosave, and playable export packages remain future work.
+- General local asset categories beyond backgrounds, asset cleanup, duplicate detection, autosave, and playable export packages remain future work.
 
 ### Shared UI
 
@@ -455,7 +462,8 @@ Current recommended next milestone:
 - Deleting a local asset entry does not delete the physical file yet.
 - Asset Library is the only new UI entry point for URL/upload backgrounds; direct scene URL/upload modes remain legacy-compatible but hidden.
 - Save As copies referenced local background files to the new project directory before writing the relocated `.narrium`.
-- Standalone local-asset packaging, embedded-to-local migration, physical cleanup, hashing, and non-background assets remain future work.
+- Desktop Save and Save As automatically migrate eligible embedded background assets to local files and keep asset ids and scene references stable.
+- Standalone local-asset packaging, physical cleanup, hashing, duplicate detection, and non-background assets remain future work.
 - SceneNode background thumbnails support URL, upload, asset, one-level scene reference, and placeholders.
 - Story Player and standalone HTML background rendering supports URL, upload, asset, one-level scene reference, and no background fallback.
 
@@ -603,8 +611,8 @@ Preview supports:
 ### JSON Import / Export
 
 - JSON export exports the full active `Project` object.
-- JSON export currently uses the browser-style Blob download path in both browser and desktop builds.
-- The next implementation task is desktop-native JSON export Save dialog support.
+- Browser JSON export uses the browser-style Blob download path.
+- Desktop JSON export uses a native Save dialog and writes raw full `Project` JSON with the existing filename convention.
 - JSON import validates a Narrium Project-like object and normalizes it.
 - Uploaded Data URLs are preserved.
 - `Project.variables` is included naturally because it is part of the Project model.
@@ -713,11 +721,11 @@ Important:
 - Resources are player-facing numeric values when marked visible.
 
 Next recommended tasks:
-1. Desktop-native JSON export Save dialog support.
-2. Image size limits and thumbnail compression/resizing.
-3. Embedded-to-local migration for file-backed desktop projects.
-4. Local asset cleanup/orphan detection and duplicate detection.
-5. Future playable export foundation.
+1. Asset Cleanup (orphan detection and safe local background cleanup).
+2. Duplicate detection for local background assets.
+3. Future playable export foundation with local asset packaging.
+4. Session allowlists for Rust filesystem commands.
+5. Format-version planning and eventual legacy direct scene background removal.
 
 ---
 

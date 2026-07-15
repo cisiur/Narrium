@@ -24,9 +24,11 @@ Current implementation status:
 - Rust filesystem commands validate project extensions, local asset relative paths, destinations, and project file size.
 - The background asset catalog now stores newly added background sources as embedded Data URL, remote URL, or desktop local project-relative background assets.
 - Standalone HTML export has preflight validation for referenced local desktop assets, but it still does not package local asset files.
-- JSON export still uses the browser-style Blob download path in desktop builds; desktop-native JSON export Save dialog support is the next implementation task.
+- Browser JSON export still uses the browser-style Blob download path; desktop JSON export uses a native Save dialog and writes raw full `Project` JSON.
+- Image size validation and thumbnail optimization are implemented through the image-processing service.
+- Desktop Save and Save As migrate eligible embedded background assets into local project-relative files under `assets/backgrounds/`.
 - Services can depend on domain code, but domain code must stay independent from stores, services, UI, and Tauri APIs.
-- Local desktop background asset storage is implemented; general asset categories beyond backgrounds, embedded-to-local migration, asset cleanup, duplicate detection, autosave, and playable export packaging are still planned future work.
+- Local desktop background asset storage is implemented; general asset categories beyond backgrounds, asset cleanup, duplicate detection, autosave, and playable export packaging are still planned future work.
 
 ---
 
@@ -136,6 +138,7 @@ Project file status:
 - The long-term workspace direction remains app preferences and recent projects, not the primary project database.
 
 Near-term desktop work should focus on:
+- safe cleanup of unused local background files,
 - extending local asset file storage beyond background imports,
 - keeping localStorage limited to browser projects, temporary drafts, and lightweight workspace/app metadata,
 - keeping the validated domain model recognizable.
@@ -171,8 +174,9 @@ Current implementation:
 - stores scene background assignments as `assetId` references where possible,
 - does not mirror full file-backed Project JSON into localStorage,
 - stores desktop-imported local background assets as relative paths such as `assets/backgrounds/forest.png`,
+- migrates eligible embedded background assets to local project-relative files during desktop Save and Save As,
 - also accepts raw legacy Project JSON as an open/import fallback,
-- creates `assets/backgrounds/` lazily only when a desktop local background import succeeds.
+- creates `assets/backgrounds/` lazily when a desktop local background import or embedded-background materialization succeeds.
 
 Local background asset files live beside the project file under `assets/backgrounds/`.
 
@@ -213,14 +217,17 @@ Current E11-05B behavior:
 - browser uploads continue to store embedded Data URLs,
 - remote URL assets remain URLs and are not downloaded,
 - Save As copies referenced local background files to the new project directory before writing the relocated `.narrium`,
+- Save and Save As plan eligible embedded background migration, materialize embedded image Data URLs through Rust, update matching asset entries from `storageType: "embedded"` to `storageType: "local"`, and then write the final `.narrium`,
+- Open does not migrate assets and remains side-effect free,
+- Rust materialization validates supported image payloads, writes through a staging directory, moves staged files into `assets/backgrounds/`, and performs rollback/cleanup for current-batch files when staging, finalization, or staging cleanup fails,
 - local asset display is resolved through the platform service and never through raw `file://` URLs,
 - deleting a catalog asset clears scene references but does not delete the physical file.
 
 The project JSON should store asset metadata and relative paths. This avoids browser storage limits, reduces JSON bloat, improves portability, and makes projects easier to inspect, back up, and version.
 
-The archived web MVP may still use Data URLs for uploaded images. That behavior is legacy/MVP behavior and should not define long-term desktop storage.
+Browser mode and the archived web MVP still use Data URLs for uploaded background images. That behavior remains intentional for browser compatibility and should not define long-term desktop file-backed storage.
 
-Automatic embedded-to-local migration, standalone local-asset packaging, orphan cleanup, physical deletion, hashing, duplicate detection, and non-background asset categories remain future work.
+Standalone local-asset packaging, orphan cleanup, physical deletion, hashing, duplicate detection, and non-background asset categories remain future work.
 
 ---
 
@@ -240,14 +247,17 @@ Migration should preserve:
 - settings,
 - asset library entries.
 
-Legacy embedded Data URLs should eventually be extracted into local files where practical:
+Legacy embedded background Data URLs are extracted into local files during desktop Save and Save As where practical:
 - decode the Data URL,
 - choose a stable filename,
-- write the file into the future local asset location,
+- write the file into `assets/backgrounds/`,
 - replace the embedded Data URL with a relative path,
 - keep enough metadata to avoid losing author-facing asset names.
 
-Migration does not need to happen in this documentation task. It is a future implementation area.
+This migration is storage-only: asset ids remain stable, scene references remain unchanged, and the `Project` model and `.narrium` wrapper format do not change. Browser mode and Open remain side-effect free.
+
+Known limitation:
+- If embedded asset materialization succeeds but writing the final `.narrium` fails afterward, Narrium currently reports the write failure but does not roll back the already-materialized files. Broader project-directory transaction handling remains future work.
 
 ---
 
@@ -257,7 +267,7 @@ The current standalone HTML export belongs to the archived browser MVP. It is us
 
 Standalone HTML export does not package desktop local asset files. Before export, Narrium warns when referenced local assets are present because exported backgrounds may be missing, and blocks export when referenced local assets cannot be resolved. Unused local Asset Library entries are ignored by preflight. This preflight only protects the current export path; it does not add local asset packaging.
 
-JSON export still uses the browser-style Blob URL and temporary download-anchor path in both browser and desktop builds. Desktop-native JSON export Save dialog support is the next approved implementation task. Browser JSON export should remain compatible.
+JSON export uses a browser-style Blob URL and temporary download-anchor path in browser builds. Desktop JSON export uses a native Save dialog and writes raw full `Project` JSON through the desktop service boundary. Standalone HTML export still uses the browser-style download path.
 
 Future playable export may be a playable folder or packaged build rather than one standalone HTML file. A folder/package export can include:
 - a runtime player,
@@ -272,12 +282,10 @@ The exact export format should be designed later after the desktop project-file 
 ## Non-goals for the current project-file foundation
 
 The current project-file foundation does not implement:
-- general asset folder creation beyond desktop background imports,
-- image file copying beyond desktop background imports,
-- local asset path migration beyond current background asset references,
-- asset extraction,
+- general asset folder creation beyond desktop background imports and embedded-background materialization,
+- image file copying beyond desktop background imports and embedded-background materialization,
+- local asset path migration beyond current background asset references and desktop Save/Save As embedded-background materialization,
 - asset cleanup or duplicate detection,
 - autosave,
-- desktop-native JSON export Save dialogs,
 - standalone local-asset packaging,
 - a new playable export format.

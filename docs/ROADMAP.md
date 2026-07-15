@@ -30,7 +30,10 @@ Status note:
 - Native close dirty protection, asset protocol hardening, Rust filesystem validation, native desktop app preferences, and standalone HTML export preflight validation have been implemented from the Desktop Architecture Review.
 - Rust filesystem validation is partial: extension validation, path traversal protection, destination validation, and project size limits are implemented; session allowlists remain future work.
 - Standalone HTML export preflight warns for referenced local desktop assets and blocks missing referenced local assets, but it does not package local asset files.
-- General local asset storage beyond backgrounds, embedded-to-local migration, asset cleanup, duplicate detection, autosave, and playable export packaging remain future work.
+- Desktop JSON export uses a native Save dialog while browser JSON export keeps the Blob/download flow.
+- Image size validation and thumbnail optimization are implemented.
+- Desktop Save and Save As migrate eligible embedded background assets into local project-relative background files.
+- General local asset storage beyond backgrounds, asset cleanup, duplicate detection, autosave, and playable export packaging remain future work.
 
 ```text
 Workspace Management       ██████████ 100%
@@ -186,7 +189,7 @@ Deliverable status:
 | E4-05 | SceneNode background thumbnail preview | [AI] | ✅ Done |
 | E4-06 | One-level Scene Reference thumbnail resolution | [AI] | ✅ Done |
 | E4-07 | Asset search/filtering for large libraries | [AI] | Backlog |
-| E4-08 | Image compression / resizing before localStorage save | [BOTH] | Backlog |
+| E4-08 | Image compression / resizing before localStorage save | [BOTH] | Done for project thumbnails; background compression remains out of scope |
 
 Deliverable status:
 - Background system is ready for Story Player and standalone HTML background rendering.
@@ -348,7 +351,7 @@ Recommended implementation order from here:
 | E9-02 | Undo/redo for scene and project edits | [BOTH] | Partially Complete — snapshot-based MVP (`E9-02A`) is done; future refinements remain possible |
 | E9-03 | Better custom confirmation dialogs instead of `window.confirm` | [BOTH] | ✅ Done |
 | E9-04 | Drag-and-drop Dialogue Page reorder | [AI] | Backlog |
-| E9-05 | Thumbnail image resizing/compression before localStorage save | [BOTH] | Backlog |
+| E9-05 | Thumbnail image resizing/compression before localStorage save | [BOTH] | Done |
 | E9-06 | Full project validation panel | [BOTH] | ✅ Done via E9-16/E9-17/E9-18 |
 | E9-07 | Asset library extraction and filtering | [AI] | Backlog |
 | E9-08 | Empty/error states polish | [AI] | Backlog |
@@ -492,10 +495,14 @@ Purpose:
 | E11-05B.5 | Rust filesystem validation for project and local asset commands | [BOTH] | Partially Complete - validation done; session allowlists remain future work |
 | E11-05B.6 | Native desktop app preferences backend | [BOTH] | Done |
 | E11-05B.7 | Standalone HTML export preflight for referenced local assets | [BOTH] | Done |
-| E11-05B.8 | Desktop-native JSON export Save dialog support | [BOTH] | Current approved task |
+| E11-05B.8 | Desktop-native JSON export Save dialog support | [BOTH] | Done |
+| E11-05B.9 | Image size validation and thumbnail optimization | [BOTH] | Done |
+| E11-05B.10 | Background asset display service boundary | [BOTH] | Done |
+| E11-05B.11 | Embedded background migration planning and Rust materialization | [BOTH] | Done |
+| E11-05B.12 | Migrate embedded backgrounds during desktop Save and Save As | [BOTH] | Done |
 | E11-06 | Relative asset paths in project JSON | [BOTH] | Planned |
 | E11-07 | Migration/import from legacy web MVP JSON | [BOTH] | Planned |
-| E11-08 | Extract legacy embedded Data URLs into local asset files during migration where practical | [BOTH] | Planned |
+| E11-08 | Extract legacy embedded Data URLs into local asset files during desktop Save/Save As where practical | [BOTH] | Done for background assets |
 | E11-09 | Desktop preview parity with validated web MVP preview behavior | [BOTH] | Planned |
 | E11-10 | Playable export foundation for folder/package-based exports | [BOTH] | Planned |
 
@@ -526,7 +533,7 @@ Current E11-03B deliverable:
 - The project header shows the current project path and a `*` dirty indicator.
 - Save is disabled until the active desktop project has a known path; Save As remains available.
 - Browser/Vite workflow remains compatible.
-- General asset folders beyond backgrounds, embedded-to-local migration, asset cleanup, duplicate detection, autosave, Git integration, cloud sync, and playable export changes remain planned future work.
+- General asset folders beyond backgrounds, asset cleanup, duplicate detection, autosave, Git integration, cloud sync, and playable export changes remain planned future work.
 
 Current E11-03C deliverable:
 - Desktop Open Project File uses a native file picker for `.narrium` files and legacy `.json` files.
@@ -565,7 +572,7 @@ Current E11-05A.1 deliverable:
 - Browser projects and local desktop drafts still use BrowserProjectStorage for full Project JSON.
 - Save As removes any stale local draft payload for the saved project id.
 - Draft storage quota failures surface a clear error instead of silently failing.
-- Future local asset file work remains focused on migration, packaging, cleanup, and non-background asset categories.
+- Future local asset file work remains focused on packaging, cleanup, duplicate detection, and non-background asset categories.
 
 Current E11-05B deliverable:
 - Desktop file-backed projects import uploaded background images into `assets/backgrounds/` beside the `.narrium` file.
@@ -620,9 +627,32 @@ Current E11-05B.7 deliverable:
 - Unused local Asset Library entries are ignored and cannot warn or block export.
 - Standalone HTML generation itself remains unchanged; local asset packaging remains future work.
 
-Current approved task:
-- E11-05B.8 - Desktop-native JSON export Save dialog support.
-- This implements the JSON-export part of the Architecture Review finding "JSON and HTML Export Use Browser Download APIs" while preserving browser export behavior.
+Current E11-05B.8 deliverable:
+- Desktop JSON export uses a native Save dialog with the existing JSON filename convention and a JSON file filter.
+- Desktop JSON export writes raw full `Project` JSON without the `.narrium` wrapper.
+- Browser JSON export continues to use the existing Blob/download path.
+
+Current E11-05B.9 deliverable:
+- Thumbnail uploads are validated for supported MIME type and size, resized without upscaling, and encoded as optimized JPEG thumbnails.
+- Transparent thumbnail inputs are drawn over a neutral background before JPEG encoding.
+- Browser background uploads and desktop background imports enforce size limits; background images are not compressed.
+
+Current E11-05B.10 deliverable:
+- Background display resolution is centralized behind `BackgroundAssetDisplayService`.
+- Embedded and remote background assets resolve directly.
+- Desktop local background assets resolve through the platform boundary using the active project file path.
+
+Current E11-05B.11 deliverable:
+- Embedded background migration planning parses supported image Data URLs, validates Base64 structure, and produces deterministic materialization requests.
+- Rust batch materialization decodes and validates PNG/JPEG/WEBP payloads, stages files, moves them into `assets/backgrounds/`, returns project-relative paths, and rolls back current-batch files when staging or cleanup fails.
+- Browser materialization remains unsupported.
+
+Current E11-05B.12 deliverable:
+- Desktop Save and Save As run embedded background migration before writing the final `.narrium`.
+- Save without eligible embedded backgrounds does not call materialization.
+- Save As copies existing local background assets before materializing embedded assets into the destination project directory.
+- Open remains side-effect free and does not migrate assets.
+- If `.narrium` writing fails after successful materialization, materialized files are not rolled back yet; broader project-directory transactions remain future work.
 
 Full EPIC 11 deliverable intent:
 - A desktop app can create drafts, open `.narrium` files, save known project files, and preview Narrium projects.
@@ -637,11 +667,9 @@ Full EPIC 11 deliverable intent:
 Continue EPIC 11 desktop project system work from the Desktop Architecture Review implementation order.
 
 Current approved task:
-- E11-05B.8 - Desktop-native JSON export Save dialog support.
+- Asset Cleanup (orphan detection and safe local background cleanup).
 
 Later candidates:
-- Image size limits and thumbnail compression/resizing.
-- E11-07/E11-08 - Legacy web MVP JSON migration and Data URL extraction.
-- Asset cleanup/orphan detection and duplicate detection.
+- Duplicate detection for local background assets.
 - Session allowlists for Rust filesystem commands.
 - Future playable export foundation.

@@ -6,6 +6,18 @@ This changelog records milestone-level project changes. It is intentionally conc
 
 ## Unreleased / Next
 
+### Documentation - Desktop embedded background migration reconciliation
+
+Changes:
+- Reconciled documentation with the completed desktop embedded background migration implementation.
+- Documented that desktop JSON export now uses a native Save dialog while browser JSON export keeps the existing Blob/download behavior.
+- Documented image validation and thumbnail optimization, including thumbnail resizing/compression and background upload/import size limits.
+- Documented `BackgroundAssetDisplayService` as the display-source boundary for embedded, remote, and local background assets.
+- Documented embedded background migration planning, Rust batch materialization, and desktop Save/Save As migration activation.
+- Clarified that browser behavior is unchanged and Open remains side-effect free.
+- Noted the known limitation that successful materialization followed by failed `.narrium` writing does not yet roll back materialized files.
+- Documentation-only change; no application behavior changed.
+
 ### Documentation - Desktop architecture roadmap reconciliation
 
 Changes:

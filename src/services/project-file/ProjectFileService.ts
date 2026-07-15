@@ -1,5 +1,9 @@
 import { normalizeProject, parseProjectImport } from '../../domain/project';
 import type { Project } from '../../types';
+import {
+  applyMaterializedBackgroundAssets,
+  planEmbeddedBackgroundAssetMigration,
+} from '../background-assets';
 import type { PlatformProjectFileApi } from '../platform';
 
 export const NARRIUM_PROJECT_FORMAT = 'narrium.project';
@@ -116,16 +120,7 @@ export class DesktopProjectFileService implements ProjectFileService {
   }
 
   async saveProject(project: Project, filePath: string): Promise<LocalProjectFile> {
-    const normalizedProject = normalizeProject(project).project;
-    const savedFilePath = await this.platformProjectFiles.writeProjectFile(
-      filePath,
-      serializeNarriumProjectFile(normalizedProject),
-    );
-
-    return {
-      filePath: savedFilePath,
-      project: normalizedProject,
-    };
+    return this.writeProjectWithEmbeddedBackgroundMigration(project, filePath);
   }
 
   async saveProjectAs(project: Project, sourceFilePath: string | null = null): Promise<LocalProjectFile | null> {
@@ -158,7 +153,30 @@ export class DesktopProjectFileService implements ProjectFileService {
       name: deriveProjectNameFromNarriumFilePath(destinationFilePath, project.name),
     };
 
-    return this.saveProject(renamedProject, destinationFilePath);
+    return this.writeProjectWithEmbeddedBackgroundMigration(renamedProject, destinationFilePath);
+  }
+
+  private async writeProjectWithEmbeddedBackgroundMigration(
+    project: Project,
+    filePath: string,
+  ): Promise<LocalProjectFile> {
+    const normalizedProject = normalizeProject(project).project;
+    const migrationRequests = planEmbeddedBackgroundAssetMigration(normalizedProject);
+    const finalProject = migrationRequests.length > 0
+      ? applyMaterializedBackgroundAssets(
+          normalizedProject,
+          await this.platformProjectFiles.materializeEmbeddedBackgroundAssets(filePath, migrationRequests),
+        )
+      : normalizedProject;
+    const savedFilePath = await this.platformProjectFiles.writeProjectFile(
+      filePath,
+      serializeNarriumProjectFile(finalProject),
+    );
+
+    return {
+      filePath: savedFilePath,
+      project: finalProject,
+    };
   }
 }
 

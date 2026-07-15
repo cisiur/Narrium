@@ -336,6 +336,113 @@ describe('workspace project file workflow', () => {
     expect(projectStorage.saveWorkspace).toHaveBeenCalled();
   });
 
+  it('adopts the migrated project returned from desktop Save and clears dirty state', async () => {
+    const { useWorkspaceStore, project, projectFileService } = await loadStoreWithProjectFileMocks();
+    const embeddedProject = createProject({
+      assetLibrary: [
+        {
+          id: 'asset-embedded',
+          kind: 'background',
+          name: 'Forest',
+          storageType: 'embedded',
+          source: 'data:image/png;base64,cG5n',
+          createdAt: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    });
+    const migratedProject = {
+      ...embeddedProject,
+      assetLibrary: [
+        {
+          ...embeddedProject.assetLibrary[0],
+          storageType: 'local' as const,
+          source: 'assets/backgrounds/forest.png',
+        },
+      ],
+    };
+    projectFileService.saveProject.mockResolvedValueOnce({
+      project: migratedProject,
+      filePath: 'C:/Stories/Test Project.narrium',
+    });
+
+    useWorkspaceStore.setState({
+      activeProject: embeddedProject,
+      activeProjectId: project.id,
+      projects: [createProjectMeta(embeddedProject)],
+      activeProjectFilePath: 'C:/Stories/Test Project.narrium',
+      activeProjectDirty: true,
+    });
+
+    const didSave = await useWorkspaceStore.getState().saveActiveProjectToFile();
+
+    expect(didSave).toBe(true);
+    expect(useWorkspaceStore.getState().activeProject).toBe(migratedProject);
+    expect(useWorkspaceStore.getState().activeProject?.assetLibrary[0]).toMatchObject({
+      storageType: 'local',
+      source: 'assets/backgrounds/forest.png',
+    });
+    expect(useWorkspaceStore.getState().activeProjectDirty).toBe(false);
+  });
+
+  it('keeps the active project and dirty state when desktop Save migration fails', async () => {
+    const { useWorkspaceStore, project, projectFileService } = await loadStoreWithProjectFileMocks();
+
+    projectFileService.saveProject.mockRejectedValueOnce(new Error('materialize failed'));
+    useWorkspaceStore.setState({
+      activeProject: project,
+      activeProjectId: project.id,
+      projects: [createProjectMeta(project)],
+      activeProjectFilePath: 'C:/Stories/Test Project.narrium',
+      activeProjectDirty: true,
+      projectFileError: null,
+    });
+
+    const didSave = await useWorkspaceStore.getState().saveActiveProjectToFile();
+
+    expect(didSave).toBe(false);
+    expect(useWorkspaceStore.getState().activeProject).toBe(project);
+    expect(useWorkspaceStore.getState().activeProjectDirty).toBe(true);
+    expect(useWorkspaceStore.getState().projectFileError).toBe('materialize failed');
+  });
+
+  it('adopts the migrated and renamed project returned from desktop Save As', async () => {
+    const { useWorkspaceStore, project, projectFileService } = await loadStoreWithProjectFileMocks();
+    const migratedProject = {
+      ...project,
+      name: 'Saved Story',
+      assetLibrary: [
+        {
+          id: 'asset-embedded',
+          kind: 'background' as const,
+          name: 'Forest',
+          storageType: 'local' as const,
+          source: 'assets/backgrounds/forest.png',
+          createdAt: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    };
+    projectFileService.saveProjectAs.mockResolvedValueOnce({
+      project: migratedProject,
+      filePath: 'C:/Stories/Saved Story.narrium',
+    });
+
+    useWorkspaceStore.setState({
+      activeProject: project,
+      activeProjectId: project.id,
+      projects: [createProjectMeta(project)],
+      activeProjectFilePath: null,
+      activeProjectDirty: true,
+    });
+
+    const didSave = await useWorkspaceStore.getState().saveActiveProjectAsFile();
+
+    expect(didSave).toBe(true);
+    expect(useWorkspaceStore.getState().activeProject).toBe(migratedProject);
+    expect(useWorkspaceStore.getState().activeProject?.name).toBe('Saved Story');
+    expect(useWorkspaceStore.getState().activeProjectFilePath).toBe('C:/Stories/Saved Story.narrium');
+    expect(useWorkspaceStore.getState().activeProjectDirty).toBe(false);
+  });
+
   it('surfaces browser draft quota errors instead of silently failing', async () => {
     const { useWorkspaceStore, project, projectStorage } = await loadStoreWithProjectFileMocks();
     const quotaError = new DOMException('Storage quota exceeded', 'QuotaExceededError');

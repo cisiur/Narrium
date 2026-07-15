@@ -165,6 +165,34 @@ describe('BackgroundAssetCleanupService', () => {
 
     expect(report.orphanedFiles).toEqual([]);
     expect(report.referencedFiles).toHaveLength(1);
+    expect(report.projectId).toBe('project-1');
+    expect(report.projectFilePath).toBe('C:/Stories/Story.narrium');
+  });
+
+  it('uses case-insensitive protection during race revalidation', async () => {
+    const platform = createPlatform();
+    const service = new BackgroundAssetCleanupService(platform);
+
+    const result = await service.deleteOrphanedLocalBackgroundFiles({
+      projectFilePath: 'C:/Stories/Story.narrium',
+      orphanCandidates: [physical('assets/backgrounds/forest.png')],
+      getLatestProject: () =>
+        createProject([
+          createAsset({
+            id: 'asset-new',
+            source: 'assets/backgrounds/Forest.png',
+          }),
+        ]),
+    });
+
+    expect(platform.deleteLocalBackgroundFiles).not.toHaveBeenCalled();
+    expect(result.deleted).toEqual([]);
+    expect(result.skipped).toEqual([
+      {
+        relativePath: 'assets/backgrounds/forest.png',
+        reason: 'File became referenced before deletion.',
+      },
+    ]);
   });
 
   it('returns successful batch cleanup results with reclaimed size', async () => {

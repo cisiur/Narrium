@@ -224,6 +224,12 @@ export function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProp
   const selectedAssetSource = useAssetDisplaySource(selectedAsset, activeProjectFilePath);
   const canCleanUpLocalBackgroundFiles = cleanupService.canCleanUpLocalBackgroundFiles(activeProjectFilePath);
 
+  useEffect(() => {
+    setCleanupReport(null);
+    setCleanupResult(null);
+    setCleanupError(null);
+  }, [activeProject?.id, activeProjectFilePath]);
+
   const updateBackground = (background: SceneBackground) => {
     updateSceneBackground(scene.id, background);
   };
@@ -381,6 +387,7 @@ export function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProp
 
   const scanUnusedLocalBackgroundFiles = async () => {
     if (!activeProject) {
+      setCleanupReport(null);
       return;
     }
 
@@ -403,6 +410,13 @@ export function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProp
       return;
     }
 
+    if (cleanupReport.projectId !== activeProject?.id || cleanupReport.projectFilePath !== activeProjectFilePath) {
+      setCleanupReport(null);
+      setCleanupResult(null);
+      setCleanupError('The active project changed after the scan. Run cleanup scan again before deleting files.');
+      return;
+    }
+
     const confirmed = await confirm({
       title: 'Delete Unused Background Files?',
       message: `Delete ${cleanupReport.orphanedFiles.length} unused local background file(s)? This only removes physical files that are not referenced by the Asset Library.`,
@@ -414,17 +428,45 @@ export function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProp
       return;
     }
 
+    const latestStateBeforeDelete = useWorkspaceStore.getState();
+
+    if (
+      cleanupReport.projectId !== latestStateBeforeDelete.activeProject?.id ||
+      cleanupReport.projectFilePath !== latestStateBeforeDelete.activeProjectFilePath
+    ) {
+      setCleanupReport(null);
+      setCleanupResult(null);
+      setCleanupError('The active project changed after the scan. Run cleanup scan again before deleting files.');
+      return;
+    }
+
     setIsCleanupDeleting(true);
     setCleanupError(null);
 
     try {
-      setCleanupResult(
-        await cleanupService.deleteOrphanedLocalBackgroundFiles({
-          projectFilePath: activeProjectFilePath,
-          orphanCandidates: cleanupReport.orphanedFiles,
-          getLatestProject: () => useWorkspaceStore.getState().activeProject,
-        }),
-      );
+      const deletionResult = await cleanupService.deleteOrphanedLocalBackgroundFiles({
+        projectFilePath: cleanupReport.projectFilePath,
+        orphanCandidates: cleanupReport.orphanedFiles,
+        getLatestProject: () => useWorkspaceStore.getState().activeProject,
+      });
+      const latestStateAfterDelete = useWorkspaceStore.getState();
+
+      setCleanupResult(deletionResult);
+
+      if (
+        latestStateAfterDelete.activeProject &&
+        latestStateAfterDelete.activeProject.id === cleanupReport.projectId &&
+        latestStateAfterDelete.activeProjectFilePath === cleanupReport.projectFilePath
+      ) {
+        setCleanupReport(
+          await cleanupService.scanLocalBackgroundFiles(
+            latestStateAfterDelete.activeProject,
+            cleanupReport.projectFilePath,
+          ),
+        );
+      } else {
+        setCleanupReport(null);
+      }
     } catch (error) {
       setCleanupResult(null);
       setCleanupError(error instanceof Error ? error.message : 'Could not delete unused local background files.');

@@ -428,6 +428,10 @@ fn ensure_direct_background_relative_path(relative_path: &str) -> Result<std::pa
     Ok(normalized)
 }
 
+fn background_relative_path_comparison_key(relative_path: &std::path::Path) -> String {
+    relative_path_with_forward_slashes(relative_path).to_ascii_lowercase()
+}
+
 fn safe_background_extension(path: &std::path::Path) -> Result<&'static str, String> {
     match path
         .extension()
@@ -1085,7 +1089,7 @@ fn delete_local_background_files(
     let protected_paths: HashSet<String> = protected_relative_paths
         .iter()
         .filter_map(|path| ensure_direct_background_relative_path(path).ok())
-        .map(|path| relative_path_with_forward_slashes(&path))
+        .map(|path| background_relative_path_comparison_key(&path))
         .collect();
 
     let mut deleted = Vec::new();
@@ -1104,8 +1108,9 @@ fn delete_local_background_files(
                 continue;
             }
         };
+        let comparison_key = background_relative_path_comparison_key(std::path::Path::new(&normalized));
 
-        if !seen.insert(normalized.clone()) {
+        if !seen.insert(comparison_key.clone()) {
             skipped.push(SkippedBackgroundFileDeletion {
                 relative_path: normalized,
                 reason: "Duplicate cleanup candidate skipped.".to_string(),
@@ -1113,7 +1118,7 @@ fn delete_local_background_files(
             continue;
         }
 
-        if protected_paths.contains(&normalized) {
+        if protected_paths.contains(&comparison_key) {
             skipped.push(SkippedBackgroundFileDeletion {
                 relative_path: normalized,
                 reason: "Protected background file is still referenced by the Asset Library.".to_string(),
@@ -2279,6 +2284,25 @@ mod tests {
             project_path.to_string_lossy().to_string(),
             vec!["assets/backgrounds/forest.png".to_string()],
             vec!["assets/backgrounds/forest.png".to_string()],
+        )
+        .expect("delete command should return structured result");
+
+        assert!(result.deleted.is_empty());
+        assert_eq!(result.skipped.len(), 1);
+        assert!(asset_path.is_file());
+    }
+
+    #[test]
+    fn protected_paths_are_checked_case_insensitively() {
+        let root = temp_root("protected-paths-case-insensitive");
+        let project_path = cleanup_project(&root);
+        let asset_path = background_path(&root, "forest.png");
+        write_file(&asset_path, b"png");
+
+        let result = delete_local_background_files(
+            project_path.to_string_lossy().to_string(),
+            vec!["assets/backgrounds/forest.png".to_string()],
+            vec!["assets/backgrounds/Forest.png".to_string()],
         )
         .expect("delete command should return structured result");
 

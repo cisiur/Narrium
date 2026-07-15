@@ -48,7 +48,7 @@ function physical(relativePath: string, fileSize = 10): PhysicalBackgroundFile {
 
 describe('background asset cleanup planning', () => {
   it('protects local Asset Library files even when no scene uses them', () => {
-    const report = planBackgroundAssetCleanup(createProject([createAsset()]), [
+    const report = planBackgroundAssetCleanup(createProject([createAsset()]), 'C:/Stories/Story.narrium', [
       physical('assets/backgrounds/forest.png'),
     ]);
 
@@ -59,7 +59,7 @@ describe('background asset cleanup planning', () => {
   });
 
   it('classifies physical files without local Asset Library entries as orphaned', () => {
-    const report = planBackgroundAssetCleanup(createProject([]), [
+    const report = planBackgroundAssetCleanup(createProject([]), 'C:/Stories/Story.narrium', [
       physical('assets/backgrounds/orphan.png'),
     ]);
 
@@ -74,6 +74,7 @@ describe('background asset cleanup planning', () => {
         createAsset({ id: 'asset-one' }),
         createAsset({ id: 'asset-two', source: 'assets/backgrounds/forest.png' }),
       ]),
+      'C:/Stories/Story.narrium',
       [physical('assets/backgrounds/forest.png')],
     );
 
@@ -90,6 +91,7 @@ describe('background asset cleanup planning', () => {
           source: 'assets/backgrounds/forest.png',
         }),
       ]),
+      'C:/Stories/Story.narrium',
       [physical('assets/backgrounds/forest.png')],
     );
 
@@ -107,6 +109,7 @@ describe('background asset cleanup planning', () => {
           source: 'assets/backgrounds/forest.png',
         }),
       ]),
+      'C:/Stories/Story.narrium',
       [physical('assets/backgrounds/forest.png')],
     );
 
@@ -116,7 +119,7 @@ describe('background asset cleanup planning', () => {
   });
 
   it('reports missing referenced files separately and never as deletion candidates', () => {
-    const report = planBackgroundAssetCleanup(createProject([createAsset()]), [
+    const report = planBackgroundAssetCleanup(createProject([createAsset()]), 'C:/Stories/Story.narrium', [
       physical('assets/backgrounds/orphan.png'),
     ]);
 
@@ -134,6 +137,7 @@ describe('background asset cleanup planning', () => {
   it('normalizes path separators consistently', () => {
     const report = planBackgroundAssetCleanup(
       createProject([createAsset({ source: 'assets\\backgrounds\\forest.png' })]),
+      'C:/Stories/Story.narrium',
       [physical('assets/backgrounds/forest.png')],
     );
 
@@ -143,6 +147,50 @@ describe('background asset cleanup planning', () => {
     expect(report.referencedFiles.map((file) => file.relativePath)).toEqual([
       'assets/backgrounds/forest.png',
     ]);
+    expect(report.missingReferencedFiles).toEqual([]);
+  });
+
+  it('protects mixed-case Asset Library paths when the physical file casing differs', () => {
+    const report = planBackgroundAssetCleanup(
+      createProject([createAsset({ source: 'assets/backgrounds/Forest.png' })]),
+      'C:/Stories/Story.narrium',
+      [physical('assets/backgrounds/forest.png')],
+    );
+
+    expect(report.referencedFiles.map((file) => file.relativePath)).toEqual([
+      'assets/backgrounds/forest.png',
+    ]);
+    expect(report.orphanedFiles).toEqual([]);
+    expect(report.missingReferencedFiles).toEqual([]);
+    expect(report.protectedRelativePaths).toEqual(['assets/backgrounds/Forest.png']);
+  });
+
+  it('protects lower-case Asset Library paths when the physical file casing differs', () => {
+    const report = planBackgroundAssetCleanup(
+      createProject([createAsset({ source: 'assets/backgrounds/forest.png' })]),
+      'C:/Stories/Story.narrium',
+      [physical('assets/backgrounds/Forest.png')],
+    );
+
+    expect(report.referencedFiles.map((file) => file.relativePath)).toEqual([
+      'assets/backgrounds/Forest.png',
+    ]);
+    expect(report.orphanedFiles).toEqual([]);
+    expect(report.missingReferencedFiles).toEqual([]);
+  });
+
+  it('keeps duplicate mixed-case local entries as one protected path', () => {
+    const report = planBackgroundAssetCleanup(
+      createProject([
+        createAsset({ id: 'asset-one', source: 'assets/backgrounds/Forest.png' }),
+        createAsset({ id: 'asset-two', source: 'assets/backgrounds/forest.png' }),
+      ]),
+      'C:/Stories/Story.narrium',
+      [physical('assets/backgrounds/FOREST.png')],
+    );
+
+    expect(report.protectedRelativePaths).toEqual(['assets/backgrounds/Forest.png']);
+    expect(report.referencedFiles).toHaveLength(1);
     expect(report.missingReferencedFiles).toEqual([]);
   });
 });

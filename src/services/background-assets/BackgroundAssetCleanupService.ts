@@ -6,6 +6,7 @@ import type {
 } from '../platform';
 import {
   collectProtectedLocalBackgroundPaths,
+  getBackgroundRelativePathComparisonKey,
   normalizeBackgroundRelativePath,
   planBackgroundAssetCleanup,
   type BackgroundAssetCleanupReport,
@@ -44,7 +45,7 @@ export class BackgroundAssetCleanupService {
 
     const physicalFiles = await this.platformProjectFiles.listLocalBackgroundFiles(filePath);
 
-    return planBackgroundAssetCleanup(project, physicalFiles);
+    return planBackgroundAssetCleanup(project, filePath, physicalFiles);
   }
 
   async deleteOrphanedLocalBackgroundFiles(
@@ -63,12 +64,12 @@ export class BackgroundAssetCleanupService {
     }
 
     const protectedPaths = collectProtectedLocalBackgroundPaths(latestProject);
-    const protectedRelativePaths = Array.from(protectedPaths.keys());
+    const protectedRelativePaths = Array.from(protectedPaths.values()).map((path) => path.relativePath);
     const revalidatedOrphanFiles = input.orphanCandidates.filter(
-      (file) => !protectedPaths.has(normalizeBackgroundRelativePath(file.relativePath)),
+      (file) => !protectedPaths.has(getBackgroundRelativePathComparisonKey(file.relativePath)),
     );
     const skippedNewlyReferencedFiles = input.orphanCandidates.filter((file) =>
-      protectedPaths.has(normalizeBackgroundRelativePath(file.relativePath)),
+      protectedPaths.has(getBackgroundRelativePathComparisonKey(file.relativePath)),
     );
 
     if (revalidatedOrphanFiles.length === 0) {
@@ -92,7 +93,7 @@ export class BackgroundAssetCleanupService {
       protectedRelativePaths,
     );
     const deletedSizesByPath = new Map(
-      revalidatedOrphanFiles.map((file) => [normalizeBackgroundRelativePath(file.relativePath), file.fileSize]),
+      revalidatedOrphanFiles.map((file) => [getBackgroundRelativePathComparisonKey(file.relativePath), file.fileSize]),
     );
     const reclaimedBytes = result.deleted.reduce(
       (total, file) => total + getDeletedFileSize(file, deletedSizesByPath),
@@ -121,5 +122,5 @@ function getDeletedFileSize(file: DeletedBackgroundFile, deletedSizesByPath: Map
     return file.fileSize;
   }
 
-  return deletedSizesByPath.get(normalizeBackgroundRelativePath(file.relativePath)) ?? 0;
+  return deletedSizesByPath.get(getBackgroundRelativePathComparisonKey(file.relativePath)) ?? 0;
 }

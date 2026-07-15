@@ -11,7 +11,14 @@ export interface MissingReferencedBackgroundFile {
   assetIds: string[];
 }
 
+export interface ProtectedLocalBackgroundPath {
+  relativePath: string;
+  assetIds: string[];
+}
+
 export interface BackgroundAssetCleanupReport {
+  projectId: string;
+  projectFilePath: string;
   referencedFiles: PhysicalBackgroundFile[];
   orphanedFiles: PhysicalBackgroundFile[];
   missingReferencedFiles: MissingReferencedBackgroundFile[];
@@ -27,8 +34,12 @@ export function normalizeBackgroundRelativePath(source: string): string {
     .join('/');
 }
 
-export function collectProtectedLocalBackgroundPaths(project: Project): Map<string, string[]> {
-  const protectedPaths = new Map<string, string[]>();
+export function getBackgroundRelativePathComparisonKey(source: string): string {
+  return normalizeBackgroundRelativePath(source).toLowerCase();
+}
+
+export function collectProtectedLocalBackgroundPaths(project: Project): Map<string, ProtectedLocalBackgroundPath> {
+  const protectedPaths = new Map<string, ProtectedLocalBackgroundPath>();
 
   for (const asset of project.assetLibrary) {
     if (asset.kind !== 'background' || asset.storageType !== 'local') {
@@ -36,12 +47,26 @@ export function collectProtectedLocalBackgroundPaths(project: Project): Map<stri
     }
 
     const normalizedPath = normalizeBackgroundRelativePath(asset.source);
+    const comparisonKey = getBackgroundRelativePathComparisonKey(asset.source);
 
-    if (!normalizedPath) {
+    if (!normalizedPath || !comparisonKey) {
       continue;
     }
 
-    protectedPaths.set(normalizedPath, [...(protectedPaths.get(normalizedPath) ?? []), asset.id]);
+    const existing = protectedPaths.get(comparisonKey);
+
+    protectedPaths.set(
+      comparisonKey,
+      existing
+        ? {
+            relativePath: existing.relativePath,
+            assetIds: [...existing.assetIds, asset.id],
+          }
+        : {
+            relativePath: normalizedPath,
+            assetIds: [asset.id],
+          },
+    );
   }
 
   return protectedPaths;
@@ -49,19 +74,21 @@ export function collectProtectedLocalBackgroundPaths(project: Project): Map<stri
 
 export function planBackgroundAssetCleanup(
   project: Project,
+  projectFilePath: string,
   physicalFiles: PhysicalBackgroundFile[],
 ): BackgroundAssetCleanupReport {
   const protectedPaths = collectProtectedLocalBackgroundPaths(project);
-  const physicalFilesByPath = new Map<string, PhysicalBackgroundFile>();
+  const physicalFilesByKey = new Map<string, PhysicalBackgroundFile>();
 
   for (const file of physicalFiles) {
     const normalizedPath = normalizeBackgroundRelativePath(file.relativePath);
+    const comparisonKey = getBackgroundRelativePathComparisonKey(file.relativePath);
 
-    if (!normalizedPath || physicalFilesByPath.has(normalizedPath)) {
+    if (!normalizedPath || !comparisonKey || physicalFilesByKey.has(comparisonKey)) {
       continue;
     }
 
-    physicalFilesByPath.set(normalizedPath, {
+    physicalFilesByKey.set(comparisonKey, {
       ...file,
       relativePath: normalizedPath,
     });
@@ -70,8 +97,8 @@ export function planBackgroundAssetCleanup(
   const referencedFiles: PhysicalBackgroundFile[] = [];
   const orphanedFiles: PhysicalBackgroundFile[] = [];
 
-  for (const file of physicalFilesByPath.values()) {
-    if (protectedPaths.has(file.relativePath)) {
+  for (const [comparisonKey, file] of physicalFilesByKey.entries()) {
+    if (protectedPaths.has(comparisonKey)) {
       referencedFiles.push(file);
     } else {
       orphanedFiles.push(file);
@@ -79,16 +106,18 @@ export function planBackgroundAssetCleanup(
   }
 
   const missingReferencedFiles = Array.from(protectedPaths.entries())
-    .filter(([relativePath]) => !physicalFilesByPath.has(relativePath))
-    .map(([relativePath, assetIds]) => ({
-      relativePath,
-      assetIds,
+    .filter(([comparisonKey]) => !physicalFilesByKey.has(comparisonKey))
+    .map(([, protectedPath]) => ({
+      relativePath: protectedPath.relativePath,
+      assetIds: protectedPath.assetIds,
     }));
 
   return {
+    projectId: project.id,
+    projectFilePath,
     referencedFiles,
     orphanedFiles,
     missingReferencedFiles,
-    protectedRelativePaths: Array.from(protectedPaths.keys()),
+    protectedRelativePaths: Array.from(protectedPaths.values()).map((path) => path.relativePath),
   };
 }

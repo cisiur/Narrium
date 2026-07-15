@@ -9,6 +9,7 @@ export {
 } from './BackgroundAssetMigrationService';
 export {
   collectProtectedLocalBackgroundPaths,
+  getBackgroundRelativePathComparisonKey,
   normalizeBackgroundRelativePath,
   planBackgroundAssetCleanup,
 } from './BackgroundAssetCleanupPlanner';

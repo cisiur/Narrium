@@ -3,6 +3,8 @@ import type {
   MaterializedBackgroundAsset,
 } from '../background-assets/BackgroundAssetMigrationService';
 import type {
+  DeleteLocalBackgroundFilesResult,
+  PhysicalBackgroundFile,
   PlatformName,
   PlatformProjectFile,
   PlatformProjectFileApi,
@@ -64,6 +66,14 @@ export class BrowserPlatformService implements PlatformService, PlatformProjectF
     _assets: EmbeddedBackgroundAssetMaterializationRequest[],
   ): Promise<MaterializedBackgroundAsset[]> {
     return Promise.reject(new Error('Embedded background materialization is only available in the desktop app.'));
+  }
+
+  listLocalBackgroundFiles(): Promise<PhysicalBackgroundFile[]> {
+    return Promise.reject(new Error('Local background cleanup is only available in the desktop app.'));
+  }
+
+  deleteLocalBackgroundFiles(): Promise<DeleteLocalBackgroundFilesResult> {
+    return Promise.reject(new Error('Local background cleanup is only available in the desktop app.'));
   }
 
   confirmUnsavedChanges(projectName: string): Promise<UnsavedChangesAction> {

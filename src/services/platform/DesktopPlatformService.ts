@@ -7,6 +7,8 @@ import type {
 } from '../background-assets/BackgroundAssetMigrationService';
 import type {
   ImportedBackgroundAssetFile,
+  DeleteLocalBackgroundFilesResult,
+  PhysicalBackgroundFile,
   PlatformName,
   PlatformProjectFile,
   PlatformProjectFileApi,
@@ -167,6 +169,22 @@ export class DesktopPlatformService implements PlatformService, PlatformProjectF
     return invoke('materialize_embedded_background_assets', {
       projectFilePath,
       assets,
+    });
+  }
+
+  listLocalBackgroundFiles(projectFilePath: string): Promise<PhysicalBackgroundFile[]> {
+    return invoke('list_local_background_files', { projectFilePath });
+  }
+
+  deleteLocalBackgroundFiles(
+    projectFilePath: string,
+    relativePaths: string[],
+    protectedRelativePaths: string[],
+  ): Promise<DeleteLocalBackgroundFilesResult> {
+    return invoke('delete_local_background_files', {
+      projectFilePath,
+      relativePaths,
+      protectedRelativePaths,
     });
   }
 

@@ -95,6 +95,8 @@ function createPlatformFileApi(overrides: Partial<PlatformProjectFileApi> = {}):
     resolveLocalAssetDisplaySource: vi.fn(() => Promise.resolve(null)),
     copyLocalAssetForProjectSaveAs: vi.fn(() => Promise.resolve()),
     materializeEmbeddedBackgroundAssets: vi.fn(() => Promise.reject(new Error('not implemented'))),
+    listLocalBackgroundFiles: vi.fn(() => Promise.resolve([])),
+    deleteLocalBackgroundFiles: vi.fn(() => Promise.resolve({ deleted: [], skipped: [], failed: [] })),
     ...overrides,
   };
 }

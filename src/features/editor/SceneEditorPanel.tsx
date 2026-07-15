@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useConfirmationDialog } from '../../components';
 import { useCanvasStore } from '../../store/useCanvasStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
+import {
+  BackgroundAssetCleanupService,
+  type BackgroundAssetCleanupDeletionResult,
+  type BackgroundAssetCleanupReport,
+} from '../../services/background-assets';
 import { processBrowserBackgroundUpload } from '../../services/image-processing';
 import { getPlatformService } from '../../services/platform';
 import { ConditionGroupsEditor } from '../story-logic/ConditionGroupsEditor';
@@ -167,11 +173,38 @@ function BackgroundAssetThumbnail({
   );
 }
 
+function sumFileSizes(files: Array<{ fileSize: number }>): number {
+  return files.reduce((total, file) => total + (Number.isFinite(file.fileSize) ? file.fileSize : 0), 0);
+}
+
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) {
+    return '0 B';
+  }
+
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let value = bytes;
+  let unitIndex = 0;
+
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+
+  return `${value >= 10 || unitIndex === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[unitIndex]}`;
+}
+
 export function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProps) {
+  const activeProject = useWorkspaceStore((state) => state.activeProject);
   const activeProjectFilePath = useWorkspaceStore((state) => state.activeProjectFilePath);
   const updateSceneBackground = useCanvasStore((state) => state.updateSceneBackground);
   const addBackgroundAsset = useCanvasStore((state) => state.addBackgroundAsset);
   const deleteBackgroundAsset = useCanvasStore((state) => state.deleteBackgroundAsset);
+  const { confirm, confirmationDialog } = useConfirmationDialog();
+  const cleanupService = useMemo(
+    () => new BackgroundAssetCleanupService(getPlatformService()),
+    [],
+  );
   const availableReferenceScenes = scenes.filter((candidate) => candidate.id !== scene.id);
   const referencedScene =
     availableReferenceScenes.find((candidate) => candidate.id === scene.background.sourceSceneId) ?? null;
@@ -182,8 +215,14 @@ export function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProp
   const [urlAssetUrl, setUrlAssetUrl] = useState('');
   const [uploadAssetName, setUploadAssetName] = useState('');
   const [assetError, setAssetError] = useState<string | null>(null);
+  const [cleanupReport, setCleanupReport] = useState<BackgroundAssetCleanupReport | null>(null);
+  const [cleanupResult, setCleanupResult] = useState<BackgroundAssetCleanupDeletionResult | null>(null);
+  const [isCleanupScanning, setIsCleanupScanning] = useState(false);
+  const [isCleanupDeleting, setIsCleanupDeleting] = useState(false);
+  const [cleanupError, setCleanupError] = useState<string | null>(null);
   const browserUploadInputRef = useRef<HTMLInputElement | null>(null);
   const selectedAssetSource = useAssetDisplaySource(selectedAsset, activeProjectFilePath);
+  const canCleanUpLocalBackgroundFiles = cleanupService.canCleanUpLocalBackgroundFiles(activeProjectFilePath);
 
   const updateBackground = (background: SceneBackground) => {
     updateSceneBackground(scene.id, background);
@@ -340,6 +379,60 @@ export function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProp
     setAssetError(null);
   };
 
+  const scanUnusedLocalBackgroundFiles = async () => {
+    if (!activeProject) {
+      return;
+    }
+
+    setIsCleanupScanning(true);
+    setCleanupError(null);
+    setCleanupResult(null);
+
+    try {
+      setCleanupReport(await cleanupService.scanLocalBackgroundFiles(activeProject, activeProjectFilePath));
+    } catch (error) {
+      setCleanupReport(null);
+      setCleanupError(error instanceof Error ? error.message : 'Could not scan local background files.');
+    } finally {
+      setIsCleanupScanning(false);
+    }
+  };
+
+  const deleteUnusedLocalBackgroundFiles = async () => {
+    if (!cleanupReport || cleanupReport.orphanedFiles.length === 0) {
+      return;
+    }
+
+    const confirmed = await confirm({
+      title: 'Delete Unused Background Files?',
+      message: `Delete ${cleanupReport.orphanedFiles.length} unused local background file(s)? This only removes physical files that are not referenced by the Asset Library.`,
+      confirmLabel: 'Delete Files',
+      cancelLabel: 'Cancel',
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    setIsCleanupDeleting(true);
+    setCleanupError(null);
+
+    try {
+      setCleanupResult(
+        await cleanupService.deleteOrphanedLocalBackgroundFiles({
+          projectFilePath: activeProjectFilePath,
+          orphanCandidates: cleanupReport.orphanedFiles,
+          getLatestProject: () => useWorkspaceStore.getState().activeProject,
+        }),
+      );
+    } catch (error) {
+      setCleanupResult(null);
+      setCleanupError(error instanceof Error ? error.message : 'Could not delete unused local background files.');
+    } finally {
+      setIsCleanupDeleting(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div>
@@ -451,7 +544,19 @@ export function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProp
         ) : null}
 
         <div className="mt-4 space-y-2">
-          <div className="text-xs font-semibold text-gray-300">Project background assets</div>
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-xs font-semibold text-gray-300">Project background assets</div>
+            {canCleanUpLocalBackgroundFiles ? (
+              <button
+                type="button"
+                onClick={() => void scanUnusedLocalBackgroundFiles()}
+                disabled={isCleanupScanning || isCleanupDeleting}
+                className="rounded bg-gray-700 px-2 py-1 text-[11px] font-medium text-gray-100 hover:bg-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isCleanupScanning ? 'Scanning...' : 'Clean Up Unused Files'}
+              </button>
+            ) : null}
+          </div>
           {backgroundAssets.length === 0 ? (
             <p className="rounded-md border border-dashed border-gray-700 px-3 py-3 text-xs text-gray-500">
               Add a background asset by upload or URL.
@@ -466,7 +571,11 @@ export function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProp
                 <div className="min-w-0">
                   <div className="truncate text-xs font-semibold text-gray-100">{asset.name}</div>
                   <div className="text-[11px] text-gray-500">
-                    {asset.storageType === 'remote' ? 'Remote URL' : 'Embedded'}
+                    {asset.storageType === 'local'
+                      ? 'Local file'
+                      : asset.storageType === 'remote'
+                        ? 'Remote URL'
+                        : 'Embedded'}
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
@@ -490,7 +599,80 @@ export function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProp
             ))
           )}
         </div>
+
+        {cleanupError ? (
+          <p className="mt-3 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+            {cleanupError}
+          </p>
+        ) : null}
+
+        {cleanupReport ? (
+          <div className="mt-3 space-y-2 rounded-md border border-gray-700 bg-gray-900 p-3 text-xs text-gray-300">
+            <div className="font-semibold text-gray-100">
+              {cleanupReport.orphanedFiles.length === 0
+                ? 'No unused local background files found.'
+                : `${cleanupReport.orphanedFiles.length} unused local background file(s), ${formatBytes(
+                    sumFileSizes(cleanupReport.orphanedFiles),
+                  )}`}
+            </div>
+            {cleanupReport.orphanedFiles.length > 0 ? (
+              <>
+                <ul className="max-h-28 space-y-1 overflow-auto text-gray-400">
+                  {cleanupReport.orphanedFiles.map((file) => (
+                    <li key={file.relativePath} className="truncate" title={file.relativePath}>
+                      {file.relativePath} ({formatBytes(file.fileSize)})
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  type="button"
+                  onClick={() => void deleteUnusedLocalBackgroundFiles()}
+                  disabled={isCleanupDeleting}
+                  className="rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isCleanupDeleting ? 'Deleting...' : 'Delete Unused Files'}
+                </button>
+              </>
+            ) : null}
+            {cleanupReport.missingReferencedFiles.length > 0 ? (
+              <div className="rounded border border-amber-500/30 bg-amber-500/10 p-2 text-amber-100">
+                <div className="font-semibold">Missing referenced local file(s)</div>
+                <ul className="mt-1 space-y-1">
+                  {cleanupReport.missingReferencedFiles.map((file) => (
+                    <li key={file.relativePath} className="truncate" title={file.relativePath}>
+                      {file.relativePath}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {cleanupResult ? (
+          <div className="mt-3 rounded-md border border-gray-700 bg-gray-900 p-3 text-xs text-gray-300">
+            <div className="font-semibold text-gray-100">
+              {cleanupResult.failed.length > 0
+                ? 'Cleanup completed with failures.'
+                : 'Cleanup complete.'}
+            </div>
+            <div className="mt-1">
+              Deleted {cleanupResult.deleted.length} file(s), reclaimed {formatBytes(cleanupResult.reclaimedBytes)}.
+            </div>
+            {cleanupResult.skipped.length > 0 ? (
+              <div className="mt-2 text-gray-400">
+                Skipped: {cleanupResult.skipped.map((file) => file.relativePath).join(', ')}
+              </div>
+            ) : null}
+            {cleanupResult.failed.length > 0 ? (
+              <div className="mt-2 text-red-200">
+                Failed: {cleanupResult.failed.map((file) => `${file.relativePath}: ${file.error}`).join('; ')}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
+      {confirmationDialog}
 
       <div className="overflow-hidden rounded-md border border-gray-700 bg-gray-950">
         {scene.background.mode === 'none' ? (

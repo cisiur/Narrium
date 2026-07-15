@@ -8,10 +8,15 @@ export type {
 export type {
   PlatformName,
   PlatformAppPreferencesApi,
+  DeleteLocalBackgroundFilesResult,
+  DeletedBackgroundFile,
+  FailedBackgroundFileDeletion,
   PlatformProjectFile,
   PlatformProjectFileApi,
   PlatformService,
+  PhysicalBackgroundFile,
   ProjectFileSaveOptions,
   ProjectFileSelectionOptions,
+  SkippedBackgroundFileDeletion,
   UnsavedChangesAction,
 } from './PlatformService';

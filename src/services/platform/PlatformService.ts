@@ -26,6 +26,33 @@ export interface ImportedBackgroundAssetFile {
   fileSize: number;
 }
 
+export interface PhysicalBackgroundFile {
+  relativePath: string;
+  fileName: string;
+  fileSize: number;
+}
+
+export interface DeletedBackgroundFile {
+  relativePath: string;
+  fileSize: number;
+}
+
+export interface SkippedBackgroundFileDeletion {
+  relativePath: string;
+  reason: string;
+}
+
+export interface FailedBackgroundFileDeletion {
+  relativePath: string;
+  error: string;
+}
+
+export interface DeleteLocalBackgroundFilesResult {
+  deleted: DeletedBackgroundFile[];
+  skipped: SkippedBackgroundFileDeletion[];
+  failed: FailedBackgroundFileDeletion[];
+}
+
 export type UnsavedChangesAction = 'save' | 'discard' | 'cancel';
 
 export interface PlatformProjectFileApi {
@@ -44,6 +71,12 @@ export interface PlatformProjectFileApi {
     projectFilePath: string,
     assets: EmbeddedBackgroundAssetMaterializationRequest[],
   ): Promise<MaterializedBackgroundAsset[]>;
+  listLocalBackgroundFiles(projectFilePath: string): Promise<PhysicalBackgroundFile[]>;
+  deleteLocalBackgroundFiles(
+    projectFilePath: string,
+    relativePaths: string[],
+    protectedRelativePaths: string[],
+  ): Promise<DeleteLocalBackgroundFilesResult>;
 }
 
 export interface PlatformAppPreferencesApi {

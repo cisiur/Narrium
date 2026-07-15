@@ -24,7 +24,9 @@ pub fn run() {
             import_background_asset_file,
             materialize_embedded_background_assets,
             resolve_local_asset_file,
-            copy_local_asset_for_project_save_as
+            copy_local_asset_for_project_save_as,
+            list_local_background_files,
+            delete_local_background_files
         ])
         .run(tauri::generate_context!())
         .expect("error while running Narrium desktop shell");
@@ -66,6 +68,43 @@ struct StagedMaterializedBackgroundAsset {
     result: MaterializedBackgroundAsset,
     staging_path: std::path::PathBuf,
     final_path: std::path::PathBuf,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PhysicalBackgroundFile {
+    relative_path: String,
+    file_name: String,
+    file_size: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DeletedBackgroundFile {
+    relative_path: String,
+    file_size: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SkippedBackgroundFileDeletion {
+    relative_path: String,
+    reason: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct FailedBackgroundFileDeletion {
+    relative_path: String,
+    error: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DeleteLocalBackgroundFilesResult {
+    deleted: Vec<DeletedBackgroundFile>,
+    skipped: Vec<SkippedBackgroundFileDeletion>,
+    failed: Vec<FailedBackgroundFileDeletion>,
 }
 
 const MATERIALIZATION_LIMITS: MaterializationLimits = MaterializationLimits {
@@ -316,6 +355,23 @@ fn project_dir_from_file_path(file_path: &str) -> Result<std::path::PathBuf, Str
         .map_err(|error| format!("Failed to resolve project directory: {}", error))
 }
 
+fn project_dir_from_narrium_file_path(file_path: &str) -> Result<std::path::PathBuf, String> {
+    let project_file_path = std::path::Path::new(file_path);
+    validate_project_file_path_for_write(project_file_path)?;
+
+    if !project_file_path.is_file() {
+        return Err("Selected project path is not a .narrium file.".to_string());
+    }
+
+    let parent_path = project_file_path
+        .parent()
+        .ok_or_else(|| "Project file must have a parent directory.".to_string())?;
+
+    parent_path
+        .canonicalize()
+        .map_err(|error| format!("Failed to resolve project directory: {}", error))
+}
+
 fn ensure_relative_asset_path(relative_path: &str) -> Result<std::path::PathBuf, String> {
     let path = std::path::Path::new(relative_path);
 
@@ -346,6 +402,28 @@ fn ensure_relative_asset_path(relative_path: &str) -> Result<std::path::PathBuf,
     if normalized.as_os_str().is_empty() {
         return Err("Local asset path cannot be empty.".to_string());
     }
+
+    Ok(normalized)
+}
+
+fn ensure_direct_background_relative_path(relative_path: &str) -> Result<std::path::PathBuf, String> {
+    let normalized = ensure_relative_asset_path(relative_path)?;
+    let components = normalized
+        .components()
+        .filter_map(|component| match component {
+            std::path::Component::Normal(value) => Some(value.to_string_lossy().to_string()),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    if components.len() != 3 || components[0] != "assets" || components[1] != "backgrounds" {
+        return Err(
+            "Local background cleanup paths must be directly under assets/backgrounds/."
+                .to_string(),
+        );
+    }
+
+    safe_background_extension(&normalized)?;
 
     Ok(normalized)
 }
@@ -944,6 +1022,172 @@ fn copy_local_asset_for_project_save_as(
     })?;
 
     Ok(())
+}
+
+#[tauri::command]
+fn list_local_background_files(project_file_path: String) -> Result<Vec<PhysicalBackgroundFile>, String> {
+    let project_dir = project_dir_from_narrium_file_path(&project_file_path)?;
+    let backgrounds_dir = project_dir.join("assets").join("backgrounds");
+
+    if !backgrounds_dir.exists() {
+        return Ok(Vec::new());
+    }
+
+    if !backgrounds_dir.is_dir() {
+        return Err("Project background asset path is not a directory.".to_string());
+    }
+
+    let mut files = Vec::new();
+
+    for entry in std::fs::read_dir(&backgrounds_dir).map_err(|error| {
+        format!(
+            "Failed to read background asset directory {}: {}",
+            backgrounds_dir.display(),
+            error
+        )
+    })? {
+        let entry = entry.map_err(|error| format!("Failed to read background asset entry: {}", error))?;
+        let file_type = entry
+            .file_type()
+            .map_err(|error| format!("Failed to inspect background asset entry: {}", error))?;
+
+        if !file_type.is_file() || safe_background_extension(&entry.path()).is_err() {
+            continue;
+        }
+
+        let file_name = entry.file_name().to_string_lossy().to_string();
+        let metadata = entry
+            .metadata()
+            .map_err(|error| format!("Failed to inspect background asset {}: {}", file_name, error))?;
+        let relative_path = std::path::Path::new("assets")
+            .join("backgrounds")
+            .join(&file_name);
+
+        files.push(PhysicalBackgroundFile {
+            relative_path: relative_path_with_forward_slashes(&relative_path),
+            file_name,
+            file_size: metadata.len(),
+        });
+    }
+
+    files.sort_by(|a, b| a.relative_path.cmp(&b.relative_path));
+    Ok(files)
+}
+
+#[tauri::command]
+fn delete_local_background_files(
+    project_file_path: String,
+    relative_paths: Vec<String>,
+    protected_relative_paths: Vec<String>,
+) -> Result<DeleteLocalBackgroundFilesResult, String> {
+    let project_dir = project_dir_from_narrium_file_path(&project_file_path)?;
+    let backgrounds_dir = project_dir.join("assets").join("backgrounds");
+    let protected_paths: HashSet<String> = protected_relative_paths
+        .iter()
+        .filter_map(|path| ensure_direct_background_relative_path(path).ok())
+        .map(|path| relative_path_with_forward_slashes(&path))
+        .collect();
+
+    let mut deleted = Vec::new();
+    let mut skipped = Vec::new();
+    let mut failed = Vec::new();
+    let mut seen = HashSet::new();
+
+    for relative_path in relative_paths {
+        let normalized = match ensure_direct_background_relative_path(&relative_path) {
+            Ok(path) => relative_path_with_forward_slashes(&path),
+            Err(error) => {
+                failed.push(FailedBackgroundFileDeletion {
+                    relative_path,
+                    error,
+                });
+                continue;
+            }
+        };
+
+        if !seen.insert(normalized.clone()) {
+            skipped.push(SkippedBackgroundFileDeletion {
+                relative_path: normalized,
+                reason: "Duplicate cleanup candidate skipped.".to_string(),
+            });
+            continue;
+        }
+
+        if protected_paths.contains(&normalized) {
+            skipped.push(SkippedBackgroundFileDeletion {
+                relative_path: normalized,
+                reason: "Protected background file is still referenced by the Asset Library.".to_string(),
+            });
+            continue;
+        }
+
+        let target_path = project_dir.join(std::path::Path::new(&normalized));
+
+        if !target_path.starts_with(&project_dir) {
+            failed.push(FailedBackgroundFileDeletion {
+                relative_path: normalized,
+                error: "Local background path escapes the project directory.".to_string(),
+            });
+            continue;
+        }
+
+        let canonical_target = match target_path.canonicalize() {
+            Ok(path) => path,
+            Err(_) => {
+                failed.push(FailedBackgroundFileDeletion {
+                    relative_path: normalized,
+                    error: "Local background file is missing.".to_string(),
+                });
+                continue;
+            }
+        };
+
+        if !canonical_target.starts_with(&backgrounds_dir)
+            || canonical_target.parent() != Some(backgrounds_dir.as_path())
+        {
+            failed.push(FailedBackgroundFileDeletion {
+                relative_path: normalized,
+                error: "Local background path escapes the allowed background directory.".to_string(),
+            });
+            continue;
+        }
+
+        if !canonical_target.is_file() {
+            failed.push(FailedBackgroundFileDeletion {
+                relative_path: normalized,
+                error: "Local background path is not a file.".to_string(),
+            });
+            continue;
+        }
+
+        let file_size = match std::fs::metadata(&canonical_target) {
+            Ok(metadata) => metadata.len(),
+            Err(error) => {
+                failed.push(FailedBackgroundFileDeletion {
+                    relative_path: normalized,
+                    error: format!("Failed to inspect local background file: {}", error),
+                });
+                continue;
+            }
+        };
+
+        match std::fs::remove_file(&canonical_target) {
+            Ok(()) => deleted.push(DeletedBackgroundFile {
+                relative_path: normalized,
+                file_size,
+            }),
+            Err(error) => failed.push(FailedBackgroundFileDeletion {
+                relative_path: normalized,
+                error: format!("Failed to delete local background file: {}", error),
+            }),
+        }
+    }
+
+    Ok(DeleteLocalBackgroundFilesResult {
+        deleted,
+        skipped,
+        failed,
+    })
 }
 
 #[cfg(test)]
@@ -1766,6 +2010,281 @@ mod tests {
             .join("backgrounds")
             .join("forest.png")
             .is_file());
+    }
+
+    fn cleanup_project(root: &Path) -> PathBuf {
+        let project_path = root.join("Story.narrium");
+        write_file(&project_path, b"{}");
+        project_path
+    }
+
+    fn background_path(root: &Path, file_name: &str) -> PathBuf {
+        root.join("assets").join("backgrounds").join(file_name)
+    }
+
+    #[test]
+    fn lists_supported_background_files_directly_under_backgrounds() {
+        let root = temp_root("lists-supported-backgrounds");
+        let project_path = cleanup_project(&root);
+        write_file(&background_path(&root, "forest.png"), b"png");
+        write_file(&background_path(&root, "lake.JPG"), b"jpg");
+        write_file(&background_path(&root, "notes.txt"), b"text");
+        write_file(
+            &root
+                .join("assets")
+                .join("backgrounds")
+                .join("nested")
+                .join("deep.png"),
+            b"png",
+        );
+
+        let files = list_local_background_files(project_path.to_string_lossy().to_string())
+            .expect("list should succeed");
+
+        assert_eq!(
+            files.iter().map(|file| file.relative_path.as_str()).collect::<Vec<_>>(),
+            vec!["assets/backgrounds/forest.png", "assets/backgrounds/lake.JPG"]
+        );
+        assert_eq!(files[0].file_size, 3);
+    }
+
+    #[test]
+    fn missing_background_directory_lists_as_empty() {
+        let root = temp_root("missing-background-directory");
+        let project_path = cleanup_project(&root);
+
+        let files = list_local_background_files(project_path.to_string_lossy().to_string())
+            .expect("list should succeed");
+
+        assert!(files.is_empty());
+    }
+
+    #[test]
+    fn unsupported_background_extensions_are_ignored_by_listing_and_rejected_for_delete() {
+        let root = temp_root("unsupported-background-extension");
+        let project_path = cleanup_project(&root);
+        write_file(&background_path(&root, "notes.txt"), b"text");
+
+        let files = list_local_background_files(project_path.to_string_lossy().to_string())
+            .expect("list should succeed");
+        let result = delete_local_background_files(
+            project_path.to_string_lossy().to_string(),
+            vec!["assets/backgrounds/notes.txt".to_string()],
+            vec![],
+        )
+        .expect("delete command should return structured result");
+
+        assert!(files.is_empty());
+        assert!(result.deleted.is_empty());
+        assert_eq!(result.failed.len(), 1);
+        assert!(background_path(&root, "notes.txt").is_file());
+    }
+
+    #[test]
+    fn rejects_absolute_deletion_paths() {
+        let root = temp_root("rejects-absolute-delete");
+        let project_path = cleanup_project(&root);
+        let absolute_path = background_path(&root, "forest.png");
+        write_file(&absolute_path, b"png");
+
+        let result = delete_local_background_files(
+            project_path.to_string_lossy().to_string(),
+            vec![absolute_path.to_string_lossy().to_string()],
+            vec![],
+        )
+        .expect("delete command should return structured result");
+
+        assert!(result.deleted.is_empty());
+        assert_eq!(result.failed.len(), 1);
+        assert!(absolute_path.is_file());
+    }
+
+    #[test]
+    fn rejects_parent_traversal_deletion_paths() {
+        let root = temp_root("rejects-traversal-delete");
+        let project_path = cleanup_project(&root);
+        let outside_path = root.join("outside.png");
+        write_file(&outside_path, b"outside");
+
+        let result = delete_local_background_files(
+            project_path.to_string_lossy().to_string(),
+            vec!["assets/backgrounds/../../outside.png".to_string()],
+            vec![],
+        )
+        .expect("delete command should return structured result");
+
+        assert!(result.deleted.is_empty());
+        assert_eq!(result.failed.len(), 1);
+        assert!(outside_path.is_file());
+    }
+
+    #[test]
+    fn rejects_deletion_paths_outside_backgrounds() {
+        let root = temp_root("rejects-outside-backgrounds");
+        let project_path = cleanup_project(&root);
+        let asset_path = root.join("assets").join("portrait.png");
+        write_file(&asset_path, b"png");
+
+        let result = delete_local_background_files(
+            project_path.to_string_lossy().to_string(),
+            vec!["assets/portrait.png".to_string()],
+            vec![],
+        )
+        .expect("delete command should return structured result");
+
+        assert!(result.deleted.is_empty());
+        assert_eq!(result.failed.len(), 1);
+        assert!(asset_path.is_file());
+    }
+
+    #[test]
+    fn rejects_nested_background_deletion_paths() {
+        let root = temp_root("rejects-nested-backgrounds");
+        let project_path = cleanup_project(&root);
+        let nested_path = root
+            .join("assets")
+            .join("backgrounds")
+            .join("nested")
+            .join("deep.png");
+        write_file(&nested_path, b"png");
+
+        let result = delete_local_background_files(
+            project_path.to_string_lossy().to_string(),
+            vec!["assets/backgrounds/nested/deep.png".to_string()],
+            vec![],
+        )
+        .expect("delete command should return structured result");
+
+        assert!(result.deleted.is_empty());
+        assert_eq!(result.failed.len(), 1);
+        assert!(nested_path.is_file());
+    }
+
+    #[test]
+    fn deletes_supported_valid_background_files() {
+        let root = temp_root("deletes-valid-background");
+        let project_path = cleanup_project(&root);
+        let asset_path = background_path(&root, "forest.png");
+        write_file(&asset_path, b"png");
+
+        let result = delete_local_background_files(
+            project_path.to_string_lossy().to_string(),
+            vec!["assets/backgrounds/forest.png".to_string()],
+            vec![],
+        )
+        .expect("delete command should succeed");
+
+        assert_eq!(
+            result.deleted,
+            vec![DeletedBackgroundFile {
+                relative_path: "assets/backgrounds/forest.png".to_string(),
+                file_size: 3,
+            }]
+        );
+        assert!(!asset_path.exists());
+    }
+
+    #[test]
+    fn deletes_multiple_valid_background_files_in_one_batch() {
+        let root = temp_root("deletes-multiple-backgrounds");
+        let project_path = cleanup_project(&root);
+        write_file(&background_path(&root, "one.png"), b"one");
+        write_file(&background_path(&root, "two.webp"), b"two");
+
+        let result = delete_local_background_files(
+            project_path.to_string_lossy().to_string(),
+            vec![
+                "assets/backgrounds/one.png".to_string(),
+                "assets/backgrounds/two.webp".to_string(),
+            ],
+            vec![],
+        )
+        .expect("delete command should succeed");
+
+        assert_eq!(result.deleted.len(), 2);
+        assert!(!background_path(&root, "one.png").exists());
+        assert!(!background_path(&root, "two.webp").exists());
+    }
+
+    #[test]
+    fn invalid_candidates_do_not_delete_outside_project_directory() {
+        let root = temp_root("invalid-candidate-does-not-delete-outside");
+        let project_path = cleanup_project(&root);
+        let outside_path = root.join("outside.png");
+        write_file(&outside_path, b"outside");
+
+        let result = delete_local_background_files(
+            project_path.to_string_lossy().to_string(),
+            vec!["../outside.png".to_string()],
+            vec![],
+        )
+        .expect("delete command should return structured result");
+
+        assert!(result.deleted.is_empty());
+        assert_eq!(result.failed.len(), 1);
+        assert!(outside_path.is_file());
+    }
+
+    #[test]
+    fn missing_candidate_files_are_reported_safely() {
+        let root = temp_root("missing-candidate-safe");
+        let project_path = cleanup_project(&root);
+
+        let result = delete_local_background_files(
+            project_path.to_string_lossy().to_string(),
+            vec!["assets/backgrounds/missing.png".to_string()],
+            vec![],
+        )
+        .expect("delete command should return structured result");
+
+        assert!(result.deleted.is_empty());
+        assert_eq!(
+            result.failed,
+            vec![FailedBackgroundFileDeletion {
+                relative_path: "assets/backgrounds/missing.png".to_string(),
+                error: "Local background file is missing.".to_string(),
+            }]
+        );
+    }
+
+    #[test]
+    fn partial_batch_failure_returns_structured_partial_result() {
+        let root = temp_root("partial-batch-failure");
+        let project_path = cleanup_project(&root);
+        write_file(&background_path(&root, "valid.png"), b"png");
+
+        let result = delete_local_background_files(
+            project_path.to_string_lossy().to_string(),
+            vec![
+                "assets/backgrounds/valid.png".to_string(),
+                "assets/backgrounds/missing.png".to_string(),
+            ],
+            vec![],
+        )
+        .expect("delete command should return structured result");
+
+        assert_eq!(result.deleted.len(), 1);
+        assert_eq!(result.failed.len(), 1);
+        assert!(!background_path(&root, "valid.png").exists());
+    }
+
+    #[test]
+    fn protected_paths_passed_to_rust_are_not_deleted() {
+        let root = temp_root("protected-paths-not-deleted");
+        let project_path = cleanup_project(&root);
+        let asset_path = background_path(&root, "forest.png");
+        write_file(&asset_path, b"png");
+
+        let result = delete_local_background_files(
+            project_path.to_string_lossy().to_string(),
+            vec!["assets/backgrounds/forest.png".to_string()],
+            vec!["assets/backgrounds/forest.png".to_string()],
+        )
+        .expect("delete command should return structured result");
+
+        assert!(result.deleted.is_empty());
+        assert_eq!(result.skipped.len(), 1);
+        assert!(asset_path.is_file());
     }
 
     #[test]

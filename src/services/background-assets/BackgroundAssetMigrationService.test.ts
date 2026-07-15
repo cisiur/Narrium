@@ -114,6 +114,46 @@ describe('parseEmbeddedBackgroundDataUrl', () => {
       extension: 'jpg',
     });
   });
+
+  it('rejects invalid Base64 characters', () => {
+    expect(() => parseEmbeddedBackgroundDataUrl('data:image/png;base64,YWJj$')).toThrow('invalid characters');
+  });
+
+  it('rejects Base64 padding in the middle', () => {
+    expect(() => parseEmbeddedBackgroundDataUrl('data:image/png;base64,YW=Jj')).toThrow('padding');
+  });
+
+  it('rejects more than two Base64 padding characters', () => {
+    expect(() => parseEmbeddedBackgroundDataUrl('data:image/png;base64,YWJj===')).toThrow(
+      'more than two padding',
+    );
+  });
+
+  it('rejects impossible Base64 payload lengths', () => {
+    expect(() => parseEmbeddedBackgroundDataUrl('data:image/png;base64,Y')).toThrow('invalid length');
+  });
+
+  it('rejects whitespace inside Base64 payloads', () => {
+    expect(() => parseEmbeddedBackgroundDataUrl('data:image/png;base64,YW Jj')).toThrow('whitespace');
+  });
+
+  it('accepts valid Base64 payloads without padding', () => {
+    expect(parseEmbeddedBackgroundDataUrl('data:image/png;base64,YWJj')).toMatchObject({
+      base64Data: 'YWJj',
+    });
+  });
+
+  it('accepts valid Base64 payloads with one padding character', () => {
+    expect(parseEmbeddedBackgroundDataUrl('data:image/png;base64,YWI=')).toMatchObject({
+      base64Data: 'YWI=',
+    });
+  });
+
+  it('accepts valid Base64 payloads with two padding characters', () => {
+    expect(parseEmbeddedBackgroundDataUrl('data:image/png;base64,YQ==')).toMatchObject({
+      base64Data: 'YQ==',
+    });
+  });
 });
 
 describe('planEmbeddedBackgroundAssetMigration', () => {
@@ -189,6 +229,26 @@ describe('planEmbeddedBackgroundAssetMigration', () => {
     ]);
 
     expect(() => planEmbeddedBackgroundAssetMigration(project)).toThrow('asset-invalid');
+  });
+
+  it('throws on malformed Base64 payloads and identifies the asset', () => {
+    const project = createProject([
+      createAsset({ id: 'asset-valid', name: 'Valid Background', source: PNG_DATA_URL }),
+      createAsset({ id: 'asset-invalid-base64', name: 'Broken Background', source: 'data:image/png;base64,YWJj$' }),
+    ]);
+
+    expect(() => planEmbeddedBackgroundAssetMigration(project)).toThrow('Broken Background');
+    expect(() => planEmbeddedBackgroundAssetMigration(project)).toThrow('asset-invalid-base64');
+  });
+
+  it('does not return a partial plan when an earlier asset is valid and a later Base64 payload is malformed', () => {
+    const project = createProject([
+      createAsset({ id: 'asset-valid', source: PNG_DATA_URL }),
+      createAsset({ id: 'asset-invalid-base64', source: 'data:image/png;base64,Y' }),
+    ]);
+
+    expect(planEmbeddedBackgroundAssetMigration(createProject([project.assetLibrary[0]]))).toHaveLength(1);
+    expect(() => planEmbeddedBackgroundAssetMigration(project)).toThrow('asset-invalid-base64');
   });
 
   it('does not mutate the input project', () => {

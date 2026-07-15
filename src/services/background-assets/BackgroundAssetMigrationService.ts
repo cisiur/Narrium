@@ -37,6 +37,36 @@ function describeAsset(asset: AssetLibraryItem): string {
   return `${asset.name || 'Unnamed asset'} (${asset.id})`;
 }
 
+function validateBase64PayloadStructure(payload: string): void {
+  if (/\s/.test(payload)) {
+    throw new Error('Embedded background Data URL base64 payload must not contain whitespace.');
+  }
+
+  if (/[^A-Za-z0-9+/=]/.test(payload)) {
+    throw new Error('Embedded background Data URL base64 payload contains invalid characters.');
+  }
+
+  const firstPaddingIndex = payload.indexOf('=');
+
+  if (firstPaddingIndex !== -1) {
+    const padding = payload.slice(firstPaddingIndex);
+
+    if (!/^=+$/.test(padding)) {
+      throw new Error('Embedded background Data URL base64 padding must appear only at the end.');
+    }
+
+    if (padding.length > 2) {
+      throw new Error('Embedded background Data URL base64 payload must not contain more than two padding characters.');
+    }
+
+    if (payload.length % 4 !== 0) {
+      throw new Error('Embedded background Data URL base64 payload has an invalid length.');
+    }
+  } else if (payload.length % 4 === 1) {
+    throw new Error('Embedded background Data URL base64 payload has an invalid length.');
+  }
+}
+
 export function parseEmbeddedBackgroundDataUrl(source: string): ParsedEmbeddedBackgroundDataUrl {
   const commaIndex = source.indexOf(',');
 
@@ -67,6 +97,8 @@ export function parseEmbeddedBackgroundDataUrl(source: string): ParsedEmbeddedBa
   if (payload.length === 0) {
     throw new Error('Embedded background Data URL must contain non-empty base64 data.');
   }
+
+  validateBase64PayloadStructure(payload);
 
   return {
     mimeType,

@@ -1,5 +1,5 @@
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
-import { open, save } from '@tauri-apps/plugin-dialog';
+import { open } from '@tauri-apps/plugin-dialog';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import type {
   EmbeddedBackgroundAssetMaterializationRequest,
@@ -47,38 +47,14 @@ export class DesktopPlatformService implements PlatformService, PlatformProjectF
   }
 
   async selectProjectFileToOpen(options: ProjectFileSelectionOptions): Promise<string | null> {
-    const selectedPath = await open({
-      directory: false,
-      multiple: false,
-      title: options.title,
-      filters: [
-        {
-          name: 'Narrium Project',
-          extensions: ['narrium'],
-        },
-        {
-          name: 'Legacy JSON',
-          extensions: ['json'],
-        },
-      ],
-    });
-
-    return typeof selectedPath === 'string' ? selectedPath : null;
+    return invoke('select_project_file_to_open', { title: options.title });
   }
 
   async selectProjectFilePathForSaveAs(options: ProjectFileSaveOptions): Promise<string | null> {
-    const selectedPath = await save({
+    return invoke('select_project_file_path_for_save_as', {
       title: options.title,
-      defaultPath: options.defaultFileName,
-      filters: [
-        {
-          name: 'Narrium Project',
-          extensions: ['narrium'],
-        },
-      ],
+      defaultFileName: options.defaultFileName,
     });
-
-    return typeof selectedPath === 'string' ? selectedPath : null;
   }
 
   async readProjectFile(filePath: string): Promise<PlatformProjectFile> {

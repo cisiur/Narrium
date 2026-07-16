@@ -10,16 +10,21 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
 use std::io::Read;
+use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .manage(ProjectFileSessionTrust::default())
         .invoke_handler(tauri::generate_handler![
             confirm_unsaved_changes,
             read_app_preferences_file,
             write_app_preferences_file,
+            select_project_file_to_open,
+            select_project_file_path_for_save_as,
             read_project_file,
             write_project_file,
             write_json_export_file,
@@ -117,6 +122,12 @@ struct DeleteLocalBackgroundFilesResult {
     deleted: Vec<DeletedBackgroundFile>,
     skipped: Vec<SkippedBackgroundFileDeletion>,
     failed: Vec<FailedBackgroundFileDeletion>,
+}
+
+#[derive(Debug, Default)]
+struct ProjectFileSessionTrust {
+    trusted_project_files: Mutex<HashSet<PathBuf>>,
+    pending_save_destinations: Mutex<HashSet<PathBuf>>,
 }
 
 const MATERIALIZATION_LIMITS: MaterializationLimits = MaterializationLimits {
@@ -242,11 +253,79 @@ fn write_app_preferences_file(app: tauri::AppHandle, contents: String) -> Result
 }
 
 #[tauri::command]
-fn read_project_file(file_path: String) -> Result<(String, String), String> {
-    let project_file_path = std::path::Path::new(&file_path);
-    validate_project_file_path_for_read(project_file_path)?;
+async fn select_project_file_to_open(
+    app: tauri::AppHandle,
+    trust: tauri::State<'_, ProjectFileSessionTrust>,
+    title: String,
+) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
 
-    let metadata = std::fs::metadata(project_file_path).map_err(|error| {
+    let selected_path = tauri::async_runtime::spawn_blocking(move || {
+        app.dialog()
+            .file()
+            .set_title(title)
+            .add_filter("Narrium Project", &["narrium"])
+            .add_filter("Legacy JSON", &["json"])
+            .blocking_pick_file()
+    })
+    .await
+    .map_err(|error| format!("Could not open project file dialog: {}", error))?;
+
+    selected_path
+        .map(|path| {
+            path.into_path()
+                .map_err(|error| format!("Selected project path is invalid: {}", error))
+                .and_then(|path| trust.register_existing_project_file(&path))
+        })
+        .transpose()
+}
+
+#[tauri::command]
+async fn select_project_file_path_for_save_as(
+    app: tauri::AppHandle,
+    trust: tauri::State<'_, ProjectFileSessionTrust>,
+    title: String,
+    default_file_name: String,
+) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+
+    let selected_path = tauri::async_runtime::spawn_blocking(move || {
+        app.dialog()
+            .file()
+            .set_title(title)
+            .set_file_name(default_file_name)
+            .add_filter("Narrium Project", &["narrium"])
+            .blocking_save_file()
+    })
+    .await
+    .map_err(|error| format!("Could not open Save As dialog: {}", error))?;
+
+    selected_path
+        .map(|path| {
+            path.into_path()
+                .map_err(|error| format!("Selected Save As path is invalid: {}", error))
+                .map(ensure_narrium_extension)
+                .and_then(|path| trust.register_pending_save_destination(&path))
+        })
+        .transpose()
+}
+
+#[tauri::command]
+fn read_project_file(
+    trust: tauri::State<'_, ProjectFileSessionTrust>,
+    file_path: String,
+) -> Result<(String, String), String> {
+    read_project_file_impl(&trust, file_path)
+}
+
+fn read_project_file_impl(
+    trust: &ProjectFileSessionTrust,
+    file_path: String,
+) -> Result<(String, String), String> {
+    let project_file_path =
+        trust.require_trusted_existing_project_file(std::path::Path::new(&file_path))?;
+
+    let metadata = std::fs::metadata(&project_file_path).map_err(|error| {
         format!(
             "Failed to inspect project file {}: {}",
             project_file_path.display(),
@@ -268,13 +347,26 @@ fn read_project_file(file_path: String) -> Result<(String, String), String> {
     let contents = std::fs::read_to_string(&project_file_path)
         .map_err(|error| format!("Failed to read {}: {}", project_file_path.display(), error))?;
 
-    Ok((project_file_path.to_string_lossy().to_string(), contents))
+    Ok((display_filesystem_path(&project_file_path), contents))
 }
 
 #[tauri::command]
-fn write_project_file(file_path: String, contents: String) -> Result<String, String> {
-    let project_file_path = std::path::Path::new(&file_path);
-    let parent_path = validate_project_file_path_for_write(project_file_path)?;
+fn write_project_file(
+    trust: tauri::State<'_, ProjectFileSessionTrust>,
+    file_path: String,
+    contents: String,
+) -> Result<String, String> {
+    write_project_file_impl(&trust, file_path, contents)
+}
+
+fn write_project_file_impl(
+    trust: &ProjectFileSessionTrust,
+    file_path: String,
+    contents: String,
+) -> Result<String, String> {
+    let project_file_path =
+        trust.require_trusted_or_pending_save_destination(std::path::Path::new(&file_path))?;
+    let parent_path = validate_project_file_path_for_write(&project_file_path)?;
 
     std::fs::create_dir_all(parent_path)
         .map_err(|error| format!("Failed to create {}: {}", parent_path.display(), error))?;
@@ -282,7 +374,7 @@ fn write_project_file(file_path: String, contents: String) -> Result<String, Str
     std::fs::write(&project_file_path, contents)
         .map_err(|error| format!("Failed to write {}: {}", project_file_path.display(), error))?;
 
-    Ok(project_file_path.to_string_lossy().to_string())
+    trust.register_written_project_file(&project_file_path)
 }
 
 #[tauri::command]
@@ -355,6 +447,156 @@ fn validate_json_export_file_path_for_write(
         .ok_or_else(|| "JSON export file must have a parent directory.".to_string())
 }
 
+impl ProjectFileSessionTrust {
+    fn register_existing_project_file(&self, file_path: &Path) -> Result<String, String> {
+        let canonical_path = canonical_existing_project_file_path(file_path)?;
+        self.trusted_project_files
+            .lock()
+            .map_err(|_| "Project session trust state is unavailable.".to_string())?
+            .insert(canonical_path.clone());
+
+        Ok(display_filesystem_path(&canonical_path))
+    }
+
+    fn register_pending_save_destination(&self, file_path: &Path) -> Result<String, String> {
+        let normalized_path = normalize_project_file_path_for_write_candidate(file_path)?;
+        self.pending_save_destinations
+            .lock()
+            .map_err(|_| "Project session trust state is unavailable.".to_string())?
+            .insert(normalized_path.clone());
+
+        Ok(display_filesystem_path(&normalized_path))
+    }
+
+    fn require_trusted_existing_project_file(&self, file_path: &Path) -> Result<PathBuf, String> {
+        let canonical_path = canonical_existing_project_file_path(file_path)?;
+
+        if self
+            .trusted_project_files
+            .lock()
+            .map_err(|_| "Project session trust state is unavailable.".to_string())?
+            .contains(&canonical_path)
+        {
+            Ok(canonical_path)
+        } else {
+            Err(project_not_trusted_error())
+        }
+    }
+
+    fn require_trusted_existing_narrium_project_file(
+        &self,
+        file_path: &Path,
+    ) -> Result<PathBuf, String> {
+        validate_project_file_path_for_write(file_path)?;
+        self.require_trusted_existing_project_file(file_path)
+    }
+
+    fn require_trusted_or_pending_save_destination(
+        &self,
+        file_path: &Path,
+    ) -> Result<PathBuf, String> {
+        let normalized_path = normalize_project_file_path_for_write_candidate(file_path)?;
+        let canonical_existing_path = if normalized_path.is_file() {
+            normalized_path.canonicalize().ok()
+        } else {
+            None
+        };
+        let trusted = self
+            .trusted_project_files
+            .lock()
+            .map_err(|_| "Project session trust state is unavailable.".to_string())?;
+        let pending = self
+            .pending_save_destinations
+            .lock()
+            .map_err(|_| "Project session trust state is unavailable.".to_string())?;
+
+        if trusted.contains(&normalized_path)
+            || canonical_existing_path
+                .as_ref()
+                .is_some_and(|path| trusted.contains(path))
+            || pending.contains(&normalized_path)
+        {
+            Ok(normalized_path)
+        } else {
+            Err(project_not_trusted_error())
+        }
+    }
+
+    fn register_written_project_file(&self, file_path: &Path) -> Result<String, String> {
+        let canonical_path = canonical_existing_project_file_path(file_path)?;
+        let pending_path = normalize_project_file_path_for_write_candidate(file_path).ok();
+
+        self.trusted_project_files
+            .lock()
+            .map_err(|_| "Project session trust state is unavailable.".to_string())?
+            .insert(canonical_path.clone());
+
+        let mut pending = self
+            .pending_save_destinations
+            .lock()
+            .map_err(|_| "Project session trust state is unavailable.".to_string())?;
+        pending.remove(&canonical_path);
+        if let Some(path) = pending_path {
+            pending.remove(&path);
+        }
+
+        Ok(display_filesystem_path(&canonical_path))
+    }
+}
+
+fn project_not_trusted_error() -> String {
+    "Project file is not trusted for this session. Open it or use Save As before accessing project files.".to_string()
+}
+
+fn display_filesystem_path(path: &Path) -> String {
+    let raw_path = path.to_string_lossy();
+
+    raw_path
+        .strip_prefix(r"\\?\")
+        .unwrap_or(&raw_path)
+        .to_string()
+}
+
+fn canonical_existing_project_file_path(path: &Path) -> Result<PathBuf, String> {
+    validate_project_file_path_for_read(path)?;
+
+    let metadata = std::fs::metadata(path).map_err(|error| {
+        format!(
+            "Failed to inspect project file {}: {}",
+            path.display(),
+            error
+        )
+    })?;
+
+    if !metadata.is_file() {
+        return Err("Selected project path is not a file.".to_string());
+    }
+
+    path.canonicalize()
+        .map_err(|error| format!("Failed to resolve project file path: {}", error))
+}
+
+fn normalize_project_file_path_for_write_candidate(path: &Path) -> Result<PathBuf, String> {
+    let parent_path = validate_project_file_path_for_write(path)?;
+    let canonical_parent = parent_path
+        .canonicalize()
+        .map_err(|error| format!("Failed to resolve project directory: {}", error))?;
+    let file_name = path
+        .file_name()
+        .ok_or_else(|| "Project file must have a file name.".to_string())?;
+
+    Ok(canonical_parent.join(file_name))
+}
+
+fn ensure_narrium_extension(path: PathBuf) -> PathBuf {
+    if extension_lowercase(&path).as_deref() == Some("narrium") {
+        path
+    } else {
+        let next = format!("{}.narrium", path.to_string_lossy());
+        PathBuf::from(next)
+    }
+}
+
 fn project_dir_from_file_path(file_path: &str) -> Result<std::path::PathBuf, String> {
     let project_file_path = std::path::Path::new(file_path);
     validate_project_file_path_for_read(project_file_path)?;
@@ -418,7 +660,9 @@ fn ensure_relative_asset_path(relative_path: &str) -> Result<std::path::PathBuf,
     Ok(normalized)
 }
 
-fn ensure_direct_background_relative_path(relative_path: &str) -> Result<std::path::PathBuf, String> {
+fn ensure_direct_background_relative_path(
+    relative_path: &str,
+) -> Result<std::path::PathBuf, String> {
     let normalized = ensure_relative_asset_path(relative_path)?;
     let components = normalized
         .components()
@@ -879,11 +1123,21 @@ where
 
 #[tauri::command]
 fn materialize_embedded_background_assets(
+    trust: tauri::State<'_, ProjectFileSessionTrust>,
     project_file_path: String,
     assets: Vec<EmbeddedBackgroundAssetMaterializationRequest>,
 ) -> Result<Vec<MaterializedBackgroundAsset>, String> {
+    materialize_embedded_background_assets_for_session_impl(&trust, &project_file_path, assets)
+}
+
+fn materialize_embedded_background_assets_for_session_impl(
+    trust: &ProjectFileSessionTrust,
+    project_file_path: &str,
+    assets: Vec<EmbeddedBackgroundAssetMaterializationRequest>,
+) -> Result<Vec<MaterializedBackgroundAsset>, String> {
+    trust.require_trusted_or_pending_save_destination(Path::new(project_file_path))?;
     materialize_embedded_background_assets_impl(
-        &project_file_path,
+        project_file_path,
         assets,
         MATERIALIZATION_LIMITS,
         rename_file,
@@ -892,12 +1146,22 @@ fn materialize_embedded_background_assets(
 
 #[tauri::command]
 fn import_background_asset_file(
+    trust: tauri::State<'_, ProjectFileSessionTrust>,
     project_file_path: String,
     source_file_path: String,
 ) -> Result<(String, String, String, u64), String> {
-    validate_project_file_path_for_write(std::path::Path::new(&project_file_path))?;
-    let project_dir = project_dir_from_file_path(&project_file_path)?;
-    let source_path = std::path::Path::new(&source_file_path)
+    import_background_asset_file_impl(&trust, &project_file_path, &source_file_path)
+}
+
+fn import_background_asset_file_impl(
+    trust: &ProjectFileSessionTrust,
+    project_file_path: &str,
+    source_file_path: &str,
+) -> Result<(String, String, String, u64), String> {
+    let trusted_project_path =
+        trust.require_trusted_existing_narrium_project_file(Path::new(&project_file_path))?;
+    let project_dir = project_dir_from_file_path(&trusted_project_path.to_string_lossy())?;
+    let source_path = std::path::Path::new(source_file_path)
         .canonicalize()
         .map_err(|error| format!("Failed to read selected image: {}", error))?;
 
@@ -957,11 +1221,22 @@ fn import_background_asset_file(
 
 #[tauri::command]
 fn resolve_local_asset_file(
+    trust: tauri::State<'_, ProjectFileSessionTrust>,
     project_file_path: String,
     relative_path: String,
 ) -> Result<String, String> {
-    let project_dir = project_dir_from_file_path(&project_file_path)?;
-    let asset_relative_path = ensure_relative_asset_path(&relative_path)?;
+    resolve_local_asset_file_impl(&trust, &project_file_path, &relative_path)
+}
+
+fn resolve_local_asset_file_impl(
+    trust: &ProjectFileSessionTrust,
+    project_file_path: &str,
+    relative_path: &str,
+) -> Result<String, String> {
+    let trusted_project_path =
+        trust.require_trusted_existing_project_file(Path::new(project_file_path))?;
+    let project_dir = project_dir_from_file_path(&trusted_project_path.to_string_lossy())?;
+    let asset_relative_path = ensure_relative_asset_path(relative_path)?;
     let asset_path = project_dir.join(asset_relative_path);
     let asset_path = asset_path
         .canonicalize()
@@ -980,13 +1255,31 @@ fn resolve_local_asset_file(
 
 #[tauri::command]
 fn copy_local_asset_for_project_save_as(
+    trust: tauri::State<'_, ProjectFileSessionTrust>,
     source_project_file_path: String,
     destination_project_file_path: String,
     relative_path: String,
 ) -> Result<(), String> {
-    let source_project_dir = project_dir_from_file_path(&source_project_file_path)?;
-    let destination_project_file = std::path::Path::new(&destination_project_file_path);
-    let destination_project_dir = validate_project_file_path_for_write(destination_project_file)?;
+    copy_local_asset_for_project_save_as_impl(
+        &trust,
+        &source_project_file_path,
+        &destination_project_file_path,
+        &relative_path,
+    )
+}
+
+fn copy_local_asset_for_project_save_as_impl(
+    trust: &ProjectFileSessionTrust,
+    source_project_file_path: &str,
+    destination_project_file_path: &str,
+    relative_path: &str,
+) -> Result<(), String> {
+    let trusted_source_path =
+        trust.require_trusted_existing_narrium_project_file(Path::new(source_project_file_path))?;
+    let destination_project_file = trust
+        .require_trusted_or_pending_save_destination(Path::new(destination_project_file_path))?;
+    let source_project_dir = project_dir_from_file_path(&trusted_source_path.to_string_lossy())?;
+    let destination_project_dir = validate_project_file_path_for_write(&destination_project_file)?;
 
     std::fs::create_dir_all(destination_project_dir).map_err(|error| {
         format!(
@@ -999,7 +1292,7 @@ fn copy_local_asset_for_project_save_as(
     let destination_project_dir = destination_project_dir
         .canonicalize()
         .map_err(|error| format!("Failed to resolve destination project directory: {}", error))?;
-    let asset_relative_path = ensure_relative_asset_path(&relative_path)?;
+    let asset_relative_path = ensure_relative_asset_path(relative_path)?;
     let source_asset_path = source_project_dir.join(&asset_relative_path);
     let source_asset_path = source_asset_path
         .canonicalize()
@@ -1041,8 +1334,20 @@ fn copy_local_asset_for_project_save_as(
 }
 
 #[tauri::command]
-fn list_local_background_files(project_file_path: String) -> Result<Vec<PhysicalBackgroundFile>, String> {
-    let project_dir = project_dir_from_narrium_file_path(&project_file_path)?;
+fn list_local_background_files(
+    trust: tauri::State<'_, ProjectFileSessionTrust>,
+    project_file_path: String,
+) -> Result<Vec<PhysicalBackgroundFile>, String> {
+    list_local_background_files_impl(&trust, &project_file_path)
+}
+
+fn list_local_background_files_impl(
+    trust: &ProjectFileSessionTrust,
+    project_file_path: &str,
+) -> Result<Vec<PhysicalBackgroundFile>, String> {
+    let trusted_project_path =
+        trust.require_trusted_existing_narrium_project_file(Path::new(project_file_path))?;
+    let project_dir = project_dir_from_narrium_file_path(&trusted_project_path.to_string_lossy())?;
     let backgrounds_dir = project_dir.join("assets").join("backgrounds");
 
     if !backgrounds_dir.exists() {
@@ -1062,7 +1367,8 @@ fn list_local_background_files(project_file_path: String) -> Result<Vec<Physical
             error
         )
     })? {
-        let entry = entry.map_err(|error| format!("Failed to read background asset entry: {}", error))?;
+        let entry =
+            entry.map_err(|error| format!("Failed to read background asset entry: {}", error))?;
         let file_type = entry
             .file_type()
             .map_err(|error| format!("Failed to inspect background asset entry: {}", error))?;
@@ -1072,9 +1378,12 @@ fn list_local_background_files(project_file_path: String) -> Result<Vec<Physical
         }
 
         let file_name = entry.file_name().to_string_lossy().to_string();
-        let metadata = entry
-            .metadata()
-            .map_err(|error| format!("Failed to inspect background asset {}: {}", file_name, error))?;
+        let metadata = entry.metadata().map_err(|error| {
+            format!(
+                "Failed to inspect background asset {}: {}",
+                file_name, error
+            )
+        })?;
         let relative_path = std::path::Path::new("assets")
             .join("backgrounds")
             .join(&file_name);
@@ -1091,18 +1400,24 @@ fn list_local_background_files(project_file_path: String) -> Result<Vec<Physical
 }
 
 #[tauri::command]
-fn fingerprint_local_background_files(project_file_path: String) -> Result<Vec<FingerprintedBackgroundFile>, String> {
-    fingerprint_local_background_files_impl(&project_file_path, |_| {})
+fn fingerprint_local_background_files(
+    trust: tauri::State<'_, ProjectFileSessionTrust>,
+    project_file_path: String,
+) -> Result<Vec<FingerprintedBackgroundFile>, String> {
+    fingerprint_local_background_files_impl(&trust, &project_file_path, |_| {})
 }
 
 fn fingerprint_local_background_files_impl<F>(
+    trust: &ProjectFileSessionTrust,
     project_file_path: &str,
     mut before_open: F,
 ) -> Result<Vec<FingerprintedBackgroundFile>, String>
 where
     F: FnMut(&std::path::Path),
 {
-    let project_dir = project_dir_from_narrium_file_path(project_file_path)?;
+    let trusted_project_path =
+        trust.require_trusted_existing_narrium_project_file(Path::new(project_file_path))?;
+    let project_dir = project_dir_from_narrium_file_path(&trusted_project_path.to_string_lossy())?;
     let backgrounds_dir = project_dir.join("assets").join("backgrounds");
 
     if !backgrounds_dir.exists() {
@@ -1122,7 +1437,9 @@ where
     })?;
 
     if !canonical_backgrounds_dir.starts_with(&project_dir) {
-        return Err("Project background asset directory escapes the project directory.".to_string());
+        return Err(
+            "Project background asset directory escapes the project directory.".to_string(),
+        );
     }
 
     let mut files = Vec::new();
@@ -1134,7 +1451,8 @@ where
             error
         )
     })? {
-        let entry = entry.map_err(|error| format!("Failed to read background asset entry: {}", error))?;
+        let entry =
+            entry.map_err(|error| format!("Failed to read background asset entry: {}", error))?;
         let file_type = entry
             .file_type()
             .map_err(|error| format!("Failed to inspect background asset entry: {}", error))?;
@@ -1148,19 +1466,24 @@ where
         let canonical_entry_path = entry_path.canonicalize().map_err(|error| {
             format!(
                 "Failed to resolve background asset {}: {}",
-                file_name,
-                error
+                file_name, error
             )
         })?;
 
         if !canonical_entry_path.starts_with(&canonical_backgrounds_dir)
             || canonical_entry_path.parent() != Some(canonical_backgrounds_dir.as_path())
         {
-            return Err("Background asset path escapes the project background directory.".to_string());
+            return Err(
+                "Background asset path escapes the project background directory.".to_string(),
+            );
         }
 
-        let metadata = std::fs::metadata(&canonical_entry_path)
-            .map_err(|error| format!("Failed to inspect background asset {}: {}", file_name, error))?;
+        let metadata = std::fs::metadata(&canonical_entry_path).map_err(|error| {
+            format!(
+                "Failed to inspect background asset {}: {}",
+                file_name, error
+            )
+        })?;
 
         if !metadata.is_file() {
             continue;
@@ -1208,11 +1531,28 @@ fn sha256_file_hex(path: &std::path::Path, file_name: &str) -> Result<String, St
 
 #[tauri::command]
 fn delete_local_background_files(
+    trust: tauri::State<'_, ProjectFileSessionTrust>,
     project_file_path: String,
     relative_paths: Vec<String>,
     protected_relative_paths: Vec<String>,
 ) -> Result<DeleteLocalBackgroundFilesResult, String> {
-    let project_dir = project_dir_from_narrium_file_path(&project_file_path)?;
+    delete_local_background_files_impl(
+        &trust,
+        &project_file_path,
+        relative_paths,
+        protected_relative_paths,
+    )
+}
+
+fn delete_local_background_files_impl(
+    trust: &ProjectFileSessionTrust,
+    project_file_path: &str,
+    relative_paths: Vec<String>,
+    protected_relative_paths: Vec<String>,
+) -> Result<DeleteLocalBackgroundFilesResult, String> {
+    let trusted_project_path =
+        trust.require_trusted_existing_narrium_project_file(Path::new(project_file_path))?;
+    let project_dir = project_dir_from_narrium_file_path(&trusted_project_path.to_string_lossy())?;
     let backgrounds_dir = project_dir.join("assets").join("backgrounds");
     let protected_paths: HashSet<String> = protected_relative_paths
         .iter()
@@ -1236,7 +1576,8 @@ fn delete_local_background_files(
                 continue;
             }
         };
-        let comparison_key = background_relative_path_comparison_key(std::path::Path::new(&normalized));
+        let comparison_key =
+            background_relative_path_comparison_key(std::path::Path::new(&normalized));
 
         if !seen.insert(comparison_key.clone()) {
             skipped.push(SkippedBackgroundFileDeletion {
@@ -1249,7 +1590,8 @@ fn delete_local_background_files(
         if protected_paths.contains(&comparison_key) {
             skipped.push(SkippedBackgroundFileDeletion {
                 relative_path: normalized,
-                reason: "Protected background file is still referenced by the Asset Library.".to_string(),
+                reason: "Protected background file is still referenced by the Asset Library."
+                    .to_string(),
             });
             continue;
         }
@@ -1280,7 +1622,8 @@ fn delete_local_background_files(
         {
             failed.push(FailedBackgroundFileDeletion {
                 relative_path: normalized,
-                error: "Local background path escapes the allowed background directory.".to_string(),
+                error: "Local background path escapes the allowed background directory."
+                    .to_string(),
             });
             continue;
         }
@@ -1957,8 +2300,9 @@ mod tests {
         let root = temp_root("reads-valid-narrium");
         let project_path = root.join("Story.narrium");
         write_file(&project_path, br#"{"format":"narrium.project"}"#);
+        let trust = trusted_session(&project_path);
 
-        let result = read_project_file(project_path.to_string_lossy().to_string())
+        let result = read_project_file_impl(&trust, project_path.to_string_lossy().to_string())
             .expect("read should succeed");
 
         assert_eq!(result.0, project_path.to_string_lossy());
@@ -1970,8 +2314,9 @@ mod tests {
         let root = temp_root("reads-valid-json");
         let project_path = root.join("Legacy.json");
         write_file(&project_path, br#"{"id":"legacy"}"#);
+        let trust = trusted_session(&project_path);
 
-        let result = read_project_file(project_path.to_string_lossy().to_string())
+        let result = read_project_file_impl(&trust, project_path.to_string_lossy().to_string())
             .expect("read should succeed");
 
         assert_eq!(result.0, project_path.to_string_lossy());
@@ -1983,8 +2328,10 @@ mod tests {
         let root = temp_root("rejects-read-extension");
         let project_path = root.join("Story.txt");
         write_file(&project_path, b"not a project");
+        let trust = ProjectFileSessionTrust::default();
 
-        let error = read_project_file(project_path.to_string_lossy().to_string()).unwrap_err();
+        let error =
+            read_project_file_impl(&trust, project_path.to_string_lossy().to_string()).unwrap_err();
 
         assert!(error.contains("Open .narrium files or legacy .json files"));
     }
@@ -1993,10 +2340,14 @@ mod tests {
     fn rejects_unsupported_project_write_extensions() {
         let root = temp_root("rejects-write-extension");
         let project_path = root.join("Story.json");
+        let trust = ProjectFileSessionTrust::default();
 
-        let error =
-            write_project_file(project_path.to_string_lossy().to_string(), "{}".to_string())
-                .unwrap_err();
+        let error = write_project_file_impl(
+            &trust,
+            project_path.to_string_lossy().to_string(),
+            "{}".to_string(),
+        )
+        .unwrap_err();
 
         assert!(error.contains("Save projects as .narrium files"));
         assert!(!project_path.exists());
@@ -2066,8 +2417,10 @@ mod tests {
         let file = fs::File::create(&project_path).expect("project file should be created");
         file.set_len(MAX_PROJECT_FILE_BYTES + 1)
             .expect("project file length should be set");
+        let trust = trusted_session(&project_path);
 
-        let error = read_project_file(project_path.to_string_lossy().to_string()).unwrap_err();
+        let error =
+            read_project_file_impl(&trust, project_path.to_string_lossy().to_string()).unwrap_err();
 
         assert!(error.contains("Project file is too large"));
     }
@@ -2079,10 +2432,12 @@ mod tests {
         write_file(&project_path, b"{}");
         let source_path = root.join("Source Art").join("Forest Hall.PNG");
         write_file(&source_path, b"png bytes");
+        let trust = trusted_session(&project_path);
 
-        let result = import_background_asset_file(
-            project_path.to_string_lossy().to_string(),
-            source_path.to_string_lossy().to_string(),
+        let result = import_background_asset_file_impl(
+            &trust,
+            &project_path.to_string_lossy(),
+            &source_path.to_string_lossy(),
         )
         .expect("import should succeed");
 
@@ -2106,10 +2461,12 @@ mod tests {
         let file = fs::File::create(&source_path).expect("source image should be created");
         file.set_len(MAX_BACKGROUND_IMAGE_BYTES + 1)
             .expect("source image length should be set");
+        let trust = trusted_session(&project_path);
 
-        let error = import_background_asset_file(
-            project_path.to_string_lossy().to_string(),
-            source_path.to_string_lossy().to_string(),
+        let error = import_background_asset_file_impl(
+            &trust,
+            &project_path.to_string_lossy(),
+            &source_path.to_string_lossy(),
         )
         .unwrap_err();
 
@@ -2129,11 +2486,22 @@ mod tests {
             .join("forest.png");
         write_file(&source_project, b"{}");
         write_file(&source_asset, b"image");
+        fs::create_dir_all(
+            destination_project
+                .parent()
+                .expect("destination should have parent"),
+        )
+        .expect("destination parent should exist");
+        let trust = trusted_session(&source_project);
+        trust
+            .register_pending_save_destination(&destination_project)
+            .expect("destination should be pending");
 
-        copy_local_asset_for_project_save_as(
-            source_project.to_string_lossy().to_string(),
-            destination_project.to_string_lossy().to_string(),
-            "assets/backgrounds/forest.png".to_string(),
+        copy_local_asset_for_project_save_as_impl(
+            &trust,
+            &source_project.to_string_lossy(),
+            &destination_project.to_string_lossy(),
+            "assets/backgrounds/forest.png",
         )
         .expect("copy should succeed");
 
@@ -2155,6 +2523,289 @@ mod tests {
         root.join("assets").join("backgrounds").join(file_name)
     }
 
+    fn trusted_session(project_path: &Path) -> ProjectFileSessionTrust {
+        let trust = ProjectFileSessionTrust::default();
+        trust
+            .register_existing_project_file(project_path)
+            .expect("project should be trusted for test");
+        trust
+    }
+
+    fn pending_save_session(project_path: &Path) -> ProjectFileSessionTrust {
+        let trust = ProjectFileSessionTrust::default();
+        trust
+            .register_pending_save_destination(project_path)
+            .expect("save destination should be pending for test");
+        trust
+    }
+
+    #[test]
+    fn newly_opened_project_becomes_trusted() {
+        let root = temp_root("allowlist-open-registers");
+        let project_path = cleanup_project(&root);
+        let trust = ProjectFileSessionTrust::default();
+
+        trust
+            .register_existing_project_file(&project_path)
+            .expect("registration should succeed");
+
+        assert!(trust
+            .require_trusted_existing_project_file(&project_path)
+            .is_ok());
+    }
+
+    #[test]
+    fn successful_save_as_registers_destination() {
+        let root = temp_root("allowlist-save-as-registers");
+        let project_path = root.join("Story.narrium");
+        let trust = pending_save_session(&project_path);
+
+        write_project_file_impl(
+            &trust,
+            project_path.to_string_lossy().to_string(),
+            "{}".to_string(),
+        )
+        .expect("write should succeed");
+
+        assert!(trust
+            .require_trusted_existing_narrium_project_file(&project_path)
+            .is_ok());
+    }
+
+    #[test]
+    fn fresh_allowlist_starts_empty() {
+        let root = temp_root("allowlist-fresh-empty");
+        let project_path = cleanup_project(&root);
+        let trust = ProjectFileSessionTrust::default();
+
+        let error = trust
+            .require_trusted_existing_project_file(&project_path)
+            .unwrap_err();
+
+        assert!(error.contains("not trusted for this session"));
+    }
+
+    #[test]
+    fn trusted_project_passes_validation() {
+        let root = temp_root("allowlist-trusted-passes");
+        let project_path = cleanup_project(&root);
+        let trust = trusted_session(&project_path);
+
+        assert!(trust
+            .require_trusted_existing_narrium_project_file(&project_path)
+            .is_ok());
+    }
+
+    #[test]
+    fn untrusted_project_is_rejected() {
+        let root = temp_root("allowlist-untrusted-rejected");
+        let project_path = cleanup_project(&root);
+        let trust = ProjectFileSessionTrust::default();
+
+        let error =
+            read_project_file_impl(&trust, project_path.to_string_lossy().to_string()).unwrap_err();
+
+        assert!(error.contains("not trusted for this session"));
+    }
+
+    #[test]
+    fn canonically_equivalent_paths_map_to_one_trusted_entry() {
+        let root = temp_root("allowlist-canonical-equivalent");
+        let project_path = cleanup_project(&root);
+        let equivalent_path = root.join(".").join("Story.narrium");
+        let trust = ProjectFileSessionTrust::default();
+
+        trust
+            .register_existing_project_file(&equivalent_path)
+            .expect("registration should succeed");
+
+        assert!(trust
+            .require_trusted_existing_project_file(&project_path)
+            .is_ok());
+        assert_eq!(
+            trust
+                .trusted_project_files
+                .lock()
+                .expect("trust lock should be available")
+                .len(),
+            1,
+        );
+    }
+
+    #[test]
+    fn invalid_allowlist_paths_are_rejected() {
+        let root = temp_root("allowlist-invalid-paths");
+        let invalid_existing = root.join("Story.txt");
+        write_file(&invalid_existing, b"not a project");
+        let invalid_save = root.join("Story.json");
+        let trust = ProjectFileSessionTrust::default();
+
+        assert!(trust
+            .register_existing_project_file(&invalid_existing)
+            .is_err());
+        assert!(trust
+            .register_pending_save_destination(&invalid_save)
+            .is_err());
+    }
+
+    #[test]
+    fn every_project_filesystem_command_rejects_untrusted_projects() {
+        let root = temp_root("allowlist-every-command-rejects");
+        let source_project = cleanup_project(&root);
+        let destination_project = root.join("Copy.narrium");
+        write_file(&background_path(&root, "forest.png"), b"png");
+        let source_image = root.join("source.png");
+        write_file(&source_image, b"png");
+        let trust = ProjectFileSessionTrust::default();
+
+        assert!(
+            read_project_file_impl(&trust, source_project.to_string_lossy().to_string()).is_err()
+        );
+        assert!(write_project_file_impl(
+            &trust,
+            source_project.to_string_lossy().to_string(),
+            "{}".to_string()
+        )
+        .is_err());
+        assert!(import_background_asset_file_impl(
+            &trust,
+            &source_project.to_string_lossy(),
+            &source_image.to_string_lossy()
+        )
+        .is_err());
+        assert!(resolve_local_asset_file_impl(
+            &trust,
+            &source_project.to_string_lossy(),
+            "assets/backgrounds/forest.png"
+        )
+        .is_err());
+        assert!(copy_local_asset_for_project_save_as_impl(
+            &trust,
+            &source_project.to_string_lossy(),
+            &destination_project.to_string_lossy(),
+            "assets/backgrounds/forest.png",
+        )
+        .is_err());
+        assert!(materialize_embedded_background_assets_for_session_impl(
+            &trust,
+            &source_project.to_string_lossy(),
+            vec![]
+        )
+        .is_err());
+        assert!(
+            list_local_background_files_impl(&trust, &source_project.to_string_lossy()).is_err()
+        );
+        assert!(fingerprint_local_background_files_impl(
+            &trust,
+            &source_project.to_string_lossy(),
+            |_| {}
+        )
+        .is_err());
+        assert!(delete_local_background_files_impl(
+            &trust,
+            &source_project.to_string_lossy(),
+            vec![],
+            vec![]
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn every_project_filesystem_command_accepts_trusted_projects() {
+        let root = temp_root("allowlist-every-command-accepts");
+        let source_project = cleanup_project(&root);
+        let destination_project = root.join("Copied").join("Copy.narrium");
+        fs::create_dir_all(
+            destination_project
+                .parent()
+                .expect("destination should have parent"),
+        )
+        .expect("destination parent should exist");
+        write_file(&background_path(&root, "forest.png"), b"png");
+        let source_image = root.join("source.png");
+        write_file(&source_image, b"png");
+        let trust = trusted_session(&source_project);
+        trust
+            .register_pending_save_destination(&destination_project)
+            .expect("destination should be pending");
+
+        assert!(
+            read_project_file_impl(&trust, source_project.to_string_lossy().to_string()).is_ok()
+        );
+        assert!(write_project_file_impl(
+            &trust,
+            destination_project.to_string_lossy().to_string(),
+            "{}".to_string()
+        )
+        .is_ok());
+        assert!(import_background_asset_file_impl(
+            &trust,
+            &source_project.to_string_lossy(),
+            &source_image.to_string_lossy()
+        )
+        .is_ok());
+        assert!(resolve_local_asset_file_impl(
+            &trust,
+            &source_project.to_string_lossy(),
+            "assets/backgrounds/forest.png"
+        )
+        .is_ok());
+        assert!(copy_local_asset_for_project_save_as_impl(
+            &trust,
+            &source_project.to_string_lossy(),
+            &destination_project.to_string_lossy(),
+            "assets/backgrounds/forest.png",
+        )
+        .is_ok());
+        assert!(materialize_embedded_background_assets_for_session_impl(
+            &trust,
+            &source_project.to_string_lossy(),
+            vec![]
+        )
+        .is_ok());
+        assert!(
+            list_local_background_files_impl(&trust, &source_project.to_string_lossy()).is_ok()
+        );
+        assert!(fingerprint_local_background_files_impl(
+            &trust,
+            &source_project.to_string_lossy(),
+            |_| {}
+        )
+        .is_ok());
+        assert!(delete_local_background_files_impl(
+            &trust,
+            &source_project.to_string_lossy(),
+            vec![],
+            vec![]
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn concurrent_allowlist_validation_is_safe() {
+        let root = temp_root("allowlist-concurrent-validation");
+        let project_path = cleanup_project(&root);
+        let trust = std::sync::Arc::new(trusted_session(&project_path));
+        let handles = (0..16)
+            .map(|_| {
+                let trust = std::sync::Arc::clone(&trust);
+                let project_path = project_path.clone();
+
+                std::thread::spawn(move || {
+                    for _ in 0..64 {
+                        trust
+                            .require_trusted_existing_project_file(&project_path)
+                            .expect("trusted project should validate");
+                    }
+                })
+            })
+            .collect::<Vec<_>>();
+
+        for handle in handles {
+            handle.join().expect("validation thread should finish");
+        }
+    }
+
     #[test]
     fn lists_supported_background_files_directly_under_backgrounds() {
         let root = temp_root("lists-supported-backgrounds");
@@ -2170,13 +2821,20 @@ mod tests {
                 .join("deep.png"),
             b"png",
         );
+        let trust = trusted_session(&project_path);
 
-        let files = list_local_background_files(project_path.to_string_lossy().to_string())
+        let files = list_local_background_files_impl(&trust, &project_path.to_string_lossy())
             .expect("list should succeed");
 
         assert_eq!(
-            files.iter().map(|file| file.relative_path.as_str()).collect::<Vec<_>>(),
-            vec!["assets/backgrounds/forest.png", "assets/backgrounds/lake.JPG"]
+            files
+                .iter()
+                .map(|file| file.relative_path.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "assets/backgrounds/forest.png",
+                "assets/backgrounds/lake.JPG"
+            ]
         );
         assert_eq!(files[0].file_size, 3);
     }
@@ -2185,8 +2843,9 @@ mod tests {
     fn missing_background_directory_lists_as_empty() {
         let root = temp_root("missing-background-directory");
         let project_path = cleanup_project(&root);
+        let trust = trusted_session(&project_path);
 
-        let files = list_local_background_files(project_path.to_string_lossy().to_string())
+        let files = list_local_background_files_impl(&trust, &project_path.to_string_lossy())
             .expect("list should succeed");
 
         assert!(files.is_empty());
@@ -2197,11 +2856,13 @@ mod tests {
         let root = temp_root("unsupported-background-extension");
         let project_path = cleanup_project(&root);
         write_file(&background_path(&root, "notes.txt"), b"text");
+        let trust = trusted_session(&project_path);
 
-        let files = list_local_background_files(project_path.to_string_lossy().to_string())
+        let files = list_local_background_files_impl(&trust, &project_path.to_string_lossy())
             .expect("list should succeed");
-        let result = delete_local_background_files(
-            project_path.to_string_lossy().to_string(),
+        let result = delete_local_background_files_impl(
+            &trust,
+            &project_path.to_string_lossy(),
             vec!["assets/backgrounds/notes.txt".to_string()],
             vec![],
         )
@@ -2219,9 +2880,11 @@ mod tests {
         let project_path = cleanup_project(&root);
         let absolute_path = background_path(&root, "forest.png");
         write_file(&absolute_path, b"png");
+        let trust = trusted_session(&project_path);
 
-        let result = delete_local_background_files(
-            project_path.to_string_lossy().to_string(),
+        let result = delete_local_background_files_impl(
+            &trust,
+            &project_path.to_string_lossy(),
             vec![absolute_path.to_string_lossy().to_string()],
             vec![],
         )
@@ -2238,9 +2901,11 @@ mod tests {
         let project_path = cleanup_project(&root);
         let outside_path = root.join("outside.png");
         write_file(&outside_path, b"outside");
+        let trust = trusted_session(&project_path);
 
-        let result = delete_local_background_files(
-            project_path.to_string_lossy().to_string(),
+        let result = delete_local_background_files_impl(
+            &trust,
+            &project_path.to_string_lossy(),
             vec!["assets/backgrounds/../../outside.png".to_string()],
             vec![],
         )
@@ -2257,9 +2922,11 @@ mod tests {
         let project_path = cleanup_project(&root);
         let asset_path = root.join("assets").join("portrait.png");
         write_file(&asset_path, b"png");
+        let trust = trusted_session(&project_path);
 
-        let result = delete_local_background_files(
-            project_path.to_string_lossy().to_string(),
+        let result = delete_local_background_files_impl(
+            &trust,
+            &project_path.to_string_lossy(),
             vec!["assets/portrait.png".to_string()],
             vec![],
         )
@@ -2280,9 +2947,11 @@ mod tests {
             .join("nested")
             .join("deep.png");
         write_file(&nested_path, b"png");
+        let trust = trusted_session(&project_path);
 
-        let result = delete_local_background_files(
-            project_path.to_string_lossy().to_string(),
+        let result = delete_local_background_files_impl(
+            &trust,
+            &project_path.to_string_lossy(),
             vec!["assets/backgrounds/nested/deep.png".to_string()],
             vec![],
         )
@@ -2299,9 +2968,11 @@ mod tests {
         let project_path = cleanup_project(&root);
         let asset_path = background_path(&root, "forest.png");
         write_file(&asset_path, b"png");
+        let trust = trusted_session(&project_path);
 
-        let result = delete_local_background_files(
-            project_path.to_string_lossy().to_string(),
+        let result = delete_local_background_files_impl(
+            &trust,
+            &project_path.to_string_lossy(),
             vec!["assets/backgrounds/forest.png".to_string()],
             vec![],
         )
@@ -2323,9 +2994,11 @@ mod tests {
         let project_path = cleanup_project(&root);
         write_file(&background_path(&root, "one.png"), b"one");
         write_file(&background_path(&root, "two.webp"), b"two");
+        let trust = trusted_session(&project_path);
 
-        let result = delete_local_background_files(
-            project_path.to_string_lossy().to_string(),
+        let result = delete_local_background_files_impl(
+            &trust,
+            &project_path.to_string_lossy(),
             vec![
                 "assets/backgrounds/one.png".to_string(),
                 "assets/backgrounds/two.webp".to_string(),
@@ -2345,9 +3018,11 @@ mod tests {
         let project_path = cleanup_project(&root);
         let outside_path = root.join("outside.png");
         write_file(&outside_path, b"outside");
+        let trust = trusted_session(&project_path);
 
-        let result = delete_local_background_files(
-            project_path.to_string_lossy().to_string(),
+        let result = delete_local_background_files_impl(
+            &trust,
+            &project_path.to_string_lossy(),
             vec!["../outside.png".to_string()],
             vec![],
         )
@@ -2362,9 +3037,11 @@ mod tests {
     fn missing_candidate_files_are_reported_safely() {
         let root = temp_root("missing-candidate-safe");
         let project_path = cleanup_project(&root);
+        let trust = trusted_session(&project_path);
 
-        let result = delete_local_background_files(
-            project_path.to_string_lossy().to_string(),
+        let result = delete_local_background_files_impl(
+            &trust,
+            &project_path.to_string_lossy(),
             vec!["assets/backgrounds/missing.png".to_string()],
             vec![],
         )
@@ -2385,9 +3062,11 @@ mod tests {
         let root = temp_root("partial-batch-failure");
         let project_path = cleanup_project(&root);
         write_file(&background_path(&root, "valid.png"), b"png");
+        let trust = trusted_session(&project_path);
 
-        let result = delete_local_background_files(
-            project_path.to_string_lossy().to_string(),
+        let result = delete_local_background_files_impl(
+            &trust,
+            &project_path.to_string_lossy(),
             vec![
                 "assets/backgrounds/valid.png".to_string(),
                 "assets/backgrounds/missing.png".to_string(),
@@ -2407,9 +3086,11 @@ mod tests {
         let project_path = cleanup_project(&root);
         let asset_path = background_path(&root, "forest.png");
         write_file(&asset_path, b"png");
+        let trust = trusted_session(&project_path);
 
-        let result = delete_local_background_files(
-            project_path.to_string_lossy().to_string(),
+        let result = delete_local_background_files_impl(
+            &trust,
+            &project_path.to_string_lossy(),
             vec!["assets/backgrounds/forest.png".to_string()],
             vec!["assets/backgrounds/forest.png".to_string()],
         )
@@ -2426,9 +3107,11 @@ mod tests {
         let project_path = cleanup_project(&root);
         let asset_path = background_path(&root, "forest.png");
         write_file(&asset_path, b"png");
+        let trust = trusted_session(&project_path);
 
-        let result = delete_local_background_files(
-            project_path.to_string_lossy().to_string(),
+        let result = delete_local_background_files_impl(
+            &trust,
+            &project_path.to_string_lossy(),
             vec!["assets/backgrounds/forest.png".to_string()],
             vec!["assets/backgrounds/Forest.png".to_string()],
         )
@@ -2443,9 +3126,14 @@ mod tests {
     fn missing_background_directory_fingerprints_as_empty() {
         let root = temp_root("fingerprint-missing-background-directory");
         let project_path = cleanup_project(&root);
+        let trust = trusted_session(&project_path);
 
-        let files = fingerprint_local_background_files(project_path.to_string_lossy().to_string())
-            .expect("fingerprint should succeed");
+        let files = fingerprint_local_background_files_impl(
+            &trust,
+            &project_path.to_string_lossy(),
+            |_| {},
+        )
+        .expect("fingerprint should succeed");
 
         assert!(files.is_empty());
     }
@@ -2456,13 +3144,24 @@ mod tests {
         let project_path = cleanup_project(&root);
         write_file(&background_path(&root, "forest.png"), b"abc");
         write_file(&background_path(&root, "lake.JPG"), b"xyz");
+        let trust = trusted_session(&project_path);
 
-        let files = fingerprint_local_background_files(project_path.to_string_lossy().to_string())
-            .expect("fingerprint should succeed");
+        let files = fingerprint_local_background_files_impl(
+            &trust,
+            &project_path.to_string_lossy(),
+            |_| {},
+        )
+        .expect("fingerprint should succeed");
 
         assert_eq!(
-            files.iter().map(|file| file.relative_path.as_str()).collect::<Vec<_>>(),
-            vec!["assets/backgrounds/forest.png", "assets/backgrounds/lake.JPG"]
+            files
+                .iter()
+                .map(|file| file.relative_path.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "assets/backgrounds/forest.png",
+                "assets/backgrounds/lake.JPG"
+            ]
         );
         assert_eq!(files[0].file_name, "forest.png");
         assert_eq!(files[0].file_size, 3);
@@ -2477,9 +3176,14 @@ mod tests {
         let root = temp_root("fingerprint-ignores-unsupported");
         let project_path = cleanup_project(&root);
         write_file(&background_path(&root, "notes.txt"), b"text");
+        let trust = trusted_session(&project_path);
 
-        let files = fingerprint_local_background_files(project_path.to_string_lossy().to_string())
-            .expect("fingerprint should succeed");
+        let files = fingerprint_local_background_files_impl(
+            &trust,
+            &project_path.to_string_lossy(),
+            |_| {},
+        )
+        .expect("fingerprint should succeed");
 
         assert!(files.is_empty());
     }
@@ -2496,9 +3200,14 @@ mod tests {
                 .join("deep.png"),
             b"deep",
         );
+        let trust = trusted_session(&project_path);
 
-        let files = fingerprint_local_background_files(project_path.to_string_lossy().to_string())
-            .expect("fingerprint should succeed");
+        let files = fingerprint_local_background_files_impl(
+            &trust,
+            &project_path.to_string_lossy(),
+            |_| {},
+        )
+        .expect("fingerprint should succeed");
 
         assert!(files.is_empty());
     }
@@ -2509,9 +3218,14 @@ mod tests {
         let project_path = cleanup_project(&root);
         write_file(&background_path(&root, "one.png"), b"same");
         write_file(&background_path(&root, "two.webp"), b"same");
+        let trust = trusted_session(&project_path);
 
-        let files = fingerprint_local_background_files(project_path.to_string_lossy().to_string())
-            .expect("fingerprint should succeed");
+        let files = fingerprint_local_background_files_impl(
+            &trust,
+            &project_path.to_string_lossy(),
+            |_| {},
+        )
+        .expect("fingerprint should succeed");
 
         assert_eq!(files[0].content_hash, files[1].content_hash);
     }
@@ -2522,9 +3236,14 @@ mod tests {
         let project_path = cleanup_project(&root);
         write_file(&background_path(&root, "one.png"), b"one");
         write_file(&background_path(&root, "two.webp"), b"two");
+        let trust = trusted_session(&project_path);
 
-        let files = fingerprint_local_background_files(project_path.to_string_lossy().to_string())
-            .expect("fingerprint should succeed");
+        let files = fingerprint_local_background_files_impl(
+            &trust,
+            &project_path.to_string_lossy(),
+            |_| {},
+        )
+        .expect("fingerprint should succeed");
 
         assert_ne!(files[0].content_hash, files[1].content_hash);
     }
@@ -2534,11 +3253,20 @@ mod tests {
         let root = temp_root("fingerprint-deterministic");
         let project_path = cleanup_project(&root);
         write_file(&background_path(&root, "forest.png"), b"stable");
+        let trust = trusted_session(&project_path);
 
-        let first = fingerprint_local_background_files(project_path.to_string_lossy().to_string())
-            .expect("first fingerprint should succeed");
-        let second = fingerprint_local_background_files(project_path.to_string_lossy().to_string())
-            .expect("second fingerprint should succeed");
+        let first = fingerprint_local_background_files_impl(
+            &trust,
+            &project_path.to_string_lossy(),
+            |_| {},
+        )
+        .expect("first fingerprint should succeed");
+        let second = fingerprint_local_background_files_impl(
+            &trust,
+            &project_path.to_string_lossy(),
+            |_| {},
+        )
+        .expect("second fingerprint should succeed");
 
         assert_eq!(first, second);
     }
@@ -2548,9 +3276,14 @@ mod tests {
         let root = temp_root("fingerprint-forward-slashes");
         let project_path = cleanup_project(&root);
         write_file(&background_path(&root, "forest.png"), b"abc");
+        let trust = trusted_session(&project_path);
 
-        let files = fingerprint_local_background_files(project_path.to_string_lossy().to_string())
-            .expect("fingerprint should succeed");
+        let files = fingerprint_local_background_files_impl(
+            &trust,
+            &project_path.to_string_lossy(),
+            |_| {},
+        )
+        .expect("fingerprint should succeed");
 
         assert_eq!(files[0].relative_path, "assets/backgrounds/forest.png");
     }
@@ -2559,11 +3292,16 @@ mod tests {
     fn nonexistent_project_paths_are_rejected_for_fingerprinting() {
         let root = temp_root("fingerprint-rejects-missing-project");
         let project_path = root.join("Missing.narrium");
+        let trust = ProjectFileSessionTrust::default();
 
-        let error = fingerprint_local_background_files(project_path.to_string_lossy().to_string())
-            .unwrap_err();
+        let error = fingerprint_local_background_files_impl(
+            &trust,
+            &project_path.to_string_lossy(),
+            |_| {},
+        )
+        .unwrap_err();
 
-        assert!(error.contains("Selected project path is not a .narrium file"));
+        assert!(error.contains("Failed to inspect project file"));
     }
 
     #[test]
@@ -2571,9 +3309,14 @@ mod tests {
         let root = temp_root("fingerprint-rejects-non-narrium");
         let project_path = root.join("Story.json");
         write_file(&project_path, b"{}");
+        let trust = trusted_session(&project_path);
 
-        let error = fingerprint_local_background_files(project_path.to_string_lossy().to_string())
-            .unwrap_err();
+        let error = fingerprint_local_background_files_impl(
+            &trust,
+            &project_path.to_string_lossy(),
+            |_| {},
+        )
+        .unwrap_err();
 
         assert!(error.contains("Save projects as .narrium files"));
     }
@@ -2584,9 +3327,14 @@ mod tests {
         let project_path = cleanup_project(&root);
         write_file(&background_path(&root, "inside.png"), b"inside");
         write_file(&root.join("assets").join("outside.png"), b"outside");
+        let trust = trusted_session(&project_path);
 
-        let files = fingerprint_local_background_files(project_path.to_string_lossy().to_string())
-            .expect("fingerprint should succeed");
+        let files = fingerprint_local_background_files_impl(
+            &trust,
+            &project_path.to_string_lossy(),
+            |_| {},
+        )
+        .expect("fingerprint should succeed");
 
         assert_eq!(files.len(), 1);
         assert_eq!(files[0].relative_path, "assets/backgrounds/inside.png");
@@ -2618,9 +3366,14 @@ mod tests {
         {
             return;
         }
+        let trust = trusted_session(&project_path);
 
-        let files = fingerprint_local_background_files(project_path.to_string_lossy().to_string())
-            .expect("fingerprint should succeed");
+        let files = fingerprint_local_background_files_impl(
+            &trust,
+            &project_path.to_string_lossy(),
+            |_| {},
+        )
+        .expect("fingerprint should succeed");
 
         assert!(files.is_empty());
     }
@@ -2630,8 +3383,10 @@ mod tests {
         let root = temp_root("fingerprint-read-failure");
         let project_path = cleanup_project(&root);
         write_file(&background_path(&root, "vanish.png"), b"vanish");
+        let trust = trusted_session(&project_path);
 
         let error = fingerprint_local_background_files_impl(
+            &trust,
             &project_path.to_string_lossy(),
             |path| {
                 let _ = fs::remove_file(path);
@@ -2646,10 +3401,15 @@ mod tests {
     fn writes_valid_narrium_project_files() {
         let root = temp_root("writes-valid-narrium");
         let project_path = root.join("Nested").join("Story.narrium");
+        fs::create_dir_all(project_path.parent().expect("project should have parent")).unwrap();
+        let trust = pending_save_session(&project_path);
 
-        let saved_path =
-            write_project_file(project_path.to_string_lossy().to_string(), "{}".to_string())
-                .expect("write should succeed");
+        let saved_path = write_project_file_impl(
+            &trust,
+            project_path.to_string_lossy().to_string(),
+            "{}".to_string(),
+        )
+        .expect("write should succeed");
 
         assert_eq!(saved_path, project_path.to_string_lossy());
         assert_eq!(

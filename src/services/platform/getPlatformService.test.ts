@@ -235,6 +235,44 @@ describe('platform services', () => {
     ]);
   });
 
+  it('selects desktop project files through the trusted native open command', async () => {
+    const service = new DesktopPlatformService();
+    vi.stubGlobal('window', {});
+    mockIPC(<T,>(cmd: string, payload?: InvokeArgs): T => {
+      expect(cmd).toBe('select_project_file_to_open');
+      expect(payload).toEqual({
+        title: 'Open Project',
+      });
+
+      return 'D:/Stories/Test.narrium' as T;
+    });
+
+    await expect(service.selectProjectFileToOpen({ title: 'Open Project' })).resolves.toBe(
+      'D:/Stories/Test.narrium',
+    );
+  });
+
+  it('selects desktop Save As paths through the trusted native save command', async () => {
+    const service = new DesktopPlatformService();
+    vi.stubGlobal('window', {});
+    mockIPC(<T,>(cmd: string, payload?: InvokeArgs): T => {
+      expect(cmd).toBe('select_project_file_path_for_save_as');
+      expect(payload).toEqual({
+        title: 'Save Project As',
+        defaultFileName: 'Story.narrium',
+      });
+
+      return 'D:/Stories/Story.narrium' as T;
+    });
+
+    await expect(
+      service.selectProjectFilePathForSaveAs({
+        title: 'Save Project As',
+        defaultFileName: 'Story.narrium',
+      }),
+    ).resolves.toBe('D:/Stories/Story.narrium');
+  });
+
   it('resolves to browser when Tauri globals are unavailable', () => {
     vi.stubGlobal('window', {});
 

@@ -106,7 +106,8 @@ export class DesktopProjectFileService implements ProjectFileService {
   }
 
   async openProjectFileAt(filePath: string): Promise<LocalProjectFile> {
-    const projectFile = await this.platformProjectFiles.readProjectFile(filePath);
+    const trustedFilePath = await this.platformProjectFiles.trustExistingProjectFile(filePath);
+    const projectFile = await this.platformProjectFiles.readProjectFile(trustedFilePath);
     const project = parseNarriumProjectFile(projectFile.contents);
 
     if (!project) {

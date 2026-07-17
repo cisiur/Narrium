@@ -84,6 +84,7 @@ function createPlatformFileApi(overrides: Partial<PlatformProjectFileApi> = {}):
     selectProjectFilePathForSaveAs: vi.fn((_options: ProjectFileSaveOptions) =>
       Promise.resolve('C:/Stories/My Story.narrium'),
     ),
+    trustExistingProjectFile: vi.fn((filePath: string) => Promise.resolve(filePath)),
     readProjectFile: vi.fn((filePath: string) =>
       Promise.resolve({
         filePath,
@@ -223,8 +224,62 @@ describe('DesktopProjectFileService', () => {
     expect(platformFileApi.selectProjectFileToOpen).toHaveBeenCalledWith({
       title: 'Open Narrium Project File',
     });
+    expect(platformFileApi.trustExistingProjectFile).toHaveBeenCalledWith('C:/Stories/My Story.narrium');
     expect(platformFileApi.readProjectFile).toHaveBeenCalledWith('C:/Stories/My Story.narrium');
     expect(result?.filePath).toBe('C:/Stories/My Story.narrium');
+  });
+
+  it('registers trust before reading a recent project path', async () => {
+    const platformFileApi = createPlatformFileApi({
+      trustExistingProjectFile: vi.fn(() => Promise.resolve('D:/Stories/Recent/Story.narrium')),
+    });
+    const service = new DesktopProjectFileService(platformFileApi);
+
+    await service.openProjectFileAt('D:/Stories/Recent/./Story.narrium');
+
+    expect(platformFileApi.trustExistingProjectFile).toHaveBeenCalledWith('D:/Stories/Recent/./Story.narrium');
+    expect(platformFileApi.readProjectFile).toHaveBeenCalledWith('D:/Stories/Recent/Story.narrium');
+    expect(
+      vi.mocked(platformFileApi.trustExistingProjectFile).mock.invocationCallOrder[0],
+    ).toBeLessThan(vi.mocked(platformFileApi.readProjectFile).mock.invocationCallOrder[0]);
+  });
+
+  it('registers trust before reading a last-opened project path', async () => {
+    const platformFileApi = createPlatformFileApi();
+    const service = new DesktopProjectFileService(platformFileApi);
+
+    await service.openProjectFileAt('C:/Stories/Last Opened.narrium');
+
+    expect(platformFileApi.trustExistingProjectFile).toHaveBeenCalledWith('C:/Stories/Last Opened.narrium');
+    expect(
+      vi.mocked(platformFileApi.trustExistingProjectFile).mock.invocationCallOrder[0],
+    ).toBeLessThan(vi.mocked(platformFileApi.readProjectFile).mock.invocationCallOrder[0]);
+  });
+
+  it('registers trust before reading an explicit file-backed project entry', async () => {
+    const platformFileApi = createPlatformFileApi();
+    const service = new DesktopProjectFileService(platformFileApi);
+
+    await service.openProjectFileAt('C:/Stories/Existing Entry.narrium');
+
+    expect(platformFileApi.trustExistingProjectFile).toHaveBeenCalledWith('C:/Stories/Existing Entry.narrium');
+    expect(
+      vi.mocked(platformFileApi.trustExistingProjectFile).mock.invocationCallOrder[0],
+    ).toBeLessThan(vi.mocked(platformFileApi.readProjectFile).mock.invocationCallOrder[0]);
+  });
+
+  it('does not read or trust an invalid recent project after registration fails', async () => {
+    const platformFileApi = createPlatformFileApi({
+      trustExistingProjectFile: vi.fn(() => Promise.reject(new Error('Failed to inspect project file'))),
+    });
+    const service = new DesktopProjectFileService(platformFileApi);
+
+    await expect(service.openProjectFileAt('C:/Stories/Missing.narrium')).rejects.toThrow(
+      'Failed to inspect project file',
+    );
+
+    expect(platformFileApi.trustExistingProjectFile).toHaveBeenCalledWith('C:/Stories/Missing.narrium');
+    expect(platformFileApi.readProjectFile).not.toHaveBeenCalled();
   });
 
   it('saves to a known .narrium project file path', async () => {

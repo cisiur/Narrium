@@ -62,6 +62,7 @@ export type UnsavedChangesAction = 'save' | 'discard' | 'cancel';
 export interface PlatformProjectFileApi {
   selectProjectFileToOpen(options: ProjectFileSelectionOptions): Promise<string | null>;
   selectProjectFilePathForSaveAs(options: ProjectFileSaveOptions): Promise<string | null>;
+  trustExistingProjectFile(filePath: string): Promise<string>;
   readProjectFile(filePath: string): Promise<PlatformProjectFile>;
   writeProjectFile(filePath: string, contents: string): Promise<string>;
   importBackgroundAssetFile(projectFilePath: string): Promise<ImportedBackgroundAssetFile | null>;

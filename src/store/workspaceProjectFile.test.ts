@@ -98,6 +98,7 @@ describe('workspace project file workflow', () => {
       }),
       selectProjectFileToOpen: vi.fn(),
       selectProjectFilePathForSaveAs: vi.fn(),
+      trustExistingProjectFile: vi.fn(),
       readProjectFile: vi.fn(),
       writeProjectFile: vi.fn(),
       importBackgroundAssetFile: vi.fn(() => Promise.resolve(null)),
@@ -536,7 +537,7 @@ describe('workspace project file workflow', () => {
       ],
       lastOpenedProjectFilePath: 'C:/Stories/Native Recent.narrium',
     };
-    const { useWorkspaceStore, appPreferencesService } = await loadStoreWithProjectFileMocks(
+    const { useWorkspaceStore, appPreferencesService, projectFileService, platformService } = await loadStoreWithProjectFileMocks(
       'C:/Stories/Test Project.narrium',
       {
         isDesktop: true,
@@ -549,6 +550,8 @@ describe('workspace project file workflow', () => {
     await useWorkspaceStore.getState().initializeDesktopLifecycle();
 
     expect(appPreferencesService.initialize).toHaveBeenCalledTimes(1);
+    expect(projectFileService.openProjectFileAt).not.toHaveBeenCalled();
+    expect(platformService.trustExistingProjectFile).not.toHaveBeenCalled();
     expect(useWorkspaceStore.getState().recentProjects).toEqual(nativePreferences.recentProjects);
     expect(useWorkspaceStore.getState().lastOpenedProject).toEqual(nativePreferences.recentProjects[0]);
   });

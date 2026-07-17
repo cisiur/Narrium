@@ -273,6 +273,47 @@ describe('platform services', () => {
     ).resolves.toBe('D:/Stories/Story.narrium');
   });
 
+  it('registers explicit desktop project trust through the native command', async () => {
+    const service = new DesktopPlatformService();
+    vi.stubGlobal('window', {});
+    mockIPC(<T,>(cmd: string, payload?: InvokeArgs): T => {
+      expect(cmd).toBe('trust_existing_project_file');
+      expect(payload).toEqual({
+        filePath: 'D:/Stories/Recent.narrium',
+      });
+
+      return 'D:/Stories/Recent.narrium' as T;
+    });
+
+    await expect(service.trustExistingProjectFile('D:/Stories/Recent.narrium')).resolves.toBe(
+      'D:/Stories/Recent.narrium',
+    );
+  });
+
+  it('does not register trust when reading desktop project files directly', async () => {
+    const service = new DesktopPlatformService();
+    vi.stubGlobal('window', {});
+    const commands: string[] = [];
+    mockIPC(<T,>(cmd: string, payload?: InvokeArgs): T => {
+      commands.push(cmd);
+
+      if (cmd === 'read_project_file') {
+        expect(payload).toEqual({
+          filePath: 'D:/Stories/Untrusted.narrium',
+        });
+        return ['D:/Stories/Untrusted.narrium', '{"id":"project-1"}'] as T;
+      }
+
+      throw new Error(`Unexpected command: ${cmd}`);
+    });
+
+    await expect(service.readProjectFile('D:/Stories/Untrusted.narrium')).resolves.toEqual({
+      filePath: 'D:/Stories/Untrusted.narrium',
+      contents: '{"id":"project-1"}',
+    });
+    expect(commands).toEqual(['read_project_file']);
+  });
+
   it('resolves to browser when Tauri globals are unavailable', () => {
     vi.stubGlobal('window', {});
 

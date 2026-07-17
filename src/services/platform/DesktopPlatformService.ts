@@ -57,6 +57,10 @@ export class DesktopPlatformService implements PlatformService, PlatformProjectF
     });
   }
 
+  trustExistingProjectFile(filePath: string): Promise<string> {
+    return invoke('trust_existing_project_file', { filePath });
+  }
+
   async readProjectFile(filePath: string): Promise<PlatformProjectFile> {
     const [resolvedFilePath, contents] = await invoke<[string, string]>('read_project_file', { filePath });
 

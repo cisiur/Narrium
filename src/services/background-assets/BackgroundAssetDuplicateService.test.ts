@@ -52,6 +52,7 @@ function createPlatform(overrides: Partial<PlatformService> = {}): PlatformServi
     platformName: vi.fn(() => 'desktop' as const),
     selectProjectFileToOpen: vi.fn(),
     selectProjectFilePathForSaveAs: vi.fn(),
+    trustExistingProjectFile: vi.fn(),
     readProjectFile: vi.fn(),
     writeProjectFile: vi.fn(),
     importBackgroundAssetFile: vi.fn(),

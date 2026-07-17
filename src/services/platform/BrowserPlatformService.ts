@@ -34,6 +34,10 @@ export class BrowserPlatformService implements PlatformService, PlatformProjectF
     return Promise.resolve(null);
   }
 
+  trustExistingProjectFile(): Promise<string> {
+    return Promise.reject(new Error('Project files are only available in the desktop app.'));
+  }
+
   readProjectFile(): Promise<PlatformProjectFile> {
     return Promise.reject(new Error('Project files are only available in the desktop app.'));
   }

@@ -25,6 +25,7 @@ pub fn run() {
             write_app_preferences_file,
             select_project_file_to_open,
             select_project_file_path_for_save_as,
+            trust_existing_project_file,
             read_project_file,
             write_project_file,
             write_json_export_file,
@@ -308,6 +309,21 @@ async fn select_project_file_path_for_save_as(
                 .and_then(|path| trust.register_pending_save_destination(&path))
         })
         .transpose()
+}
+
+#[tauri::command]
+fn trust_existing_project_file(
+    trust: tauri::State<'_, ProjectFileSessionTrust>,
+    file_path: String,
+) -> Result<String, String> {
+    trust_existing_project_file_impl(&trust, &file_path)
+}
+
+fn trust_existing_project_file_impl(
+    trust: &ProjectFileSessionTrust,
+    file_path: &str,
+) -> Result<String, String> {
+    trust.register_existing_project_file(Path::new(file_path))
 }
 
 #[tauri::command]
@@ -2552,6 +2568,62 @@ mod tests {
         assert!(trust
             .require_trusted_existing_project_file(&project_path)
             .is_ok());
+    }
+
+    #[test]
+    fn trust_existing_project_file_registers_an_existing_project() {
+        let root = temp_root("trust-command-registers");
+        let project_path = cleanup_project(&root);
+        let trust = ProjectFileSessionTrust::default();
+
+        let trusted_path =
+            trust_existing_project_file_impl(&trust, &project_path.to_string_lossy())
+                .expect("trust registration should succeed");
+
+        assert_eq!(trusted_path, project_path.to_string_lossy());
+        assert!(read_project_file_impl(&trust, project_path.to_string_lossy().to_string()).is_ok());
+    }
+
+    #[test]
+    fn trust_existing_project_file_rejects_nonexistent_projects() {
+        let root = temp_root("trust-command-rejects-missing");
+        let project_path = root.join("Missing.narrium");
+        let trust = ProjectFileSessionTrust::default();
+
+        let error =
+            trust_existing_project_file_impl(&trust, &project_path.to_string_lossy()).unwrap_err();
+
+        assert!(error.contains("Failed to inspect project file"));
+        assert!(
+            read_project_file_impl(&trust, project_path.to_string_lossy().to_string()).is_err()
+        );
+    }
+
+    #[test]
+    fn trust_existing_project_file_rejects_invalid_extensions() {
+        let root = temp_root("trust-command-rejects-extension");
+        let project_path = root.join("Story.txt");
+        write_file(&project_path, b"{}");
+        let trust = ProjectFileSessionTrust::default();
+
+        let error =
+            trust_existing_project_file_impl(&trust, &project_path.to_string_lossy()).unwrap_err();
+
+        assert!(error.contains("Open .narrium files or legacy .json files"));
+    }
+
+    #[test]
+    fn trust_existing_project_file_returns_the_canonical_display_path() {
+        let root = temp_root("trust-command-canonical-path");
+        let project_path = cleanup_project(&root);
+        let equivalent_path = root.join(".").join("Story.narrium");
+        let trust = ProjectFileSessionTrust::default();
+
+        let trusted_path =
+            trust_existing_project_file_impl(&trust, &equivalent_path.to_string_lossy())
+                .expect("trust registration should succeed");
+
+        assert_eq!(trusted_path, project_path.to_string_lossy());
     }
 
     #[test]

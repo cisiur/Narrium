@@ -4,6 +4,11 @@ import { RightSidebar } from '../../components/RightSidebar';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import type { RecentProject } from '../../services/app-preferences';
 import { processProjectThumbnail } from '../../services/image-processing';
+import {
+  getPerformanceInstrumentationService,
+  serializedJsonByteSize,
+  type PerformanceInstrumentationService,
+} from '../../services/performance';
 import type { Project, WorkspaceProjectMeta } from '../../types';
 import { parseProjectImport } from '../../utils/projectImport';
 
@@ -109,14 +114,21 @@ export async function updateProjectThumbnailFromFile(
   onUpdateThumbnail: (projectId: string, thumbnail: string | null) => void,
   onError: (message: string | null) => void,
   processor = processProjectThumbnail,
+  instrumentation: PerformanceInstrumentationService = getPerformanceInstrumentationService(),
 ): Promise<boolean> {
   if (!file) {
     return false;
   }
 
   try {
+    const thumbnailTimer = instrumentation.createTimer('thumbnail.generate');
     const thumbnail = await processor(file);
 
+    instrumentation.recordThumbnailGeneration({
+      thumbnailGenerationDurationMs: thumbnailTimer.elapsedMs(),
+      inputBytes: file.size,
+      outputBytes: serializedJsonByteSize(thumbnail.dataUrl),
+    });
     onUpdateThumbnail(projectId, thumbnail.dataUrl);
     onError(null);
     return true;

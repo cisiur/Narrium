@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import type { RecentProject } from '../../services/app-preferences';
+import { PerformanceInstrumentationService, type MonotonicClock } from '../../services/performance';
 import type { WorkspaceProjectMeta } from '../../types';
 import { findAssociatedRecentProject, ProjectCard, updateProjectThumbnailFromFile } from './MyProjectsScreen';
 
@@ -105,6 +106,18 @@ describe('My Projects file-backed cards', () => {
 });
 
 describe('project thumbnail processing', () => {
+  class ManualClock implements MonotonicClock {
+    private current = 0;
+
+    now(): number {
+      return this.current;
+    }
+
+    advance(ms: number): void {
+      this.current += ms;
+    }
+  }
+
   it('updates the selected project thumbnail after successful processing', async () => {
     const onUpdateThumbnail = vi.fn();
     const onError = vi.fn();
@@ -118,6 +131,33 @@ describe('project thumbnail processing', () => {
     expect(processor).toHaveBeenCalledWith(file);
     expect(onUpdateThumbnail).toHaveBeenCalledWith('project-1', 'data:image/jpeg;base64,optimized');
     expect(onError).toHaveBeenCalledWith(null);
+  });
+
+  it('records thumbnail generation metrics internally', async () => {
+    const clock = new ManualClock();
+    const instrumentation = new PerformanceInstrumentationService(clock);
+    const onUpdateThumbnail = vi.fn();
+    const onError = vi.fn();
+    const file = new File(['thumbnail'], 'thumbnail.png', { type: 'image/png' });
+    const processor = vi.fn(() => {
+      clock.advance(14);
+      return Promise.resolve({ dataUrl: 'data:image/jpeg;base64,optimized', width: 640, height: 360 });
+    });
+
+    await updateProjectThumbnailFromFile(
+      'project-1',
+      file,
+      onUpdateThumbnail,
+      onError,
+      processor,
+      instrumentation,
+    );
+
+    expect(instrumentation.getSnapshot().thumbnails[0]).toMatchObject({
+      thumbnailGenerationDurationMs: 14,
+      inputBytes: file.size,
+    });
+    expect(instrumentation.getSnapshot().thumbnails[0].outputBytes).toBeGreaterThan(0);
   });
 
   it('keeps the previous thumbnail when processing fails', async () => {

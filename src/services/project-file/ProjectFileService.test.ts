@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { AssetLibraryItem, Project } from '../../types';
 import type { MaterializedBackgroundAsset } from '../background-assets';
+import { PerformanceInstrumentationService, type MonotonicClock } from '../performance';
 import type { PlatformProjectFileApi, ProjectFileSaveOptions, ProjectFileSelectionOptions } from '../platform';
 import {
   DesktopProjectFileService,
@@ -101,6 +102,18 @@ function createPlatformFileApi(overrides: Partial<PlatformProjectFileApi> = {}):
     deleteLocalBackgroundFiles: vi.fn(() => Promise.resolve({ deleted: [], skipped: [], failed: [] })),
     ...overrides,
   };
+}
+
+class ManualClock implements MonotonicClock {
+  private current = 0;
+
+  now(): number {
+    return this.current;
+  }
+
+  advance(ms: number): void {
+    this.current += ms;
+  }
 }
 
 describe('native Narrium project file serialization', () => {
@@ -296,6 +309,31 @@ describe('DesktopProjectFileService', () => {
     expect(result.filePath).toBe('C:/Stories/My Story.narrium');
     expect(result.project.name).toBe('Test Project');
     expect(platformFileApi.materializeEmbeddedBackgroundAssets).not.toHaveBeenCalled();
+  });
+
+  it('records structured Save metrics internally', async () => {
+    const clock = new ManualClock();
+    const instrumentation = new PerformanceInstrumentationService(clock);
+    const platformFileApi = createPlatformFileApi({
+      writeProjectFile: vi.fn((filePath: string) => {
+        clock.advance(8);
+        return Promise.resolve(filePath);
+      }),
+    });
+    const service = new DesktopProjectFileService(platformFileApi, instrumentation);
+    const project = createProject();
+
+    await service.saveProject(project, 'C:/Stories/My Story.narrium');
+
+    expect(instrumentation.getSnapshot().saves[0]).toMatchObject({
+      operation: 'save',
+      projectId: project.id,
+      projectFilePath: 'C:/Stories/My Story.narrium',
+      localAssetCopyDurationMs: 0,
+      embeddedMaterializationDurationMs: 0,
+      writeDurationMs: 8,
+    });
+    expect(instrumentation.getSnapshot().saves[0].projectMetrics.sceneCount).toBe(0);
   });
 
   it('materializes embedded backgrounds before saving a known project file path', async () => {
@@ -543,6 +581,48 @@ describe('DesktopProjectFileService', () => {
     );
     expect(result?.filePath).toBe('D:/Stories/Relocated.narrium');
     expect(result?.project.name).toBe('Relocated');
+  });
+
+  it('records structured Save As metrics internally', async () => {
+    const clock = new ManualClock();
+    const instrumentation = new PerformanceInstrumentationService(clock);
+    const project = createProject({
+      assetLibrary: [
+        {
+          id: 'asset-local',
+          kind: 'background',
+          name: 'Forest',
+          storageType: 'local',
+          source: 'assets/backgrounds/forest.png',
+          createdAt: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    });
+    const platformFileApi = createPlatformFileApi({
+      selectProjectFilePathForSaveAs: vi.fn((_options: ProjectFileSaveOptions) =>
+        Promise.resolve('D:/Stories/Relocated.narrium'),
+      ),
+      copyLocalAssetForProjectSaveAs: vi.fn(() => {
+        clock.advance(5);
+        return Promise.resolve();
+      }),
+      writeProjectFile: vi.fn((filePath: string) => {
+        clock.advance(7);
+        return Promise.resolve(filePath);
+      }),
+    });
+    const service = new DesktopProjectFileService(platformFileApi, instrumentation);
+
+    await service.saveProjectAs(project, 'C:/Stories/Original.narrium');
+
+    expect(instrumentation.getSnapshot().saves[0]).toMatchObject({
+      operation: 'save-as',
+      projectId: project.id,
+      projectFilePath: 'D:/Stories/Relocated.narrium',
+      localAssetCopyDurationMs: 5,
+      writeDurationMs: 7,
+      totalDurationMs: 12,
+    });
   });
 
   it('materializes embedded backgrounds into the Save As destination for drafts', async () => {

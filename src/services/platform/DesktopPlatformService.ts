@@ -1,6 +1,10 @@
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import {
+  getPerformanceInstrumentationService,
+  type PerformanceInstrumentationService,
+} from '../performance';
 import type {
   EmbeddedBackgroundAssetMaterializationRequest,
   MaterializedBackgroundAsset,
@@ -32,7 +36,10 @@ interface NativeWindowCloseApi {
 export class DesktopPlatformService implements PlatformService, PlatformProjectFileApi, PlatformAppPreferencesApi {
   private isCloseDecisionPending = false;
 
-  constructor(private readonly getNativeWindow: () => NativeWindowCloseApi = getCurrentWindow) {}
+  constructor(
+    private readonly getNativeWindow: () => NativeWindowCloseApi = getCurrentWindow,
+    private readonly instrumentation: PerformanceInstrumentationService = getPerformanceInstrumentationService(),
+  ) {}
 
   isBrowser(): boolean {
     return false;
@@ -83,6 +90,7 @@ export class DesktopPlatformService implements PlatformService, PlatformProjectF
   }
 
   async importBackgroundAssetFile(projectFilePath: string): Promise<ImportedBackgroundAssetFile | null> {
+    const importTimer = this.instrumentation.createTimer('background-import.local');
     const selectedPath = await open({
       directory: false,
       multiple: false,
@@ -106,6 +114,12 @@ export class DesktopPlatformService implements PlatformService, PlatformProjectF
         sourceFilePath: selectedPath,
       },
     );
+
+    this.instrumentation.recordBackgroundImport({
+      storageType: 'local',
+      importDurationMs: importTimer.elapsedMs(),
+      fileSize,
+    });
 
     return {
       name,

@@ -10,6 +10,7 @@ import {
   type BackgroundAssetDuplicateReport,
 } from '../../services/background-assets';
 import { processBrowserBackgroundUpload } from '../../services/image-processing';
+import { getPerformanceInstrumentationService } from '../../services/performance';
 import { getPlatformService } from '../../services/platform';
 import { ConditionGroupsEditor } from '../story-logic/ConditionGroupsEditor';
 import { EffectsEditor } from '../story-logic/EffectsEditor';
@@ -439,7 +440,13 @@ export function BackgroundEditor({ scene, scenes, assets }: BackgroundEditorProp
     }
 
     try {
+      const importTimer = getPerformanceInstrumentationService().createTimer('background-import.embedded');
       const upload = await processBrowserBackgroundUpload(file);
+      getPerformanceInstrumentationService().recordBackgroundImport({
+        storageType: 'embedded',
+        importDurationMs: importTimer.elapsedMs(),
+        fileSize: upload.fileSize,
+      });
 
       const assetId = addBackgroundAsset({
         name: uploadAssetName || file.name || 'Uploaded Background',

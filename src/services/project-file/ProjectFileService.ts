@@ -4,6 +4,10 @@ import {
   applyMaterializedBackgroundAssets,
   planEmbeddedBackgroundAssetMigration,
 } from '../background-assets';
+import {
+  getPerformanceInstrumentationService,
+  type PerformanceInstrumentationService,
+} from '../performance';
 import type { PlatformProjectFileApi } from '../platform';
 
 export const NARRIUM_PROJECT_FORMAT = 'narrium.project';
@@ -87,7 +91,10 @@ function getReferencedLocalAssetSources(project: Project): string[] {
 }
 
 export class DesktopProjectFileService implements ProjectFileService {
-  constructor(private readonly platformProjectFiles: PlatformProjectFileApi) {}
+  constructor(
+    private readonly platformProjectFiles: PlatformProjectFileApi,
+    private readonly instrumentation: PerformanceInstrumentationService = getPerformanceInstrumentationService(),
+  ) {}
 
   canUseProjectFiles(): boolean {
     return true;
@@ -121,7 +128,10 @@ export class DesktopProjectFileService implements ProjectFileService {
   }
 
   async saveProject(project: Project, filePath: string): Promise<LocalProjectFile> {
-    return this.writeProjectWithEmbeddedBackgroundMigration(project, filePath);
+    return this.writeProjectWithEmbeddedBackgroundMigration(project, filePath, {
+      operation: 'save',
+      localAssetCopyDurationMs: 0,
+    });
   }
 
   async saveProjectAs(project: Project, sourceFilePath: string | null = null): Promise<LocalProjectFile | null> {
@@ -136,17 +146,24 @@ export class DesktopProjectFileService implements ProjectFileService {
 
     const destinationFilePath = ensureNarriumProjectExtension(filePath);
     const localAssetSources = getReferencedLocalAssetSources(project);
+    const totalTimer = this.instrumentation.createTimer('save-as.total');
+    let localAssetCopyDurationMs = 0;
 
     if (sourceFilePath && sourceFilePath !== destinationFilePath) {
-      await Promise.all(
-        localAssetSources.map((relativePath) =>
-          this.platformProjectFiles.copyLocalAssetForProjectSaveAs(
-            sourceFilePath,
-            destinationFilePath,
-            relativePath,
+      const copyTimer = this.instrumentation.createTimer('save-as.local-asset-copy');
+      try {
+        await Promise.all(
+          localAssetSources.map((relativePath) =>
+            this.platformProjectFiles.copyLocalAssetForProjectSaveAs(
+              sourceFilePath,
+              destinationFilePath,
+              relativePath,
+            ),
           ),
-        ),
-      );
+        );
+      } finally {
+        localAssetCopyDurationMs = copyTimer.elapsedMs();
+      }
     }
 
     const renamedProject = {
@@ -154,25 +171,62 @@ export class DesktopProjectFileService implements ProjectFileService {
       name: deriveProjectNameFromNarriumFilePath(destinationFilePath, project.name),
     };
 
-    return this.writeProjectWithEmbeddedBackgroundMigration(renamedProject, destinationFilePath);
+    return this.writeProjectWithEmbeddedBackgroundMigration(renamedProject, destinationFilePath, {
+      operation: 'save-as',
+      localAssetCopyDurationMs,
+      totalTimer,
+    });
   }
 
   private async writeProjectWithEmbeddedBackgroundMigration(
     project: Project,
     filePath: string,
+    options: {
+      operation: 'save' | 'save-as';
+      localAssetCopyDurationMs: number;
+      totalTimer?: ReturnType<PerformanceInstrumentationService['createTimer']>;
+    },
   ): Promise<LocalProjectFile> {
+    const totalTimer = options.totalTimer ?? this.instrumentation.createTimer(`${options.operation}.total`);
     const normalizedProject = normalizeProject(project).project;
     const migrationRequests = planEmbeddedBackgroundAssetMigration(normalizedProject);
+    let embeddedMaterializationDurationMs = 0;
+    let serializationDurationMs = 0;
+    let writeDurationMs = 0;
     const finalProject = migrationRequests.length > 0
-      ? applyMaterializedBackgroundAssets(
-          normalizedProject,
-          await this.platformProjectFiles.materializeEmbeddedBackgroundAssets(filePath, migrationRequests),
-        )
+      ? await (async () => {
+          const materializationTimer = this.instrumentation.createTimer(`${options.operation}.embedded-materialization`);
+          try {
+            return applyMaterializedBackgroundAssets(
+              normalizedProject,
+              await this.platformProjectFiles.materializeEmbeddedBackgroundAssets(filePath, migrationRequests),
+            );
+          } finally {
+            embeddedMaterializationDurationMs = materializationTimer.elapsedMs();
+          }
+        })()
       : normalizedProject;
+    const serializationTimer = this.instrumentation.createTimer(`${options.operation}.serialization`);
+    const serializedProject = serializeNarriumProjectFile(finalProject);
+
+    serializationDurationMs = serializationTimer.elapsedMs();
+    const writeTimer = this.instrumentation.createTimer(`${options.operation}.write`);
     const savedFilePath = await this.platformProjectFiles.writeProjectFile(
       filePath,
-      serializeNarriumProjectFile(finalProject),
+      serializedProject,
     );
+    writeDurationMs = writeTimer.elapsedMs();
+    this.instrumentation.recordSave({
+      operation: options.operation,
+      projectId: finalProject.id,
+      projectFilePath: savedFilePath,
+      projectMetrics: this.instrumentation.calculateProjectMetrics(finalProject),
+      serializationDurationMs,
+      writeDurationMs,
+      embeddedMaterializationDurationMs,
+      localAssetCopyDurationMs: options.localAssetCopyDurationMs,
+      totalDurationMs: totalTimer.elapsedMs(),
+    });
 
     return {
       filePath: savedFilePath,

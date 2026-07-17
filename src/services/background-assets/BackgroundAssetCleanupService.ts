@@ -5,6 +5,10 @@ import type {
   PlatformService,
 } from '../platform';
 import {
+  getPerformanceInstrumentationService,
+  type PerformanceInstrumentationService,
+} from '../performance';
+import {
   collectProtectedLocalBackgroundPaths,
   getBackgroundRelativePathComparisonKey,
   normalizeBackgroundRelativePath,
@@ -27,7 +31,10 @@ export interface DeleteBackgroundAssetCleanupInput {
 }
 
 export class BackgroundAssetCleanupService {
-  constructor(private readonly platformProjectFiles: PlatformService) {}
+  constructor(
+    private readonly platformProjectFiles: PlatformService,
+    private readonly instrumentation: PerformanceInstrumentationService = getPerformanceInstrumentationService(),
+  ) {}
 
   canCleanUpLocalBackgroundFiles(projectFilePath: string | null): boolean {
     return this.platformProjectFiles.isDesktop() && Boolean(projectFilePath);
@@ -43,9 +50,20 @@ export class BackgroundAssetCleanupService {
       throw new Error('Local background cleanup is only available for saved desktop .narrium projects.');
     }
 
+    const scanTimer = this.instrumentation.createTimer('background-cleanup.scan');
     const physicalFiles = await this.platformProjectFiles.listLocalBackgroundFiles(filePath);
+    const report = planBackgroundAssetCleanup(project, filePath, physicalFiles);
 
-    return planBackgroundAssetCleanup(project, filePath, physicalFiles);
+    this.instrumentation.recordCleanup({
+      projectId: project.id,
+      projectFilePath: filePath,
+      scanDurationMs: scanTimer.elapsedMs(),
+      deletionDurationMs: 0,
+      scannedFileCount: physicalFiles.length,
+      deletedFileCount: 0,
+    });
+
+    return report;
   }
 
   async deleteOrphanedLocalBackgroundFiles(
@@ -73,6 +91,15 @@ export class BackgroundAssetCleanupService {
     );
 
     if (revalidatedOrphanFiles.length === 0) {
+      this.instrumentation.recordCleanup({
+        projectId: latestProject.id,
+        projectFilePath: filePath,
+        scanDurationMs: 0,
+        deletionDurationMs: 0,
+        scannedFileCount: input.orphanCandidates.length,
+        deletedFileCount: 0,
+      });
+
       return {
         requestedFiles: input.orphanCandidates,
         revalidatedOrphanFiles,
@@ -87,11 +114,20 @@ export class BackgroundAssetCleanupService {
       };
     }
 
+    const deleteTimer = this.instrumentation.createTimer('background-cleanup.delete');
     const result = await this.platformProjectFiles.deleteLocalBackgroundFiles(
       filePath,
       revalidatedOrphanFiles.map((file) => file.relativePath),
       protectedRelativePaths,
     );
+    this.instrumentation.recordCleanup({
+      projectId: latestProject.id,
+      projectFilePath: filePath,
+      scanDurationMs: 0,
+      deletionDurationMs: deleteTimer.elapsedMs(),
+      scannedFileCount: input.orphanCandidates.length,
+      deletedFileCount: result.deleted.length,
+    });
     const deletedSizesByPath = new Map(
       revalidatedOrphanFiles.map((file) => [getBackgroundRelativePathComparisonKey(file.relativePath), file.fileSize]),
     );

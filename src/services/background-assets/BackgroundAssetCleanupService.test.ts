@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { AssetLibraryItem, Project } from '../../types';
+import { PerformanceInstrumentationService, type MonotonicClock } from '../performance';
 import type { PlatformService } from '../platform';
 import { BackgroundAssetCleanupService } from './BackgroundAssetCleanupService';
 import type { PhysicalBackgroundFile } from './BackgroundAssetCleanupPlanner';
@@ -75,6 +76,18 @@ function createPlatform(overrides: Partial<PlatformService> = {}): PlatformServi
   };
 }
 
+class ManualClock implements MonotonicClock {
+  private current = 0;
+
+  now(): number {
+    return this.current;
+  }
+
+  advance(ms: number): void {
+    this.current += ms;
+  }
+}
+
 describe('BackgroundAssetCleanupService', () => {
   it('does not invoke desktop cleanup APIs in browser mode', async () => {
     const platform = createPlatform({
@@ -126,6 +139,30 @@ describe('BackgroundAssetCleanupService', () => {
     });
 
     expect(JSON.stringify(project)).toBe(before);
+  });
+
+  it('records cleanup scan metrics internally', async () => {
+    const clock = new ManualClock();
+    const instrumentation = new PerformanceInstrumentationService(clock);
+    const project = createProject();
+    const platform = createPlatform({
+      listLocalBackgroundFiles: vi.fn(() => {
+        clock.advance(9);
+        return Promise.resolve([physical('assets/backgrounds/orphan.png')]);
+      }),
+    });
+    const service = new BackgroundAssetCleanupService(platform, instrumentation);
+
+    await service.scanLocalBackgroundFiles(project, 'C:/Stories/Story.narrium');
+
+    expect(instrumentation.getSnapshot().cleanups[0]).toMatchObject({
+      projectId: project.id,
+      projectFilePath: 'C:/Stories/Story.narrium',
+      scanDurationMs: 9,
+      deletionDurationMs: 0,
+      scannedFileCount: 1,
+      deletedFileCount: 0,
+    });
   });
 
   it('skips a file that becomes referenced after scan but before deletion', async () => {
@@ -224,6 +261,38 @@ describe('BackgroundAssetCleanupService', () => {
     );
     expect(result.deleted).toHaveLength(2);
     expect(result.reclaimedBytes).toBe(30);
+  });
+
+  it('records cleanup deletion metrics internally', async () => {
+    const clock = new ManualClock();
+    const instrumentation = new PerformanceInstrumentationService(clock);
+    const project = createProject();
+    const platform = createPlatform({
+      deleteLocalBackgroundFiles: vi.fn(() => {
+        clock.advance(6);
+        return Promise.resolve({
+          deleted: [{ relativePath: 'assets/backgrounds/orphan.png', fileSize: 10 }],
+          skipped: [],
+          failed: [],
+        });
+      }),
+    });
+    const service = new BackgroundAssetCleanupService(platform, instrumentation);
+
+    await service.deleteOrphanedLocalBackgroundFiles({
+      projectFilePath: 'C:/Stories/Story.narrium',
+      orphanCandidates: [physical('assets/backgrounds/orphan.png', 10)],
+      getLatestProject: () => project,
+    });
+
+    expect(instrumentation.getSnapshot().cleanups[0]).toMatchObject({
+      projectId: project.id,
+      projectFilePath: 'C:/Stories/Story.narrium',
+      scanDurationMs: 0,
+      deletionDurationMs: 6,
+      scannedFileCount: 1,
+      deletedFileCount: 1,
+    });
   });
 
   it('surfaces partial deletion failures accurately', async () => {

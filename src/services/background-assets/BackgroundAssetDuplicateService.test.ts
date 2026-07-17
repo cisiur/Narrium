@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { AssetLibraryItem, Project } from '../../types';
+import { PerformanceInstrumentationService, type MonotonicClock } from '../performance';
 import type { PlatformService } from '../platform';
 import { BackgroundAssetDuplicateService } from './BackgroundAssetDuplicateService';
 import type { FingerprintedBackgroundFile } from './BackgroundAssetDuplicatePlanner';
@@ -76,6 +77,18 @@ function createPlatform(overrides: Partial<PlatformService> = {}): PlatformServi
   };
 }
 
+class ManualClock implements MonotonicClock {
+  private current = 0;
+
+  now(): number {
+    return this.current;
+  }
+
+  advance(ms: number): void {
+    this.current += ms;
+  }
+}
+
 describe('BackgroundAssetDuplicateService', () => {
   it('does not invoke the desktop fingerprint API in browser mode', async () => {
     const platform = createPlatform({
@@ -141,5 +154,32 @@ describe('BackgroundAssetDuplicateService', () => {
     await service.scanDuplicateLocalBackgroundFiles(createProject(), 'C:/Stories/Story.narrium');
 
     expect(isDirty).toBe(false);
+  });
+
+  it('records duplicate fingerprint metrics internally', async () => {
+    const clock = new ManualClock();
+    const instrumentation = new PerformanceInstrumentationService(clock);
+    const project = createProject();
+    const platform = createPlatform({
+      fingerprintLocalBackgroundFiles: vi.fn(() => {
+        clock.advance(11);
+        return Promise.resolve([
+          fingerprinted('assets/backgrounds/forest.png'),
+          fingerprinted('assets/backgrounds/copy.png'),
+          fingerprinted('assets/backgrounds/lake.png', 'hash-b'),
+        ]);
+      }),
+    });
+    const service = new BackgroundAssetDuplicateService(platform, instrumentation);
+
+    await service.scanDuplicateLocalBackgroundFiles(project, 'C:/Stories/Story.narrium');
+
+    expect(instrumentation.getSnapshot().duplicates[0]).toMatchObject({
+      projectId: project.id,
+      projectFilePath: 'C:/Stories/Story.narrium',
+      fingerprintDurationMs: 11,
+      scannedFileCount: 3,
+      duplicateGroupCount: 1,
+    });
   });
 });

@@ -6,6 +6,25 @@ This changelog records milestone-level project changes. It is intentionally conc
 
 ## Unreleased / Next
 
+### Added - Desktop playable folder export foundation
+
+Changes:
+- Added a desktop-only Export Playable Folder action separate from `.narrium` Save/Save As, JSON export, and the legacy single-file standalone HTML export.
+- Browser/Vite mode remains compatible and does not expose the desktop-only folder export action.
+- Added a platform-neutral referenced-background export planner that supports direct scene `assetId` backgrounds, one-level `scene_reference` backgrounds, embedded/remote/local classification, unused Asset Library exclusion, duplicate source reuse, deterministic output planning, and collision-safe local background naming.
+- Shared referenced-background collection with standalone HTML export preflight so standalone preflight and playable folder export agree on which referenced local assets matter.
+- Added an export-only Project snapshot that rewrites referenced local background sources to portable relative `assets/backgrounds/...` paths while leaving embedded Data URLs embedded and remote URLs remote.
+- Reused the existing standalone HTML player generator/runtime for folder export; the existing single-file standalone HTML behavior remains unchanged by default.
+- Copied only referenced local PNG, JPG, JPEG, and WEBP background files. Embedded assets are not extracted, remote assets are not downloaded, and non-background asset categories are not packaged.
+- Added staged Rust writing/finalization for playable folder export, including trusted source project validation, destination parent and folder-name validation, source/destination boundary checks, duplicate copy-entry rejection, missing source rejection, existing output folder rejection, staging cleanup after failure where possible, and no reported success after partial failure.
+- Important limitations remain: replacing or overwriting an existing playable export folder, ZIP export, custom package format, standalone executable player, installers, non-background asset packaging, remote URL downloading, duplicate consolidation, automatic duplicate cleanup, broader local asset lifecycle work, performance optimization/tooling, and format-version planning for eventual legacy direct scene background removal.
+
+Accepted implementation validation:
+- `npm.cmd test` -> passed, 42 test files / 457 tests.
+- `npm.cmd run build` -> passed.
+- `npm.cmd run desktop:build` -> passed.
+- `cargo test` -> passed, 81 tests.
+
 ### Documentation - Desktop architecture and asset lifecycle synchronization
 
 Changes:
@@ -14,7 +33,7 @@ Changes:
 - Documented diagnostic-only duplicate detection for direct local background files under `assets/backgrounds/`, using SHA-256 fingerprints for PNG, JPG, JPEG, and WEBP files.
 - Documented session-scoped Rust filesystem trust for Open, Recent Projects, Last Opened Project, file-backed project entries, and pending Save As destinations.
 - Documented centralized in-memory performance instrumentation, including Save/Save As timing, cleanup and duplicate timing, background import and thumbnail timing, project metrics, undo/redo history metrics, 250-entry bounded retention, and runtime-only history snapshot sizes.
-- Clarified remaining future work: playable folder/package export with local asset packaging, duplicate consolidation, non-background asset lifecycle work, performance optimization/tooling, PlatformService split when needed, and format-version planning.
+- Clarified remaining future work at the time of that documentation pass: playable folder/package export with local asset packaging, duplicate consolidation, non-background asset lifecycle work, performance optimization/tooling, PlatformService split when needed, and format-version planning. The later E11-10A entry supersedes the playable-folder status for referenced local background assets.
 - Documentation-only change; no application behavior changed.
 
 ### Documentation - Desktop embedded background migration reconciliation
@@ -43,7 +62,7 @@ Changes:
 - Standalone HTML export now runs a preflight check before generating output.
 - Projects with local desktop assets show a warning that standalone HTML does not include those files and may display missing backgrounds.
 - Missing or unverifiable local assets block standalone HTML export with a clear error.
-- Standalone HTML generation itself remains unchanged; local asset packaging remains future work.
+- Standalone HTML generation itself remains unchanged; the later E11-10A desktop playable folder export provides local background packaging through a separate export action.
 
 ### Added - Native desktop preferences backend
 

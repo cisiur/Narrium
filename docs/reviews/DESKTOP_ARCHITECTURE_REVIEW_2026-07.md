@@ -10,17 +10,17 @@ Strengths:
 - The main dependency direction is mostly respected: UI/features -> stores -> services -> platform/domain -> Tauri/browser.
 - Tauri API imports are contained in the platform service and tests.
 - The asset catalog is now canonical for new background assignments, with desktop local background imports stored as project-relative paths.
-- Runtime, validation, project normalization, and standalone export have useful boundaries and focused tests.
+- Runtime, validation, project normalization, standalone export, and playable folder export have useful boundaries and focused tests.
 
 Weaknesses:
-- Standalone HTML export is still a browser-style download flow and does not package local desktop assets.
+- Legacy single-file standalone HTML export is still a browser-style download flow and does not package local desktop assets by design; desktop playable folder export now packages referenced local background assets.
 - `localStorage` remains necessary for browser compatibility and transitional drafts.
 - Some UI components still contain browser file APIs directly for JSON import, thumbnails, and browser uploads.
 - Some historical documentation and review findings need status overlays because several recommendations have since been implemented.
 
-Risk assessment: Medium. There are no signs of a failed desktop pivot, but standalone local-asset export packaging, non-background asset lifecycle work, and larger-project performance optimization/tooling remain high-leverage risks for real desktop use.
+Risk assessment: Medium. There are no signs of a failed desktop pivot, but non-background asset lifecycle work, distribution formats beyond a playable folder, replacement workflow, and larger-project performance optimization/tooling remain high-leverage risks for real desktop use.
 
-Desktop readiness assessment: Good for early desktop authoring with explicit Open, Save, Save As, recent files, last-opened offers, native close dirty protection, native app preferences, session filesystem trust, native desktop JSON export, local background assets, safe local background cleanup, duplicate diagnostics, and automatic embedded-background migration during desktop Save/Save As. Not yet production-ready for fully portable desktop exports, broad asset lifecycle management beyond backgrounds, duplicate consolidation, or performance tooling/optimization.
+Desktop readiness assessment: Good for early desktop authoring with explicit Open, Save, Save As, recent files, last-opened offers, native close dirty protection, native app preferences, session filesystem trust, native desktop JSON export, local background assets, safe local background cleanup, duplicate diagnostics, automatic embedded-background migration during desktop Save/Save As, and playable folder export for referenced local backgrounds. Not yet production-ready for ZIP/package/executable distribution, replacing existing playable export folders, broad asset lifecycle management beyond backgrounds, duplicate consolidation, or performance tooling/optimization.
 
 Original validation results at review time:
 - `npm.cmd test`: Passed. 27 test files, 221 tests.
@@ -45,19 +45,21 @@ This section reconciles implementation work completed after the original review.
 - Local background cleanup/orphan detection: implemented. Cleanup is preview-first, confirmed, project-bound, uses normalized case-insensitive path protection, revalidates references before deletion, and does not dirty or mutate Project data.
 - Local background duplicate detection: implemented. Direct supported background files are fingerprinted with SHA-256, grouped by identical bytes, and reported as diagnostics only.
 - Performance instrumentation: implemented. Platform-neutral in-memory metrics cover project size, Save/Save As, background import, thumbnail generation, cleanup, duplicate detection, and undo/redo history, with bounded 250-entry retention and runtime-only history snapshot sizes.
+- Playable folder export foundation: implemented for background assets. Desktop builds expose a separate Export Playable Folder action that uses a native destination dialog, builds a platform-neutral referenced-background copy plan, rewrites local background sources in an export-only snapshot, reuses the standalone player runtime, writes through staged Rust filesystem operations, and packages only referenced local PNG/JPG/JPEG/WEBP background files.
 - Documentation reconciliation: completed by this documentation-only pass.
 
 ## Partially Completed Recommendations
 
-- Standalone export local-asset handling: partially implemented. Warning/blocking preflight exists, but standalone HTML still does not package local asset files.
+- Standalone export local-asset handling: partially implemented only for the legacy single-file export path. Warning/blocking preflight exists, but single-file standalone HTML still does not package local files by design. The desktop playable folder export completes the blocking portable-player foundation for referenced local background assets.
 
 ## Remaining Recommendations
 
 - Platform-service split when future work needs clearer ownership.
 - Performance optimization and developer tooling based on collected metrics.
 - Legacy direct scene background removal planning after migration and format-version design.
-- Future playable folder/package export with local asset packaging.
-- General local asset storage and lifecycle work beyond backgrounds.
+- Replacement or overwrite workflow for existing playable export folders.
+- ZIP/package/executable distribution options.
+- General local asset storage and lifecycle work beyond backgrounds, including export packaging for non-background categories.
 
 # Findings
 
@@ -173,7 +175,7 @@ Estimated implementation size: M
 Blocks future work: Yes
 
 Current status:
-Partially completed. Export preflight now warns for referenced local assets and blocks missing referenced local assets, while unused Asset Library entries are ignored. Standalone HTML still does not package local files, so folder/package export with local asset packaging remains future work.
+Completed for the blocking playable folder foundation for background assets. Export preflight now warns for referenced local assets and blocks missing referenced local assets, while unused Asset Library entries are ignored. Legacy single-file standalone HTML still does not package local files by design. E11-10A adds a separate desktop-only playable folder export that packages referenced local PNG/JPG/JPEG/WEBP background files beside `index.html`, rewrites those local sources to portable relative paths in an export-only snapshot, reuses the standalone player runtime, and keeps browser standalone behavior unchanged.
 
 ### Desktop Build Can Fail When Existing Release Binary Is Running
 
@@ -513,7 +515,7 @@ Estimated implementation size: S
 Blocks future work: No
 
 Current status:
-Partially completed. Desktop JSON export now uses a native Save dialog and writes raw full `Project` JSON. Browser JSON export and standalone HTML export intentionally keep browser-style flows; future playable package export remains unresolved.
+Partially completed. Desktop JSON export now uses a native Save dialog and writes raw full `Project` JSON. Browser JSON export and legacy standalone HTML export intentionally keep browser-style flows. Desktop playable folder export now uses a native destination dialog and staged Rust writing for referenced local background assets. ZIP/package/executable distribution and non-background export packaging remain unresolved.
 
 ### BrowserPlatformService Uses Native Browser confirm
 
@@ -648,17 +650,19 @@ Completed for desktop preferences. Desktop recent projects and last-opened metad
 
 # Recommended Implementation Order
 
-1. Design future playable folder/package export with local asset packaging.
+1. PM prioritization among the remaining documented desktop candidates; no single next implementation task is approved by this review overlay.
 2. Add performance optimization or developer tooling based on the collected metrics.
 3. Split the platform service only where new asset/file services need clearer ownership.
 4. Plan a format-versioned removal of legacy direct scene background fields.
-5. Extend local asset storage and lifecycle work beyond backgrounds.
-6. Consider duplicate consolidation only after a product design for safe reference rewriting exists.
+5. Extend local asset storage and lifecycle work beyond backgrounds, including export packaging beyond backgrounds.
+6. Design replacement/overwrite behavior for existing playable export folders.
+7. Consider ZIP/package/executable distribution only after product scope is selected.
+8. Consider duplicate consolidation only after a product design for safe reference rewriting exists.
 
 # Final Verdict
 
 MOSTLY YES
 
-Narrium is now architecturally desktop-first for the central project workflow: `.narrium` files are the persistent source of truth, local desktop background assets are stored beside the project with relative paths, Tauri APIs are mostly behind service boundaries, and full file-backed project payloads are no longer mirrored into `localStorage`.
+Narrium is now architecturally desktop-first for the central project workflow: `.narrium` files are the persistent source of truth, local desktop background assets are stored beside the project with relative paths, Tauri APIs are mostly behind service boundaries, playable folder export packages referenced local backgrounds, and full file-backed project payloads are no longer mirrored into `localStorage`.
 
-It is not a complete "YES" yet because several important desktop expectations remain transitional: standalone export does not package local assets, general local asset lifecycle work beyond backgrounds remains incomplete, performance metrics do not yet have developer tooling or optimization work behind them, and some UI surfaces still own browser file APIs. These are fixable incremental issues, not reasons to rewrite the application.
+It is not a complete "YES" yet because several important desktop expectations remain transitional: legacy standalone export remains browser-style by design, playable export is background-only and does not yet cover ZIP/package/executable distribution or replacement workflow, general local asset lifecycle work beyond backgrounds remains incomplete, performance metrics do not yet have developer tooling or optimization work behind them, and some UI surfaces still own browser file APIs. These are fixable incremental issues, not reasons to rewrite the application.

@@ -1,6 +1,6 @@
 # Data Model — Narrium
 
-This document defines the canonical data structures for Narrium. It is the primary reference for implementation in React, Zustand stores, player runtime, JSON import/export, standalone HTML export, and future migrations.
+This document defines the canonical data structures for Narrium. It is the primary reference for implementation in React, Zustand stores, player runtime, JSON import/export, standalone HTML export, playable folder export snapshots, and future migrations.
 
 ---
 
@@ -8,11 +8,12 @@ This document defines the canonical data structures for Narrium. It is the prima
 
 - The model must be JSON-serializable without transformation.
 - The same `Project` object is the source of truth for editor, Preview player, JSON export/import, and exported standalone HTML player.
+- Desktop playable folder export uses a generated export-only Project snapshot; that snapshot is runtime output data, not a new canonical persisted model.
 - Scene logic is declarative only: conditions and effects, no scripting language.
 - Background assets are cataloged in `Project.assetLibrary`.
 - Current background asset sources may be embedded Data URLs, remote URLs, or desktop local project-relative files.
 - Desktop project storage keeps newly imported and saved embedded background files as local files behind the asset catalog instead of embedding them as Data URLs.
-- Local asset cleanup reports, duplicate reports, session trust, performance metrics, and undo/redo snapshot-size metadata are runtime-only state, not canonical project data.
+- Local asset cleanup reports, duplicate reports, playable export plans, copy plans, staging state, export results, session trust, performance metrics, and undo/redo snapshot-size metadata are runtime-only state, not canonical project data.
 - Project thumbnails are stored in the full `Project` and mirrored into workspace metadata for fast project listing.
 - Workspace metadata is stored separately from full project payload.
 - Characters, Resources, and Variables are project data, not separate stores.
@@ -132,6 +133,7 @@ Notes:
 - `updatedAt` must be refreshed on every meaningful editor change.
 - JSON export uses the full `Project` object.
 - Standalone HTML export embeds the full `Project` object.
+- Playable folder export embeds an export-only Project snapshot generated from the full `Project`; local background sources may be rewritten inside that snapshot only.
 - Old projects without `variables` are normalized to `variables: []`.
 
 ---
@@ -158,6 +160,7 @@ Current implementation rules:
 - Browser projects and desktop drafts before Save As keep embedded background assets as Data URLs.
 - Browser uploads are stored as embedded Data URL assets in `assetLibrary`.
 - Remote background URLs are stored as remote URL assets in `assetLibrary`.
+- Desktop playable folder export creates a runtime-only snapshot from the Project and rewrites referenced local background asset sources to portable relative export paths under `assets/backgrounds/...`.
 - Newly assigned scene backgrounds should reference catalog assets by `assetId` instead of duplicating source URLs on scenes.
 - Legacy raw Project JSON, including old `project.narrium.json`, remains openable as a compatibility fallback when selected as a file.
 - Desktop Rust commands validate project extensions, reject traversal in local asset paths, and reject project files larger than 25 MiB when reading.
@@ -175,7 +178,7 @@ Intended storage rules:
 - Large uploaded background Data URLs should not remain inside long-term desktop file-backed project saves after successful Save or Save As migration.
 - Existing embedded Data URLs remain compatible for browser projects, desktop drafts, imports, Open behavior, thumbnails, and legacy direct scene backgrounds.
 - The exact local asset file layout beyond background assets remains future work.
-- Cleanup and duplicate detection do not introduce a format-version change, schema migration, or new persisted fields.
+- Cleanup, duplicate detection, and playable folder export do not introduce a format-version change, schema migration, or new persisted fields.
 
 Compatibility:
 - Current web MVP exports may still contain embedded Data URLs in `Project.thumbnail`, legacy `SceneBackground.url`, or legacy `AssetLibraryItem.url`.
@@ -551,7 +554,10 @@ Notes:
 - `.narrium` saves the normalized asset catalog inside the wrapped Project.
 - In desktop file-backed projects, Save and Save As may migrate supported embedded background assets to `storageType='local'` and a project-relative `source`; this does not change asset ids or scene references.
 - Standalone HTML export embeds the full Project, so embedded Data URL assets remain available in the exported player.
-- Standalone HTML export does not package local desktop asset files. Export preflight warns for referenced local assets and blocks when referenced local assets cannot be resolved; unused local Asset Library entries are ignored.
+- Legacy single-file standalone HTML export does not package local desktop asset files. Export preflight warns for referenced local assets and blocks when referenced local assets cannot be resolved; unused local Asset Library entries are ignored.
+- Desktop playable folder export packages only referenced local background files and rewrites those referenced local asset sources in an export-only snapshot to portable relative paths such as `assets/backgrounds/forest.png`.
+- In playable folder export snapshots, embedded Data URL assets remain embedded and remote URL assets remain remote URLs.
+- Unused Asset Library entries are not needed by the playable exported runtime and are not copied merely because they exist in the source Project.
 - Asset display resolution is centralized. Embedded and remote sources are direct; local sources resolve through the desktop platform service with the active project file path.
 - Deleting a referenced asset clears affected scene background assignments.
 - Deleting a local asset entry does not automatically delete the physical file.
@@ -562,8 +568,9 @@ Compatibility and future desktop direction:
 - Legacy serialized assets with `sourceType` and `url` normalize into `storageType` and `source`.
 - Legacy scene backgrounds with direct `mode='upload'` or `mode='url'` normalize into catalog assets where practical.
 - Browser storage continues to preserve embedded assets; desktop Save and Save As migrate eligible embedded background assets for file-backed projects.
-- Standalone local-asset packaging is future work.
-- Absolute filesystem paths, Blob URLs, persisted checksums, cleanup reports, duplicate reports, performance metrics, session trust, and non-background asset categories are not part of the canonical persisted model.
+- Legacy single-file standalone local-asset packaging remains out of scope by design; desktop playable folder export is the background-only portable local-asset export path.
+- Relative playable export asset paths are generated output data, not canonical persisted project data.
+- Absolute filesystem paths, Blob URLs, persisted checksums, cleanup reports, duplicate reports, playable export plans, copy plans, staging state, export results, performance metrics, session trust, and non-background asset categories are not part of the canonical persisted model.
 
 ---
 
@@ -573,6 +580,7 @@ The following structures exist only in memory during an editor session and must 
 - session filesystem trust and pending Save As destinations,
 - cleanup reports and deletion results,
 - duplicate detection reports and content hashes,
+- playable export plans, copy plans, staging state, and export results,
 - performance instrumentation metrics,
 - undo/redo snapshot byte-size metadata.
 
@@ -580,7 +588,7 @@ Performance instrumentation is internal diagnostics only. It measures project si
 
 Undo/redo remains snapshot-based with a runtime history limit of 50 snapshots. The store tracks serialized byte sizes alongside undo and redo stacks so history metrics can be computed without repeatedly serializing retained snapshots. Those size arrays are store/runtime metadata, not `Project` data and not part of JSON export/import or the `.narrium` wrapper.
 
-The current `.narrium` wrapper remains `formatVersion: 1`. Cleanup, duplicate detection, session allowlists, image validation, desktop JSON export, embedded-background materialization, and performance instrumentation did not introduce a project format-version change.
+The current `.narrium` wrapper remains `formatVersion: 1`. Cleanup, duplicate detection, session allowlists, image validation, desktop JSON export, playable folder export, embedded-background materialization, and performance instrumentation did not introduce a project format-version change.
 
 ---
 

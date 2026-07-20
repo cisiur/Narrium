@@ -35,7 +35,7 @@ Status note:
 - Desktop Save and Save As migrate eligible embedded background assets into local project-relative background files.
 - Local background cleanup/orphan detection and local background duplicate diagnostics are implemented as desktop-only file-backed Asset Library actions.
 - Performance instrumentation is implemented as in-memory diagnostics covering project metrics, Save/Save As timing, background import and thumbnail timing, cleanup and duplicate timing, undo/redo history metrics, and bounded retention.
-- General local asset storage beyond backgrounds, duplicate consolidation, automatic duplicate cleanup, autosave, performance optimization/tooling, and playable export packaging remain future work.
+- Desktop playable folder export packages referenced local backgrounds. General local asset storage beyond backgrounds, duplicate consolidation, automatic duplicate cleanup, autosave, performance optimization/tooling, ZIP/package/executable distribution, existing export-folder replacement, and non-background export packaging remain future work.
 
 ```text
 Workspace Management       ██████████ 100%
@@ -477,7 +477,7 @@ Purpose:
 - Pivot `main` from browser-only MVP continuation to the future desktop-first Narrium editor.
 - Preserve the validated React/TypeScript UI and `Project` domain model where practical.
 - Replace long-term browser/localStorage assumptions with local project folders and local asset files.
-- Prepare for future playable exports without treating standalone HTML export as the final requirement.
+- Preserve standalone HTML as a compatibility export while building desktop playable folder export as the production-direction portable export foundation.
 
 | ID | Task | Who | Status |
 |---|---|---|---|
@@ -510,7 +510,7 @@ Purpose:
 | E11-07 | Migration/import from legacy web MVP JSON | [BOTH] | Done for current Project normalization and background asset migration |
 | E11-08 | Extract legacy embedded Data URLs into local asset files during desktop Save/Save As where practical | [BOTH] | Done for background assets |
 | E11-09 | Desktop preview parity with validated web MVP preview behavior | [BOTH] | Done for current preview/runtime behavior |
-| E11-10 | Playable export foundation for folder/package-based exports | [BOTH] | Planned |
+| E11-10 | Playable export foundation for folder/package-based exports | [BOTH] | Done for E11-10A desktop playable folder export with referenced local backgrounds |
 
 Current E11-02 deliverable:
 - Tauri v2 shell scaffold exists under `src-tauri/`.
@@ -527,7 +527,7 @@ Current E11-03A deliverable:
 - Desktop builds can Save As to another selected folder.
 - `project.narrium.json` contains normalized current `Project` JSON.
 - Browser/Vite project creation, localStorage loading, JSON import/export, standalone HTML export, preview, story logic, and undo/redo remain supported.
-- No asset folder creation, image copying, local asset paths, autosave, cloud sync, Git integration, or playable package export exists yet.
+- At the time of E11-03A, no asset folder creation, image copying, local asset paths, autosave, cloud sync, Git integration, or playable package export existed yet. Later EPIC 11 tasks added local background files and E11-10A desktop playable folder export for referenced local backgrounds.
 
 Current E11-03B deliverable:
 - Project file reads and writes now delegate path joining to the platform/Rust layer.
@@ -539,7 +539,7 @@ Current E11-03B deliverable:
 - The project header shows the current project path and a `*` dirty indicator.
 - Save is disabled until the active desktop project has a known path; Save As remains available.
 - Browser/Vite workflow remains compatible.
-- General asset folders beyond backgrounds, autosave, Git integration, cloud sync, and playable export changes remained outside this batch; later background cleanup and duplicate diagnostics were added in E11-05B.13 and E11-05B.14.
+- General asset folders beyond backgrounds, autosave, Git integration, cloud sync, and playable export changes remained outside this batch; later background cleanup and duplicate diagnostics were added in E11-05B.13 and E11-05B.14, and desktop playable folder export for referenced local backgrounds was added in E11-10A.
 
 Current E11-03C deliverable:
 - Desktop Open Project File uses a native file picker for `.narrium` files and legacy `.json` files.
@@ -569,7 +569,7 @@ Current E11-05A deliverable:
 - Duplicate legacy sources reuse one migrated asset, and migration is idempotent.
 - Background rendering uses a platform-neutral asset display resolver.
 - Deleting a referenced background asset clears affected scene backgrounds.
-- No local asset files, `assets/` directory, filesystem copying, Blob URLs, autosave, or playable export changes were added.
+- No local asset files, `assets/` directory, filesystem copying, Blob URLs, autosave, or playable export changes were added in E11-05A. Later EPIC 11 tasks added local background files and E11-10A desktop playable folder export for referenced local backgrounds.
 
 Current E11-05A.1 deliverable:
 - Desktop file-backed `.narrium` projects no longer write full Project JSON into BrowserProjectStorage/localStorage after open, edit, Save, or Save As.
@@ -589,7 +589,7 @@ Current E11-05B deliverable:
 - Asset Library is the only UI entry point for URL/upload backgrounds; direct scene URL/upload modes remain legacy-compatible but hidden.
 - Save As copies referenced local background files to the new project directory before writing the relocated `.narrium`.
 - Deleting a catalog asset clears scene references but does not delete physical files.
-- Standalone local-asset packaging remains future work.
+- Legacy single-file standalone HTML still does not package local assets by design. E11-10A adds a separate desktop playable folder export that packages referenced local backgrounds.
 
 Current E11-05B.2 deliverable:
 - Successful Save As updates `Project.name` to the selected `.narrium` filename without its extension.
@@ -633,7 +633,7 @@ Current E11-05B.7 deliverable:
 - Referenced local desktop assets that resolve successfully show a warning because standalone HTML does not include local files and may display missing backgrounds.
 - Missing, rejected, or unverifiable referenced local assets block export.
 - Unused local Asset Library entries are ignored and cannot warn or block export.
-- Standalone HTML generation itself remains unchanged; local asset packaging remains future work.
+- Standalone HTML generation itself remains unchanged by default. E11-10A reuses that runtime in a separate desktop playable folder export mode that packages referenced local background files.
 
 Current E11-05B.8 deliverable:
 - Desktop JSON export uses a native Save dialog with the existing JSON filename convention and a JSON file filter.
@@ -691,11 +691,29 @@ Current E11-05B.16 deliverable:
 - Undo/redo history metrics are available, with runtime-only snapshot byte sizes stored alongside the undo/redo stacks so existing snapshots are not repeatedly serialized.
 - Metric retention is bounded to 250 entries per category.
 
+Current E11-10A deliverable:
+- Desktop builds expose a separate Export Playable Folder action.
+- Browser/Vite mode does not expose the desktop-only folder export action.
+- The action is separate from `.narrium` Save/Save As, JSON export, and legacy single-file standalone HTML export.
+- A native destination dialog selects the export destination.
+- The export creates a folder shaped like `project-name/index.html` plus `assets/backgrounds/...`.
+- The generated `index.html` can be opened directly from disk without a server.
+- A platform-neutral export planner collects only background assets referenced by runtime scenes, including direct `assetId` assignments and one-level `scene_reference` backgrounds.
+- The planner ignores unused Asset Library entries, classifies embedded, remote, and local assets, deduplicates repeated references to the same local source, and produces deterministic collision-safe destination paths.
+- The export builds an export-only Project snapshot. Referenced local background sources are rewritten to portable relative paths under `assets/backgrounds/...`; embedded Data URLs stay embedded and remote URLs stay remote.
+- The active Project, dirty state, `.narrium` file, workspace metadata, recent-project metadata, undo/redo history, `formatVersion`, and persisted Project model remain unchanged.
+- The referenced-background collection logic is shared with standalone HTML export preflight so both exports agree on which referenced local assets matter.
+- The existing standalone HTML player generator/runtime is reused. Legacy single-file standalone HTML behavior remains unchanged by default.
+- Only referenced local PNG, JPG, JPEG, and WEBP background files are copied. Embedded assets are not extracted, remote assets are not downloaded, and non-background asset categories are not packaged.
+- Rust validates the trusted source `.narrium` project path, selected destination parent, generated folder name, source and destination boundaries, supported local background paths, missing source files, duplicate source entries, and duplicate copy destinations.
+- The Rust writer stages the complete export, writes `index.html`, copies backgrounds, finalizes by renaming staging into place, rejects already existing output folders, does not merge or delete unrelated files, and attempts staging cleanup after failure.
+
 Full EPIC 11 deliverable intent:
 - A desktop app can create drafts, open `.narrium` files, save known project files, and preview Narrium projects.
 - Imported assets are copied into the project folder instead of being stored as large Data URLs in the long-term project file.
 - Legacy web MVP JSON remains importable as a migration path.
-- Future playable export work can build on the same project folder and relative asset path model.
+- Desktop playable folder export can package referenced local background files using the same project folder and relative asset path model.
+- Future ZIP/package/executable distribution, replacement workflow, non-background asset packaging, and broader local asset lifecycle work can build on that foundation.
 
 ---
 
@@ -704,10 +722,12 @@ Full EPIC 11 deliverable intent:
 Continue EPIC 11 desktop project system work from the Desktop Architecture Review implementation order.
 
 Current approved task:
-- Future playable folder/package export foundation with local asset packaging.
+- No single next implementation task is currently approved. PM prioritization is required among the documented remaining candidates.
 
-Later candidates:
+Remaining candidates:
+- Replacement or overwrite workflow for existing playable export folders.
+- ZIP/package/executable distribution options.
+- Packaging asset categories beyond backgrounds and broader local asset lifecycle work.
 - Performance optimization or developer tooling based on collected instrumentation.
 - PlatformService split only when clearer ownership is needed.
 - Format-version planning for eventual legacy direct scene background removal.
-- General local asset storage and lifecycle work beyond backgrounds.

@@ -25,6 +25,7 @@ interface AppShellProps {
   canSaveProject?: boolean;
   onSaveProjectAs?: () => void;
   onExportHtml?: () => void;
+  onExportPlayableFolder?: () => void;
   onExportProject?: () => void;
   onEnterPreview?: () => void;
   onProjectViewChange?: (view: ProjectView) => void;
@@ -49,6 +50,7 @@ export function AppShell({
   canSaveProject = true,
   onSaveProjectAs,
   onExportHtml,
+  onExportPlayableFolder,
   onExportProject,
   onEnterPreview,
   onProjectViewChange,
@@ -204,6 +206,15 @@ export function AppShell({
               >
                 Export HTML
               </button>
+              {onExportPlayableFolder ? (
+                <button
+                  type="button"
+                  onClick={onExportPlayableFolder}
+                  className="rounded bg-gray-700 px-2 py-1 text-xs font-medium text-gray-100 hover:bg-gray-600"
+                >
+                  Export Playable Folder
+                </button>
+              ) : null}
             </>
           ) : (
             null

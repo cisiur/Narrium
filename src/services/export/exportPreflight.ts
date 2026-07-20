@@ -1,5 +1,6 @@
 import type { PlatformService } from '../platform';
 import type { AssetLibraryItem, Project } from '../../types';
+import { collectReferencedBackgroundAssets } from './backgroundAssetReferences';
 
 export type ExportPreflightResult =
   | {
@@ -22,38 +23,10 @@ export interface StandaloneHtmlExportPreflightUi {
   showBlockedExportError(message: string, missingLocalAssets: AssetLibraryItem[]): void;
 }
 
-function getReferencedBackgroundAssetIds(project: Project) {
-  const sceneById = new Map(project.scenes.map((scene) => [scene.id, scene]));
-  const referencedAssetIds = new Set<string>();
-
-  const collectDirectBackgroundAsset = (sceneId: string) => {
-    const scene = sceneById.get(sceneId);
-
-    if (scene?.background.mode === 'asset' && scene.background.assetId) {
-      referencedAssetIds.add(scene.background.assetId);
-    }
-  };
-
-  project.scenes.forEach((scene) => {
-    if (scene.background.mode === 'asset' && scene.background.assetId) {
-      referencedAssetIds.add(scene.background.assetId);
-      return;
-    }
-
-    if (scene.background.mode === 'scene_reference' && scene.background.sourceSceneId) {
-      collectDirectBackgroundAsset(scene.background.sourceSceneId);
-    }
-  });
-
-  return referencedAssetIds;
-}
-
 function getReferencedLocalAssets(project: Project) {
-  const referencedAssetIds = getReferencedBackgroundAssetIds(project);
-
-  return project.assetLibrary.filter(
-    (asset) => asset.storageType === 'local' && referencedAssetIds.has(asset.id),
-  );
+  return collectReferencedBackgroundAssets(project)
+    .map((referencedAsset) => referencedAsset.asset)
+    .filter((asset) => asset.storageType === 'local');
 }
 
 export async function validateStandaloneHtmlExport(

@@ -35,7 +35,8 @@ pub fn run() {
             copy_local_asset_for_project_save_as,
             list_local_background_files,
             fingerprint_local_background_files,
-            delete_local_background_files
+            delete_local_background_files,
+            write_playable_folder_export
         ])
         .run(tauri::generate_context!())
         .expect("error while running Narrium desktop shell");
@@ -123,6 +124,21 @@ struct DeleteLocalBackgroundFilesResult {
     deleted: Vec<DeletedBackgroundFile>,
     skipped: Vec<SkippedBackgroundFileDeletion>,
     failed: Vec<FailedBackgroundFileDeletion>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PlayableFolderLocalAssetCopyRequest {
+    source_relative_path: String,
+    destination_relative_path: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PlayableFolderExportResult {
+    output_directory: String,
+    index_html_path: String,
+    copied_asset_count: usize,
 }
 
 #[derive(Debug, Default)]
@@ -1682,6 +1698,246 @@ fn delete_local_background_files_impl(
     })
 }
 
+#[tauri::command]
+fn write_playable_folder_export(
+    trust: tauri::State<'_, ProjectFileSessionTrust>,
+    source_project_file_path: String,
+    destination_parent_directory: String,
+    folder_name: String,
+    index_html: String,
+    local_asset_copies: Vec<PlayableFolderLocalAssetCopyRequest>,
+) -> Result<PlayableFolderExportResult, String> {
+    write_playable_folder_export_impl(
+        &trust,
+        &source_project_file_path,
+        &destination_parent_directory,
+        &folder_name,
+        &index_html,
+        local_asset_copies,
+        rename_file,
+    )
+}
+
+fn write_playable_folder_export_impl<F>(
+    trust: &ProjectFileSessionTrust,
+    source_project_file_path: &str,
+    destination_parent_directory: &str,
+    folder_name: &str,
+    index_html: &str,
+    local_asset_copies: Vec<PlayableFolderLocalAssetCopyRequest>,
+    finalize_directory: F,
+) -> Result<PlayableFolderExportResult, String>
+where
+    F: FnOnce(&Path, &Path) -> std::io::Result<()>,
+{
+    let trusted_source_path =
+        trust.require_trusted_existing_narrium_project_file(Path::new(source_project_file_path))?;
+    let source_project_dir =
+        project_dir_from_narrium_file_path(&trusted_source_path.to_string_lossy())?;
+    let source_backgrounds_dir = source_project_dir.join("assets").join("backgrounds");
+    let destination_parent = canonical_export_parent_directory(destination_parent_directory)?;
+    let safe_folder_name = validate_playable_export_folder_name(folder_name)?;
+    let output_directory = destination_parent.join(safe_folder_name);
+
+    if output_directory.exists() {
+        return Err(
+            "Playable folder export destination already exists. Choose a destination without an existing export folder."
+                .to_string(),
+        );
+    }
+
+    let staging_directory = playable_export_staging_directory(&destination_parent, folder_name);
+
+    if staging_directory.exists() {
+        return Err("Playable folder export staging directory already exists.".to_string());
+    }
+
+    validate_playable_folder_copy_plan(
+        &source_project_dir,
+        &source_backgrounds_dir,
+        &local_asset_copies,
+    )?;
+
+    if let Err(error) = std::fs::create_dir(&staging_directory) {
+        return Err(format!(
+            "Failed to create playable export staging directory {}: {}",
+            staging_directory.display(),
+            error
+        ));
+    }
+
+    let export_result = (|| {
+        let index_html_path = staging_directory.join("index.html");
+
+        std::fs::write(&index_html_path, index_html).map_err(|error| {
+            format!(
+                "Failed to write playable export index.html at {}: {}",
+                index_html_path.display(),
+                error
+            )
+        })?;
+
+        for copy in &local_asset_copies {
+            let source_relative_path =
+                ensure_direct_background_relative_path(&copy.source_relative_path)?;
+            let destination_relative_path =
+                ensure_direct_background_relative_path(&copy.destination_relative_path)?;
+            let source_path = source_project_dir.join(&source_relative_path);
+            let canonical_source = source_path
+                .canonicalize()
+                .map_err(|error| format!("Failed to resolve export background asset: {}", error))?;
+
+            if !canonical_source.starts_with(&source_backgrounds_dir)
+                || canonical_source.parent() != Some(source_backgrounds_dir.as_path())
+            {
+                return Err(
+                    "Playable export background source escapes assets/backgrounds/.".to_string(),
+                );
+            }
+
+            let destination_path = staging_directory.join(destination_relative_path);
+
+            if !destination_path.starts_with(&staging_directory) {
+                return Err(
+                    "Playable export destination path escapes the staging directory.".to_string(),
+                );
+            }
+
+            if let Some(parent_path) = destination_path.parent() {
+                std::fs::create_dir_all(parent_path).map_err(|error| {
+                    format!(
+                        "Failed to create playable export asset directory {}: {}",
+                        parent_path.display(),
+                        error
+                    )
+                })?;
+            }
+
+            std::fs::copy(&canonical_source, &destination_path).map_err(|error| {
+                format!(
+                    "Failed to copy playable export background {} to {}: {}",
+                    canonical_source.display(),
+                    destination_path.display(),
+                    error
+                )
+            })?;
+        }
+
+        finalize_directory(&staging_directory, &output_directory).map_err(|error| {
+            format!(
+                "Failed to finalize playable export folder {}: {}",
+                output_directory.display(),
+                error
+            )
+        })?;
+
+        Ok(PlayableFolderExportResult {
+            output_directory: display_filesystem_path(&output_directory),
+            index_html_path: display_filesystem_path(&output_directory.join("index.html")),
+            copied_asset_count: local_asset_copies.len(),
+        })
+    })();
+
+    if export_result.is_err() {
+        cleanup_staging_dir(&staging_directory);
+    }
+
+    export_result
+}
+
+fn canonical_export_parent_directory(path: &str) -> Result<PathBuf, String> {
+    let parent_path = Path::new(path);
+    let canonical_parent = parent_path
+        .canonicalize()
+        .map_err(|error| format!("Failed to resolve playable export destination: {}", error))?;
+
+    if !canonical_parent.is_dir() {
+        return Err("Playable export destination must be an existing directory.".to_string());
+    }
+
+    Ok(canonical_parent)
+}
+
+fn validate_playable_export_folder_name(folder_name: &str) -> Result<String, String> {
+    let trimmed = folder_name.trim();
+
+    if trimmed.is_empty() {
+        return Err("Playable export folder name cannot be empty.".to_string());
+    }
+
+    let folder_path = Path::new(trimmed);
+
+    if folder_path.is_absolute()
+        || folder_path.components().count() != 1
+        || folder_path
+            .components()
+            .any(|component| !matches!(component, std::path::Component::Normal(_)))
+    {
+        return Err("Playable export folder name must be a single safe folder name.".to_string());
+    }
+
+    if trimmed == "." || trimmed == ".." {
+        return Err("Playable export folder name is not valid.".to_string());
+    }
+
+    Ok(trimmed.to_string())
+}
+
+fn playable_export_staging_directory(destination_parent: &Path, folder_name: &str) -> PathBuf {
+    destination_parent.join(format!(
+        ".narrium-playable-export-{}-{}",
+        sanitize_file_stem(Path::new(folder_name)),
+        std::process::id()
+    ))
+}
+
+fn validate_playable_folder_copy_plan(
+    source_project_dir: &Path,
+    source_backgrounds_dir: &Path,
+    local_asset_copies: &[PlayableFolderLocalAssetCopyRequest],
+) -> Result<(), String> {
+    let mut seen_destinations = HashSet::new();
+    let mut seen_sources = HashSet::new();
+
+    for copy in local_asset_copies {
+        let source_relative_path =
+            ensure_direct_background_relative_path(&copy.source_relative_path)?;
+        let destination_relative_path =
+            ensure_direct_background_relative_path(&copy.destination_relative_path)?;
+        let destination_key = background_relative_path_comparison_key(&destination_relative_path);
+        let source_key = background_relative_path_comparison_key(&source_relative_path);
+
+        if !seen_destinations.insert(destination_key) {
+            return Err(
+                "Playable export copy plan contains duplicate destination filenames.".to_string(),
+            );
+        }
+
+        if !seen_sources.insert(source_key) {
+            return Err("Playable export copy plan contains duplicate source files.".to_string());
+        }
+
+        let source_path = source_project_dir.join(&source_relative_path);
+        let canonical_source = source_path
+            .canonicalize()
+            .map_err(|error| format!("Failed to resolve export background asset: {}", error))?;
+
+        if !canonical_source.starts_with(source_backgrounds_dir)
+            || canonical_source.parent() != Some(source_backgrounds_dir)
+        {
+            return Err(
+                "Playable export background source escapes assets/backgrounds/.".to_string(),
+            );
+        }
+
+        if !canonical_source.is_file() {
+            return Err("Playable export background source is not a file.".to_string());
+        }
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2780,6 +3036,16 @@ mod tests {
             vec![]
         )
         .is_err());
+        assert!(write_playable_folder_export_impl(
+            &trust,
+            &source_project.to_string_lossy(),
+            &root.to_string_lossy(),
+            "story",
+            "<!doctype html>",
+            vec![],
+            rename_file
+        )
+        .is_err());
     }
 
     #[test]
@@ -2851,6 +3117,16 @@ mod tests {
             vec![]
         )
         .is_ok());
+        assert!(write_playable_folder_export_impl(
+            &trust,
+            &source_project.to_string_lossy(),
+            &root.to_string_lossy(),
+            "story",
+            "<!doctype html>",
+            vec![],
+            rename_file
+        )
+        .is_ok());
     }
 
     #[test]
@@ -2876,6 +3152,221 @@ mod tests {
         for handle in handles {
             handle.join().expect("validation thread should finish");
         }
+    }
+
+    fn playable_copy(source: &str, destination: &str) -> PlayableFolderLocalAssetCopyRequest {
+        PlayableFolderLocalAssetCopyRequest {
+            source_relative_path: source.to_string(),
+            destination_relative_path: destination.to_string(),
+        }
+    }
+
+    #[test]
+    fn writes_playable_folder_export_with_index_and_required_backgrounds() {
+        let root = temp_root("playable-export-success");
+        let project_path = cleanup_project(&root);
+        write_file(&background_path(&root, "forest.png"), b"png");
+        let export_parent = root.join("Exports");
+        fs::create_dir_all(&export_parent).expect("export parent should exist");
+        let trust = trusted_session(&project_path);
+
+        let result = write_playable_folder_export_impl(
+            &trust,
+            &project_path.to_string_lossy(),
+            &export_parent.to_string_lossy(),
+            "my-story",
+            "<!doctype html>",
+            vec![playable_copy(
+                "assets/backgrounds/forest.png",
+                "assets/backgrounds/forest.png",
+            )],
+            rename_file,
+        )
+        .expect("playable export should succeed");
+
+        assert_eq!(result.copied_asset_count, 1);
+        assert_eq!(
+            fs::read_to_string(export_parent.join("my-story").join("index.html"))
+                .expect("index should be readable"),
+            "<!doctype html>"
+        );
+        assert_eq!(
+            fs::read(
+                export_parent
+                    .join("my-story")
+                    .join("assets")
+                    .join("backgrounds")
+                    .join("forest.png")
+            )
+            .expect("background should be readable"),
+            b"png"
+        );
+    }
+
+    #[test]
+    fn rejects_existing_playable_export_output_without_merging() {
+        let root = temp_root("playable-export-existing-output");
+        let project_path = cleanup_project(&root);
+        let export_parent = root.join("Exports");
+        let output = export_parent.join("my-story");
+        fs::create_dir_all(&output).expect("output should exist");
+        write_file(&output.join("keep.txt"), b"keep");
+        let trust = trusted_session(&project_path);
+
+        let error = write_playable_folder_export_impl(
+            &trust,
+            &project_path.to_string_lossy(),
+            &export_parent.to_string_lossy(),
+            "my-story",
+            "<!doctype html>",
+            vec![],
+            rename_file,
+        )
+        .unwrap_err();
+
+        assert!(error.contains("destination already exists"));
+        assert_eq!(
+            fs::read(output.join("keep.txt")).expect("existing file should remain"),
+            b"keep"
+        );
+    }
+
+    #[test]
+    fn rejects_missing_playable_export_source_assets_before_staging() {
+        let root = temp_root("playable-export-missing-source");
+        let project_path = cleanup_project(&root);
+        let export_parent = root.join("Exports");
+        fs::create_dir_all(&export_parent).expect("export parent should exist");
+        let trust = trusted_session(&project_path);
+
+        let error = write_playable_folder_export_impl(
+            &trust,
+            &project_path.to_string_lossy(),
+            &export_parent.to_string_lossy(),
+            "my-story",
+            "<!doctype html>",
+            vec![playable_copy(
+                "assets/backgrounds/missing.png",
+                "assets/backgrounds/missing.png",
+            )],
+            rename_file,
+        )
+        .unwrap_err();
+
+        assert!(error.contains("Failed to resolve export background asset"));
+        assert!(!export_parent.join("my-story").exists());
+        assert!(fs::read_dir(&export_parent)
+            .expect("export parent should be readable")
+            .next()
+            .is_none());
+    }
+
+    #[test]
+    fn rejects_invalid_playable_export_paths() {
+        let root = temp_root("playable-export-invalid-paths");
+        let project_path = cleanup_project(&root);
+        write_file(&background_path(&root, "forest.png"), b"png");
+        let export_parent = root.join("Exports");
+        fs::create_dir_all(&export_parent).expect("export parent should exist");
+        let trust = trusted_session(&project_path);
+
+        let source_error = write_playable_folder_export_impl(
+            &trust,
+            &project_path.to_string_lossy(),
+            &export_parent.to_string_lossy(),
+            "my-story",
+            "<!doctype html>",
+            vec![playable_copy(
+                "../forest.png",
+                "assets/backgrounds/forest.png",
+            )],
+            rename_file,
+        )
+        .unwrap_err();
+        let destination_error = write_playable_folder_export_impl(
+            &trust,
+            &project_path.to_string_lossy(),
+            &export_parent.to_string_lossy(),
+            "my-story",
+            "<!doctype html>",
+            vec![playable_copy(
+                "assets/backgrounds/forest.png",
+                "assets/other/forest.png",
+            )],
+            rename_file,
+        )
+        .unwrap_err();
+
+        assert!(source_error.contains("cannot escape"));
+        assert!(destination_error.contains("assets/backgrounds"));
+        assert!(!export_parent.join("my-story").exists());
+    }
+
+    #[test]
+    fn rejects_duplicate_playable_export_destinations() {
+        let root = temp_root("playable-export-duplicate-destinations");
+        let project_path = cleanup_project(&root);
+        write_file(&background_path(&root, "forest.png"), b"png");
+        write_file(&background_path(&root, "lake.png"), b"png");
+        let export_parent = root.join("Exports");
+        fs::create_dir_all(&export_parent).expect("export parent should exist");
+        let trust = trusted_session(&project_path);
+
+        let error = write_playable_folder_export_impl(
+            &trust,
+            &project_path.to_string_lossy(),
+            &export_parent.to_string_lossy(),
+            "my-story",
+            "<!doctype html>",
+            vec![
+                playable_copy(
+                    "assets/backgrounds/forest.png",
+                    "assets/backgrounds/same.png",
+                ),
+                playable_copy("assets/backgrounds/lake.png", "assets/backgrounds/SAME.png"),
+            ],
+            rename_file,
+        )
+        .unwrap_err();
+
+        assert!(error.contains("duplicate destination"));
+        assert!(!export_parent.join("my-story").exists());
+    }
+
+    #[test]
+    fn cleans_up_playable_export_staging_after_finalization_failure() {
+        let root = temp_root("playable-export-finalize-failure");
+        let project_path = cleanup_project(&root);
+        write_file(&background_path(&root, "forest.png"), b"png");
+        let export_parent = root.join("Exports");
+        fs::create_dir_all(&export_parent).expect("export parent should exist");
+        let trust = trusted_session(&project_path);
+
+        let error = write_playable_folder_export_impl(
+            &trust,
+            &project_path.to_string_lossy(),
+            &export_parent.to_string_lossy(),
+            "my-story",
+            "<!doctype html>",
+            vec![playable_copy(
+                "assets/backgrounds/forest.png",
+                "assets/backgrounds/forest.png",
+            )],
+            |_from, _to| {
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::PermissionDenied,
+                    "simulated finalize failure",
+                ))
+            },
+        )
+        .unwrap_err();
+
+        assert!(error.contains("simulated finalize failure"));
+        assert!(!export_parent.join("my-story").exists());
+        assert!(fs::read_dir(&export_parent)
+            .expect("export parent should be readable")
+            .next()
+            .is_none());
     }
 
     #[test]

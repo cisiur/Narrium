@@ -68,6 +68,8 @@ function createPlatform(overrides: Partial<PlatformService> = {}): PlatformServi
         failed: [],
       }),
     ),
+    selectPlayableFolderExportDestination: vi.fn(() => Promise.resolve(null)),
+    writePlayableFolderExport: vi.fn(() => Promise.reject(new Error('not implemented'))),
     readAppPreferences: vi.fn(),
     writeAppPreferences: vi.fn(),
     confirmUnsavedChanges: vi.fn(),

@@ -57,6 +57,30 @@ export interface DeleteLocalBackgroundFilesResult {
   failed: FailedBackgroundFileDeletion[];
 }
 
+export interface PlayableFolderExportSelectionOptions {
+  title: string;
+  defaultFolderName: string;
+}
+
+export interface PlayableFolderLocalAssetCopyRequest {
+  sourceRelativePath: string;
+  destinationRelativePath: string;
+}
+
+export interface PlayableFolderExportWriteRequest {
+  sourceProjectFilePath: string;
+  destinationParentDirectory: string;
+  folderName: string;
+  indexHtml: string;
+  localAssetCopies: PlayableFolderLocalAssetCopyRequest[];
+}
+
+export interface PlayableFolderExportResult {
+  outputDirectory: string;
+  indexHtmlPath: string;
+  copiedAssetCount: number;
+}
+
 export type UnsavedChangesAction = 'save' | 'discard' | 'cancel';
 
 export interface PlatformProjectFileApi {
@@ -83,6 +107,12 @@ export interface PlatformProjectFileApi {
     relativePaths: string[],
     protectedRelativePaths: string[],
   ): Promise<DeleteLocalBackgroundFilesResult>;
+  selectPlayableFolderExportDestination(
+    options: PlayableFolderExportSelectionOptions,
+  ): Promise<string | null>;
+  writePlayableFolderExport(
+    request: PlayableFolderExportWriteRequest,
+  ): Promise<PlayableFolderExportResult>;
 }
 
 export interface PlatformAppPreferencesApi {

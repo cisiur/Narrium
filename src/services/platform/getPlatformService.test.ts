@@ -450,6 +450,57 @@ describe('platform services', () => {
     await expect(service.fingerprintLocalBackgroundFiles('D:/Stories/Test.narrium')).resolves.toEqual(response);
   });
 
+  it('invokes desktop playable folder export writes through the native command', async () => {
+    const service = new DesktopPlatformService();
+    vi.stubGlobal('window', {});
+    const response = {
+      outputDirectory: 'D:/Exports/test-story',
+      indexHtmlPath: 'D:/Exports/test-story/index.html',
+      copiedAssetCount: 1,
+    };
+    const request = {
+      sourceProjectFilePath: 'D:/Stories/Test.narrium',
+      destinationParentDirectory: 'D:/Exports',
+      folderName: 'test-story',
+      indexHtml: '<!doctype html>',
+      localAssetCopies: [
+        {
+          sourceRelativePath: 'assets/backgrounds/forest.png',
+          destinationRelativePath: 'assets/backgrounds/forest.png',
+        },
+      ],
+    };
+
+    mockIPC(<T,>(cmd: string, payload?: InvokeArgs): T => {
+      expect(cmd).toBe('write_playable_folder_export');
+      expect(payload).toEqual(request);
+
+      return response as T;
+    });
+
+    await expect(service.writePlayableFolderExport(request)).resolves.toEqual(response);
+  });
+
+  it('leaves browser playable folder export unavailable', async () => {
+    const service = new BrowserPlatformService();
+
+    await expect(
+      service.selectPlayableFolderExportDestination({
+        title: 'Export',
+        defaultFolderName: 'story',
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      service.writePlayableFolderExport({
+        sourceProjectFilePath: 'D:/Stories/Test.narrium',
+        destinationParentDirectory: 'D:/Exports',
+        folderName: 'story',
+        indexHtml: '',
+        localAssetCopies: [],
+      }),
+    ).rejects.toThrow('only available in the desktop app');
+  });
+
   it('propagates desktop embedded background materialization errors unchanged', async () => {
     const service = new DesktopPlatformService();
     vi.stubGlobal('window', {});

@@ -13,7 +13,11 @@ import { useProjectViewStore } from '../store/useProjectViewStore';
 import { useWorkspaceStore } from '../store/workspaceStore';
 import type { Project } from '../types';
 import { exportProjectAsStandaloneHtml } from '../utils/standaloneHtmlExport';
-import { shouldProceedWithStandaloneHtmlExport, validateStandaloneHtmlExport } from '../services/export';
+import {
+  PlayableFolderExportService,
+  shouldProceedWithStandaloneHtmlExport,
+  validateStandaloneHtmlExport,
+} from '../services/export';
 import { getJsonExportService } from '../services/json-export';
 import { getPlatformService } from '../services/platform';
 
@@ -54,6 +58,7 @@ export function App() {
   const selectedGroupId = useCanvasStore((state) => state.selectedGroupId);
   const activeProjectView = useProjectViewStore((state) => state.activeProjectView);
   const setActiveProjectView = useProjectViewStore((state) => state.setActiveProjectView);
+  const platformService = getPlatformService();
 
   useEffect(() => {
     void initializeDesktopLifecycle();
@@ -156,7 +161,7 @@ export function App() {
   }, [activeProject, activeProjectView, isPreviewMode]);
 
   const exportStandaloneHtml = async (project: Project) => {
-    const preflight = await validateStandaloneHtmlExport(project, activeProjectFilePath, getPlatformService());
+    const preflight = await validateStandaloneHtmlExport(project, activeProjectFilePath, platformService);
 
     const shouldProceed = await shouldProceedWithStandaloneHtmlExport(preflight, {
       confirmLocalAssetWarning: () =>
@@ -188,6 +193,26 @@ export function App() {
       await getJsonExportService().exportProject(project);
     } catch (error) {
       window.alert(error instanceof Error ? error.message : 'Could not export project JSON.');
+    }
+  };
+
+  const exportPlayableFolder = async (project: Project) => {
+    try {
+      const result = await new PlayableFolderExportService(platformService).exportProject(
+        project,
+        activeProjectFilePath,
+      );
+
+      if (result.status === 'canceled') {
+        window.alert('Playable folder export canceled.');
+        return;
+      }
+
+      window.alert(
+        `Playable folder exported successfully.\n\nOutput folder:\n${result.outputDirectory}\n\nCopied local backgrounds: ${result.copiedAssetCount}`,
+      );
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'Could not export playable folder.');
     }
   };
 
@@ -237,6 +262,9 @@ export function App() {
         canSaveProject={Boolean(activeProjectFilePath)}
         onSaveProjectAs={canUseProjectFiles ? () => void saveActiveProjectAsFile() : undefined}
         onExportHtml={() => void exportStandaloneHtml(activeProject)}
+        onExportPlayableFolder={
+          platformService.isDesktop() ? () => void exportPlayableFolder(activeProject) : undefined
+        }
         onExportProject={() => void exportProjectJson(activeProject)}
         onEnterPreview={() => setIsPreviewMode(true)}
         onProjectViewChange={setActiveProjectView}

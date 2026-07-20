@@ -100,6 +100,8 @@ function createPlatformFileApi(overrides: Partial<PlatformProjectFileApi> = {}):
     listLocalBackgroundFiles: vi.fn(() => Promise.resolve([])),
     fingerprintLocalBackgroundFiles: vi.fn(() => Promise.resolve([])),
     deleteLocalBackgroundFiles: vi.fn(() => Promise.resolve({ deleted: [], skipped: [], failed: [] })),
+    selectPlayableFolderExportDestination: vi.fn(() => Promise.resolve(null)),
+    writePlayableFolderExport: vi.fn(() => Promise.reject(new Error('not implemented'))),
     ...overrides,
   };
 }

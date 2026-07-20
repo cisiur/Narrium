@@ -52,6 +52,42 @@ describe('AppShell', () => {
     expect(html).not.toContain('Add selected to group...');
   });
 
+  it('renders playable folder export only when a handler is provided', () => {
+    const desktopHtml = renderToStaticMarkup(
+      <AppShell
+        isProjectOpen
+        projectName="File-backed"
+        onExportPlayableFolder={() => undefined}
+      >
+        <div />
+      </AppShell>,
+    );
+    const browserHtml = renderToStaticMarkup(
+      <AppShell isProjectOpen projectName="Browser">
+        <div />
+      </AppShell>,
+    );
+
+    expect(desktopHtml).toContain('Export Playable Folder');
+    expect(browserHtml).not.toContain('Export Playable Folder');
+  });
+
+  it('keeps standalone HTML export available separately', () => {
+    const html = renderToStaticMarkup(
+      <AppShell
+        isProjectOpen
+        projectName="File-backed"
+        onExportHtml={() => undefined}
+        onExportPlayableFolder={() => undefined}
+      >
+        <div />
+      </AppShell>,
+    );
+
+    expect(html).toContain('Export HTML');
+    expect(html).toContain('Export Playable Folder');
+  });
+
   it('shows unsaved draft status and disables Save when no project file path is known', () => {
     const html = renderToStaticMarkup(
       <AppShell

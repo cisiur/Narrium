@@ -63,4 +63,31 @@ describe('createStandaloneHtml', () => {
     expect(html).toContain('"id":"project-1"');
     expect(html).not.toContain('"format":"narrium.project"');
   });
+
+  it('keeps local asset rendering disabled by default for legacy standalone HTML export', () => {
+    const html = createStandaloneHtml({
+      ...createProject(),
+      assetLibrary: [
+        {
+          id: 'asset-local',
+          kind: 'background',
+          name: 'Forest',
+          storageType: 'local',
+          source: 'assets/backgrounds/forest.png',
+          createdAt: '2026-01-01T00:00:00.000Z',
+        },
+      ],
+    });
+
+    expect(html).toContain('const standaloneOptions = {"resolveLocalAssetSources":false};');
+    expect(html).toContain("asset?.storageType === 'local' && !standaloneOptions.resolveLocalAssetSources");
+  });
+
+  it('can opt into relative local asset rendering for playable folder export snapshots', () => {
+    const html = createStandaloneHtml(createProject(), {
+      resolveLocalAssetSources: true,
+    });
+
+    expect(html).toContain('const standaloneOptions = {"resolveLocalAssetSources":true};');
+  });
 });

@@ -6,6 +6,9 @@ import type {
   DeleteLocalBackgroundFilesResult,
   FingerprintedBackgroundFile,
   PhysicalBackgroundFile,
+  PlayableFolderExportResult,
+  PlayableFolderExportSelectionOptions,
+  PlayableFolderExportWriteRequest,
   PlatformName,
   PlatformProjectFile,
   PlatformProjectFileApi,
@@ -83,6 +86,18 @@ export class BrowserPlatformService implements PlatformService, PlatformProjectF
 
   deleteLocalBackgroundFiles(): Promise<DeleteLocalBackgroundFilesResult> {
     return Promise.reject(new Error('Local background cleanup is only available in the desktop app.'));
+  }
+
+  selectPlayableFolderExportDestination(
+    _options: PlayableFolderExportSelectionOptions,
+  ): Promise<null> {
+    return Promise.resolve(null);
+  }
+
+  writePlayableFolderExport(
+    _request: PlayableFolderExportWriteRequest,
+  ): Promise<PlayableFolderExportResult> {
+    return Promise.reject(new Error('Playable folder export is only available in the desktop app.'));
   }
 
   confirmUnsavedChanges(projectName: string): Promise<UnsavedChangesAction> {

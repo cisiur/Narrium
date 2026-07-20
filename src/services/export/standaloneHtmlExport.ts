@@ -28,7 +28,11 @@ function serializeProjectForScript(project: Project) {
     .replace(/\u2029/g, '\\u2029');
 }
 
-export function createStandaloneHtml(project: Project) {
+export interface StandaloneHtmlOptions {
+  resolveLocalAssetSources?: boolean;
+}
+
+export function createStandaloneHtml(project: Project, options: StandaloneHtmlOptions = {}) {
   const title = escapeHtml(project.name || 'Narrium Story');
   const description = escapeHtml(
     `Play ${project.name || 'a Narrium story'}, a standalone interactive story exported from Narrium.`
@@ -433,6 +437,9 @@ ${saveLoadControls}
   </div>
   <script>
     const project = ${embeddedProject};
+    const standaloneOptions = ${JSON.stringify({
+      resolveLocalAssetSources: options.resolveLocalAssetSources === true,
+    })};
     const app = document.getElementById('app');
     const title = document.querySelector('h1');
     const speaker = document.getElementById('speaker');
@@ -913,7 +920,7 @@ ${saveLoadControls}
 
       if (scene.background.mode === 'asset') {
         const asset = project.assetLibrary.find((item) => item.id === scene.background.assetId);
-        if (asset?.storageType === 'local') {
+        if (asset?.storageType === 'local' && !standaloneOptions.resolveLocalAssetSources) {
           return null;
         }
         return asset?.source || asset?.url || null;

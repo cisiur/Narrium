@@ -18,6 +18,9 @@ import type {
   PlatformProjectFile,
   PlatformProjectFileApi,
   PlatformAppPreferencesApi,
+  PlayableFolderExportResult,
+  PlayableFolderExportSelectionOptions,
+  PlayableFolderExportWriteRequest,
   ProjectFileSaveOptions,
   ProjectFileSelectionOptions,
   PlatformService,
@@ -184,6 +187,30 @@ export class DesktopPlatformService implements PlatformService, PlatformProjectF
       projectFilePath,
       relativePaths,
       protectedRelativePaths,
+    });
+  }
+
+  async selectPlayableFolderExportDestination(
+    options: PlayableFolderExportSelectionOptions,
+  ): Promise<string | null> {
+    const selectedPath = await open({
+      directory: true,
+      multiple: false,
+      title: options.title,
+    });
+
+    return typeof selectedPath === 'string' ? selectedPath : null;
+  }
+
+  writePlayableFolderExport(
+    request: PlayableFolderExportWriteRequest,
+  ): Promise<PlayableFolderExportResult> {
+    return invoke('write_playable_folder_export', {
+      sourceProjectFilePath: request.sourceProjectFilePath,
+      destinationParentDirectory: request.destinationParentDirectory,
+      folderName: request.folderName,
+      indexHtml: request.indexHtml,
+      localAssetCopies: request.localAssetCopies,
     });
   }
 

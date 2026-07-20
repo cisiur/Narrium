@@ -12,6 +12,7 @@ This document defines the canonical data structures for Narrium. It is the prima
 - Background assets are cataloged in `Project.assetLibrary`.
 - Current background asset sources may be embedded Data URLs, remote URLs, or desktop local project-relative files.
 - Desktop project storage keeps newly imported and saved embedded background files as local files behind the asset catalog instead of embedding them as Data URLs.
+- Local asset cleanup reports, duplicate reports, session trust, performance metrics, and undo/redo snapshot-size metadata are runtime-only state, not canonical project data.
 - Project thumbnails are stored in the full `Project` and mirrored into workspace metadata for fast project listing.
 - Workspace metadata is stored separately from full project payload.
 - Characters, Resources, and Variables are project data, not separate stores.
@@ -92,6 +93,7 @@ Notes:
 - Desktop preferences are stored in Tauri native app data as `preferences.json`.
 - Browser preferences continue using the `narrium_app_preferences` localStorage key.
 - These preferences do not change the canonical `Project` model or `.narrium` file wrapper.
+- Stored recent and last-opened paths do not grant filesystem trust by themselves. Desktop trust is process-memory-only and is registered after explicit user actions such as native Open, Recent Project, Last Opened Project, file-backed project card open, or Save As destination selection.
 
 ---
 
@@ -159,10 +161,12 @@ Current implementation rules:
 - Newly assigned scene backgrounds should reference catalog assets by `assetId` instead of duplicating source URLs on scenes.
 - Legacy raw Project JSON, including old `project.narrium.json`, remains openable as a compatibility fallback when selected as a file.
 - Desktop Rust commands validate project extensions, reject traversal in local asset paths, and reject project files larger than 25 MiB when reading.
+- Desktop Rust commands also enforce session-scoped trust for current project-file and local background filesystem operations. This trust is not stored in `Project`, app preferences, or `.narrium`.
 
 Intended storage rules:
 - `.narrium` stores the JSON-compatible `Project` data inside the wrapper.
 - Local asset references inside the project file use relative paths such as `assets/backgrounds/castle.png`.
+- Local asset `source` values remain stored and displayed with their original project-relative casing. Cleanup and duplicate diagnostics use normalized, case-insensitive comparison keys only for matching.
 - Desktop file-backed background uploads are currently copied into `assets/backgrounds/` beside the `.narrium` file.
 - During desktop Save and Save As, eligible embedded background assets may transition from `storageType: "embedded"` to `storageType: "local"` with `source` rewritten to a project-relative path.
 - Embedded background migration is storage-only: asset ids remain stable, asset names and creation timestamps are preserved, scene references continue to point at the same `assetId`, and the `Project` model itself is unchanged.
@@ -171,6 +175,7 @@ Intended storage rules:
 - Large uploaded background Data URLs should not remain inside long-term desktop file-backed project saves after successful Save or Save As migration.
 - Existing embedded Data URLs remain compatible for browser projects, desktop drafts, imports, Open behavior, thumbnails, and legacy direct scene backgrounds.
 - The exact local asset file layout beyond background assets remains future work.
+- Cleanup and duplicate detection do not introduce a format-version change, schema migration, or new persisted fields.
 
 Compatibility:
 - Current web MVP exports may still contain embedded Data URLs in `Project.thumbnail`, legacy `SceneBackground.url`, or legacy `AssetLibraryItem.url`.
@@ -549,14 +554,33 @@ Notes:
 - Standalone HTML export does not package local desktop asset files. Export preflight warns for referenced local assets and blocks when referenced local assets cannot be resolved; unused local Asset Library entries are ignored.
 - Asset display resolution is centralized. Embedded and remote sources are direct; local sources resolve through the desktop platform service with the active project file path.
 - Deleting a referenced asset clears affected scene background assignments.
-- Deleting a local asset entry does not delete the physical file yet.
+- Deleting a local asset entry does not automatically delete the physical file.
+- Cleanup may delete orphan physical background files only after preview, confirmation, and latest-project revalidation. It does not delete Asset Library entries, clear scene backgrounds, update `Project.updatedAt`, or dirty the Project.
+- Duplicate detection fingerprints physical local background files for diagnostics only. SHA-256 hashes are not persisted in `AssetLibraryItem`, `Project`, or `.narrium`, and duplicate detection does not merge, rename, move, rewrite, or delete files.
 
 Compatibility and future desktop direction:
 - Legacy serialized assets with `sourceType` and `url` normalize into `storageType` and `source`.
 - Legacy scene backgrounds with direct `mode='upload'` or `mode='url'` normalize into catalog assets where practical.
 - Browser storage continues to preserve embedded assets; desktop Save and Save As migrate eligible embedded background assets for file-backed projects.
 - Standalone local-asset packaging is future work.
-- Absolute filesystem paths, Blob URLs, checksums, physical cleanup, and non-background asset categories are not part of the current model.
+- Absolute filesystem paths, Blob URLs, persisted checksums, cleanup reports, duplicate reports, performance metrics, session trust, and non-background asset categories are not part of the canonical persisted model.
+
+---
+
+## Runtime-only diagnostics and editor state
+
+The following structures exist only in memory during an editor session and must not be written into `.narrium` files:
+- session filesystem trust and pending Save As destinations,
+- cleanup reports and deletion results,
+- duplicate detection reports and content hashes,
+- performance instrumentation metrics,
+- undo/redo snapshot byte-size metadata.
+
+Performance instrumentation is internal diagnostics only. It measures project size, embedded bytes, Save and Save As timings, background import and thumbnail timing, cleanup and duplicate timing, and undo/redo history size. Metric retention is bounded in memory and no metrics are persisted or exposed as canonical Project fields.
+
+Undo/redo remains snapshot-based with a runtime history limit of 50 snapshots. The store tracks serialized byte sizes alongside undo and redo stacks so history metrics can be computed without repeatedly serializing retained snapshots. Those size arrays are store/runtime metadata, not `Project` data and not part of JSON export/import or the `.narrium` wrapper.
+
+The current `.narrium` wrapper remains `formatVersion: 1`. Cleanup, duplicate detection, session allowlists, image validation, desktop JSON export, embedded-background materialization, and performance instrumentation did not introduce a project format-version change.
 
 ---
 

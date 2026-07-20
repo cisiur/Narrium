@@ -28,12 +28,14 @@ Status note:
 - The background asset library is now the canonical catalog for newly added backgrounds; sources may be embedded Data URLs, remote URLs, or desktop local project-relative background files.
 - Desktop file-backed background uploads are copied into `assets/backgrounds/` beside the `.narrium` file.
 - Native close dirty protection, asset protocol hardening, Rust filesystem validation, native desktop app preferences, and standalone HTML export preflight validation have been implemented from the Desktop Architecture Review.
-- Rust filesystem validation is partial: extension validation, path traversal protection, destination validation, and project size limits are implemented; session allowlists remain future work.
+- Rust filesystem validation and process-memory session allowlists have been implemented for current project-file and local background filesystem commands.
 - Standalone HTML export preflight warns for referenced local desktop assets and blocks missing referenced local assets, but it does not package local asset files.
 - Desktop JSON export uses a native Save dialog while browser JSON export keeps the Blob/download flow.
 - Image size validation and thumbnail optimization are implemented.
 - Desktop Save and Save As migrate eligible embedded background assets into local project-relative background files.
-- General local asset storage beyond backgrounds, asset cleanup, duplicate detection, autosave, and playable export packaging remain future work.
+- Local background cleanup/orphan detection and local background duplicate diagnostics are implemented as desktop-only file-backed Asset Library actions.
+- Performance instrumentation is implemented as in-memory diagnostics covering project metrics, Save/Save As timing, background import and thumbnail timing, cleanup and duplicate timing, undo/redo history metrics, and bounded retention.
+- General local asset storage beyond backgrounds, duplicate consolidation, automatic duplicate cleanup, autosave, performance optimization/tooling, and playable export packaging remain future work.
 
 ```text
 Workspace Management       ██████████ 100%
@@ -437,7 +439,7 @@ Current E11A-01 deliverable:
 - Added `getProjectStorage()` as the default resolver.
 - Refactored `useWorkspaceStore` to call the storage service instead of `window.localStorage` directly.
 - Preserved `narrium_workspace` and `narrium_project_{id}` keys and the current saved data format.
-- Desktop filesystem storage remains future work.
+- At the time of E11A-01, desktop filesystem storage remained future work; later EPIC 11 project-file tasks implemented `.narrium` storage and local background files.
 
 Current E11A-02 deliverable:
 - Added an initial `src/domain/project/` area for project normalization and domain defaults.
@@ -492,7 +494,7 @@ Purpose:
 | E11-05B.2 | Synchronize project name with Save As `.narrium` filename | [BOTH] | Done |
 | E11-05B.3 | Safe native-close dirty protection | [BOTH] | Done |
 | E11-05B.4 | Tauri asset protocol hardening for local background assets | [BOTH] | Done |
-| E11-05B.5 | Rust filesystem validation for project and local asset commands | [BOTH] | Partially Complete - validation done; session allowlists remain future work |
+| E11-05B.5 | Rust filesystem validation and session trust for project and local asset commands | [BOTH] | Done |
 | E11-05B.6 | Native desktop app preferences backend | [BOTH] | Done |
 | E11-05B.7 | Standalone HTML export preflight for referenced local assets | [BOTH] | Done |
 | E11-05B.8 | Desktop-native JSON export Save dialog support | [BOTH] | Done |
@@ -500,10 +502,14 @@ Purpose:
 | E11-05B.10 | Background asset display service boundary | [BOTH] | Done |
 | E11-05B.11 | Embedded background migration planning and Rust materialization | [BOTH] | Done |
 | E11-05B.12 | Migrate embedded backgrounds during desktop Save and Save As | [BOTH] | Done |
-| E11-06 | Relative asset paths in project JSON | [BOTH] | Planned |
-| E11-07 | Migration/import from legacy web MVP JSON | [BOTH] | Planned |
+| E11-05B.13 | Local background cleanup and orphan detection | [BOTH] | Done |
+| E11-05B.14 | Local background duplicate detection diagnostics | [BOTH] | Done |
+| E11-05B.15 | Session-scoped Rust filesystem allowlists and explicit reopen trust | [BOTH] | Done |
+| E11-05B.16 | Project performance instrumentation foundation | [BOTH] | Done |
+| E11-06 | Relative asset paths in project JSON | [BOTH] | Done for local background assets |
+| E11-07 | Migration/import from legacy web MVP JSON | [BOTH] | Done for current Project normalization and background asset migration |
 | E11-08 | Extract legacy embedded Data URLs into local asset files during desktop Save/Save As where practical | [BOTH] | Done for background assets |
-| E11-09 | Desktop preview parity with validated web MVP preview behavior | [BOTH] | Planned |
+| E11-09 | Desktop preview parity with validated web MVP preview behavior | [BOTH] | Done for current preview/runtime behavior |
 | E11-10 | Playable export foundation for folder/package-based exports | [BOTH] | Planned |
 
 Current E11-02 deliverable:
@@ -533,7 +539,7 @@ Current E11-03B deliverable:
 - The project header shows the current project path and a `*` dirty indicator.
 - Save is disabled until the active desktop project has a known path; Save As remains available.
 - Browser/Vite workflow remains compatible.
-- General asset folders beyond backgrounds, asset cleanup, duplicate detection, autosave, Git integration, cloud sync, and playable export changes remain planned future work.
+- General asset folders beyond backgrounds, autosave, Git integration, cloud sync, and playable export changes remained outside this batch; later background cleanup and duplicate diagnostics were added in E11-05B.13 and E11-05B.14.
 
 Current E11-03C deliverable:
 - Desktop Open Project File uses a native file picker for `.narrium` files and legacy `.json` files.
@@ -572,7 +578,7 @@ Current E11-05A.1 deliverable:
 - Browser projects and local desktop drafts still use BrowserProjectStorage for full Project JSON.
 - Save As removes any stale local draft payload for the saved project id.
 - Draft storage quota failures surface a clear error instead of silently failing.
-- Future local asset file work remains focused on packaging, cleanup, duplicate detection, and non-background asset categories.
+- Future local asset file work remains focused on packaging, duplicate consolidation, automatic duplicate cleanup, and non-background asset categories.
 
 Current E11-05B deliverable:
 - Desktop file-backed projects import uploaded background images into `assets/backgrounds/` beside the `.narrium` file.
@@ -611,7 +617,9 @@ Current E11-05B.5 deliverable:
 - Project reads reject files larger than 25 MiB before reading contents into memory.
 - Rust local-asset commands reject absolute paths, empty paths, parent-directory traversal, and paths that resolve outside the project directory.
 - Save As asset copying validates the destination project path before creating directories.
-- Remaining future work: add session allowlists for dialog-selected paths so Rust commands can reject paths that were not selected or granted in the current desktop session.
+- Project-file and local background commands are protected by process-memory session trust.
+- Native Open registers the selected existing project path, explicit Recent Projects / Last Opened / file-backed card actions register trust before reading, and Save As registers a pending destination before write.
+- A successful write promotes the destination to trusted. Preferences loading alone does not trust stored paths, and trust resets on restart.
 
 Current E11-05B.6 deliverable:
 - Desktop app preferences now persist through Tauri native app data as `preferences.json`, outside WebView localStorage.
@@ -654,6 +662,35 @@ Current E11-05B.12 deliverable:
 - Open remains side-effect free and does not migrate assets.
 - If `.narrium` writing fails after successful materialization, materialized files are not rolled back yet; broader project-directory transactions remain future work.
 
+Current E11-05B.13 deliverable:
+- File-backed desktop projects can scan direct supported files under `assets/backgrounds/` for unused physical background files.
+- A physical background file is an orphan only when no local background Asset Library entry references its normalized project-relative path; scene usage does not determine orphan status.
+- Cleanup reports distinguish referenced files, orphaned files, and missing referenced files.
+- Local path comparison is normalized and case-insensitive, duplicate catalog entries protect a path once, and embedded/remote assets do not protect filesystem paths.
+- Cleanup is preview-first, requires explicit confirmation, binds reports to project id and file path, revalidates the latest Project before deletion, and does not mutate or dirty the Project.
+
+Current E11-05B.14 deliverable:
+- File-backed desktop projects can run diagnostic duplicate detection for local background files.
+- Rust fingerprints direct PNG, JPG, JPEG, and WEBP files under `assets/backgrounds/` with SHA-256 and does not recurse.
+- Duplicate groups are based on identical content hash, not filename, extension, Asset Library id, scene usage, or metadata.
+- Reports classify referenced and unreferenced physical files using the local Asset Library with normalized case-insensitive path matching.
+- Duplicate detection is diagnostic only; it does not choose a canonical file, merge assets, rewrite references, or delete files.
+
+Current E11-05B.15 deliverable:
+- Rust maintains process-memory trusted project paths and pending Save As destinations.
+- Open Project File registers trust through the native dialog; Recent Projects, Last Opened Project, and file-backed project cards call explicit trust registration before reading.
+- Save As registers a pending destination, and a successful write promotes it to trusted.
+- Trust is not persisted, resets on restart, and is not inferred from preferences during startup.
+- App preferences and raw JSON export remain outside the project-relative allowlist where appropriate.
+
+Current E11-05B.16 deliverable:
+- A centralized platform-neutral instrumentation service collects structured in-memory metrics without React, Zustand, Tauri, logging, telemetry, persistence, or UI.
+- Project metrics include serialized JSON size, scene count, character count, resource count, variable count, group count, asset count, embedded asset count, and total embedded bytes.
+- Save and Save As record serialization, write, embedded materialization, Save As local asset copy, and total durations.
+- Background import, thumbnail generation, cleanup scan/delete, and duplicate fingerprint scans record focused timings and counts.
+- Undo/redo history metrics are available, with runtime-only snapshot byte sizes stored alongside the undo/redo stacks so existing snapshots are not repeatedly serialized.
+- Metric retention is bounded to 250 entries per category.
+
 Full EPIC 11 deliverable intent:
 - A desktop app can create drafts, open `.narrium` files, save known project files, and preview Narrium projects.
 - Imported assets are copied into the project folder instead of being stored as large Data URLs in the long-term project file.
@@ -667,9 +704,10 @@ Full EPIC 11 deliverable intent:
 Continue EPIC 11 desktop project system work from the Desktop Architecture Review implementation order.
 
 Current approved task:
-- Asset Cleanup (orphan detection and safe local background cleanup).
+- Future playable folder/package export foundation with local asset packaging.
 
 Later candidates:
-- Duplicate detection for local background assets.
-- Session allowlists for Rust filesystem commands.
-- Future playable export foundation.
+- Performance optimization or developer tooling based on collected instrumentation.
+- PlatformService split only when clearer ownership is needed.
+- Format-version planning for eventual legacy direct scene background removal.
+- General local asset storage and lifecycle work beyond backgrounds.

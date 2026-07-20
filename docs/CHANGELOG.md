@@ -6,6 +6,17 @@ This changelog records milestone-level project changes. It is intentionally conc
 
 ## Unreleased / Next
 
+### Documentation - Desktop architecture and asset lifecycle synchronization
+
+Changes:
+- Reconciled documentation with the accepted desktop storage, security, asset maintenance, duplicate diagnostics, and instrumentation implementation.
+- Documented safe local background cleanup: orphan detection is based on local Asset Library references, uses normalized case-insensitive local path protection, binds reports to the scanned project, revalidates before deletion, and never mutates Project data or dirty state.
+- Documented diagnostic-only duplicate detection for direct local background files under `assets/backgrounds/`, using SHA-256 fingerprints for PNG, JPG, JPEG, and WEBP files.
+- Documented session-scoped Rust filesystem trust for Open, Recent Projects, Last Opened Project, file-backed project entries, and pending Save As destinations.
+- Documented centralized in-memory performance instrumentation, including Save/Save As timing, cleanup and duplicate timing, background import and thumbnail timing, project metrics, undo/redo history metrics, 250-entry bounded retention, and runtime-only history snapshot sizes.
+- Clarified remaining future work: playable folder/package export with local asset packaging, duplicate consolidation, non-background asset lifecycle work, performance optimization/tooling, PlatformService split when needed, and format-version planning.
+- Documentation-only change; no application behavior changed.
+
 ### Documentation - Desktop embedded background migration reconciliation
 
 Changes:
@@ -104,7 +115,7 @@ Changes:
 - Background Source UI now shows only None, Scene Reference, and Asset Library; URL/upload creation lives inside Asset Library.
 - Save As copies referenced local background files to the new project directory before writing the relocated `.narrium`.
 - Deleting a catalog asset still clears scene references but does not delete the physical file.
-- Local asset standalone export packaging, physical cleanup, orphan detection, hashing, compression, and broad asset management remain future work.
+- At the time of this local-background storage batch, standalone local-asset packaging, physical cleanup, orphan detection, hashing, compression, and broad asset management remained future work. Later Unreleased entries supersede that status for background cleanup, duplicate diagnostics, image validation, and thumbnail optimization.
 - Native close dirty protection is handled separately by the current native-close lifecycle guard.
 
 Validation:

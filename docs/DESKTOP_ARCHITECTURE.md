@@ -21,14 +21,17 @@ Current implementation status:
 - Native window close dirty protection is implemented through the platform lifecycle boundary.
 - Desktop app preferences now persist through Tauri native app data instead of WebView localStorage.
 - Tauri asset protocol scope is restricted to local background image files under `assets/backgrounds/`.
-- Rust filesystem commands validate project extensions, local asset relative paths, destinations, and project file size.
+- Rust filesystem commands validate project extensions, local asset relative paths, destinations, project file size, and process-memory session trust for project-relative operations.
 - The background asset catalog now stores newly added background sources as embedded Data URL, remote URL, or desktop local project-relative background assets.
 - Standalone HTML export has preflight validation for referenced local desktop assets, but it still does not package local asset files.
 - Browser JSON export still uses the browser-style Blob download path; desktop JSON export uses a native Save dialog and writes raw full `Project` JSON.
 - Image size validation and thumbnail optimization are implemented through the image-processing service.
 - Desktop Save and Save As migrate eligible embedded background assets into local project-relative files under `assets/backgrounds/`.
+- Local background cleanup and orphan detection are implemented as a preview-first, confirmed, file-backed desktop maintenance action.
+- Local background duplicate detection is implemented as diagnostic-only SHA-256 fingerprint reporting.
+- Performance instrumentation is implemented as centralized platform-neutral in-memory metrics with bounded retention.
 - Services can depend on domain code, but domain code must stay independent from stores, services, UI, and Tauri APIs.
-- Local desktop background asset storage is implemented; general asset categories beyond backgrounds, asset cleanup, duplicate detection, autosave, and playable export packaging are still planned future work.
+- Local desktop background asset storage is implemented; general asset categories beyond backgrounds, duplicate consolidation, automatic duplicate cleanup, autosave, performance optimization/tooling, and playable export packaging are still planned future work.
 
 ---
 
@@ -59,9 +62,7 @@ The existing React/TypeScript UI should be preserved where practical. The curren
 Tauri v2 is now the desktop shell foundation. It wraps the existing web UI while preserving the browser development workflow.
 
 The current Tauri foundation is intentionally minimal:
-- it does not add desktop-specific application behavior,
-- it does not introduce filesystem project storage,
-- it exposes only narrow local background asset import, display, and Save As relocation APIs,
+- it exposes narrow desktop project-file, local background asset, lifecycle, trust, and app-preference APIs,
 - it does not change the `Project` model.
 
 The current storage abstraction is also intentionally minimal:
@@ -91,8 +92,8 @@ Platform boundary status:
 - Future Tauri APIs must be introduced behind `services/platform/`; React components and Zustand stores must not import Tauri directly.
 - Current Tauri usage is limited to file open/save dialogs, unsaved-change confirmation, selected project-file reads/writes, and local background asset file import/display/relocation through service boundaries.
 - Native close dirty protection uses the same Save / Don't Save / Cancel orchestration as guarded Open/Create flows and prevents duplicate close decisions while a prompt or save is pending.
-- Project file reads and writes operate on explicit file paths selected by the user.
-- Rust validation currently enforces supported project extensions, local asset traversal protection, destination validation, and a 25 MiB project-read size limit. Session allowlists for dialog-selected paths remain future work.
+- Project file reads and writes operate on paths explicitly trusted in the current process. Native Open registers selected existing project files, explicit Recent Projects / Last Opened / file-backed card actions register trust before read, and Save As registers a pending destination before write.
+- Rust validation enforces supported project extensions, local asset traversal protection, destination validation, a 25 MiB project-read size limit, session trust for existing project files, and pending destination trust for Save As.
 - No unrestricted filesystem, clipboard, shell, notifications, drag-and-drop, autosave, or playable package APIs are implemented.
 
 Project file status:
@@ -104,7 +105,8 @@ Project file status:
 - Rust rejects project files larger than 25 MiB before reading them into memory; this comfortably exceeds current local-asset desktop projects while preventing arbitrarily large JSON reads.
 - Rust local-asset commands reject absolute asset paths, parent-directory traversal, empty paths, and paths that resolve outside the project directory.
 - Rust Save As asset copying validates the destination `.narrium` path before creating asset directories.
-- Session allowlists for dialog-selected paths are not implemented yet.
+- Session trust is process-memory-only and resets on restart. Loading preferences alone does not trust stored paths.
+- Successful Save As writes promote the pending destination to trusted.
 - Legacy raw Project JSON and old `project.narrium.json` files remain openable when selected as files, but new desktop saves use `.narrium`.
 - `project.narrium.json` is legacy/transitional and is no longer the default desktop save target.
 - The browser workflow still uses the `ProjectStorage` localStorage backend and legacy keys.
@@ -134,12 +136,14 @@ Project file status:
 - File-backed cards display a `.narrium file` label and path, while drafts display `Local draft`.
 - Recent projects are capped at 10 entries and are not workspace project records.
 - The last opened project is offered on launch, not reopened automatically.
+- Clicking a Recent Project, Last Opened Project offer, or existing file-backed project card is treated as explicit user intent and registers trust before the project is read.
 - The My Projects landing screen no longer renders the single-item `WORKSPACE > My Projects` sidebar.
 - The long-term workspace direction remains app preferences and recent projects, not the primary project database.
 
 Near-term desktop work should focus on:
-- safe cleanup of unused local background files,
-- extending local asset file storage beyond background imports,
+- future playable folder/package export with local asset packaging,
+- performance optimization and developer tooling based on collected instrumentation,
+- extending local asset file storage beyond backgrounds,
 - keeping localStorage limited to browser projects, temporary drafts, and lightweight workspace/app metadata,
 - keeping the validated domain model recognizable.
 
@@ -195,6 +199,11 @@ Local asset references in the JSON use relative paths:
 
 Future asset work should continue behind this same asset catalog, rather than returning to direct scene URLs or broad filesystem APIs.
 
+Runtime-only maintenance and diagnostics:
+- cleanup reports, duplicate reports, session trust, and performance metrics are not part of `Project` and are not written to `.narrium`,
+- duplicate content hashes are computed for diagnostics and are not cached in the Asset Library,
+- undo/redo snapshot byte sizes are runtime metadata stored beside history stacks, not project data.
+
 ---
 
 ## Asset handling
@@ -227,7 +236,26 @@ The project JSON should store asset metadata and relative paths. This avoids bro
 
 Browser mode and the archived web MVP still use Data URLs for uploaded background images. That behavior remains intentional for browser compatibility and should not define long-term desktop file-backed storage.
 
-Standalone local-asset packaging, orphan cleanup, physical deletion, hashing, duplicate detection, and non-background asset categories remain future work.
+Local background cleanup:
+- A physical file is an orphan only when it exists directly under the current file-backed project's `assets/backgrounds/` directory and no local background Asset Library entry references its normalized project-relative path.
+- Scene usage does not determine orphan status. A local Asset Library entry protects its physical file even when no scene currently uses that asset.
+- Embedded and remote assets do not protect filesystem paths.
+- Cleanup reports distinguish referenced physical files, orphaned physical files, and missing referenced files.
+- Relative path comparison normalizes separators and redundant segments and uses case-insensitive comparison for protection.
+- Reports are bound to the scanned project id and project file path; changing either invalidates the report.
+- Deletion is preview-first and requires explicit confirmation through the application confirmation flow.
+- Immediately before deletion, the service obtains the latest Project, recomputes protected paths, skips files that became referenced, and invokes one safe Rust batch delete command.
+- Cleanup does not delete Asset Library entries, clear scene backgrounds, update `Project.updatedAt`, mark the project dirty, trigger Save/Save As, modify browser projects, modify desktop drafts, or run automatically when an Asset Library entry is deleted.
+
+Local background duplicate detection:
+- The duplicate scanner fingerprints direct PNG, JPG, JPEG, and WEBP files under `assets/backgrounds/` with SHA-256.
+- The scan is non-recursive and ignores unsupported entries.
+- Duplicate groups contain physical files with identical content hashes; filename, extension, Asset Library id, scene usage, and metadata do not define duplicate identity.
+- Referenced/unreferenced status is derived from local background Asset Library paths using the same normalized case-insensitive comparison as cleanup.
+- Duplicate reports are bound to project id and project file path and are replaced by a fresh scan.
+- Duplicate detection is diagnostic only. It does not choose a canonical file, merge Asset Library entries, rewrite scene references, move files, rename files, or delete files.
+
+Standalone local-asset packaging, duplicate consolidation, automatic duplicate cleanup, and non-background asset categories remain future work.
 
 ---
 
@@ -279,13 +307,60 @@ The exact export format should be designed later after the desktop project-file 
 
 ---
 
+## Filesystem security
+
+Rust owns filesystem validation for project-relative desktop operations:
+- existing project files must be valid supported project files before they can be trusted,
+- project reads accept `.narrium` and legacy `.json`; project writes require `.narrium`,
+- local background asset paths must be project-relative, non-empty, non-absolute, non-traversing paths under `assets/backgrounds/`,
+- local background listing, cleanup deletion, and duplicate fingerprinting operate only on direct supported PNG, JPG, JPEG, and WEBP files under `assets/backgrounds/`,
+- missing `assets/backgrounds/` directories are treated as empty for listing and fingerprinting,
+- cleanup deletion revalidates every candidate in Rust and returns structured deleted, skipped, and failed entries.
+
+Session allowlists are synchronized in memory only:
+- native Open and explicit reopen actions register existing project files,
+- Save As registers a pending destination before write,
+- successful writes promote pending destinations to trusted files,
+- trust resets when the process restarts,
+- app preferences do not create trust during startup.
+
+App preferences and raw JSON export are outside the project-relative allowlist where appropriate. Preferences are app data, not project-relative assets, and desktop JSON export writes a user-selected raw `Project` JSON file through its own narrow command.
+
+No persistent trusted-path store exists.
+
+---
+
+## Performance instrumentation
+
+Performance instrumentation is centralized in a platform-neutral service:
+- it has no React, Zustand, Tauri, filesystem, logging, telemetry, persistence, or UI dependency,
+- elapsed timings use a monotonic clock when available, with injectable clocks for deterministic tests,
+- all metrics remain in memory,
+- each metric category uses bounded FIFO retention of 250 entries,
+- `getSnapshot()` returns copies and `clear()` clears all stored metrics.
+
+Current metric coverage:
+- project metrics: serialized JSON size, scene count, character count, resource count, variable count, group count, asset count, embedded asset count, and total embedded bytes,
+- Save: serialization duration, embedded materialization duration, write duration, and total save duration,
+- Save As: serialization duration, local asset copy duration, embedded materialization duration, write duration, and total Save As duration,
+- background import and thumbnail generation durations,
+- cleanup scan/delete durations, scanned file count, and deleted file count,
+- duplicate fingerprint duration, scanned file count, and duplicate group count,
+- undo/redo history metrics: snapshot count, undo/redo counts, latest serialized snapshot size, and total retained history size.
+
+Undo/redo history remains snapshot-based with a 50-snapshot limit. Snapshot byte sizes are runtime-only metadata stored alongside the undo and redo stacks, moved with snapshots during undo/redo, and trimmed with the corresponding stack. This avoids repeatedly serializing retained history for metrics and has no `Project` model or `.narrium` format impact.
+
+---
+
 ## Non-goals for the current project-file foundation
 
 The current project-file foundation does not implement:
 - general asset folder creation beyond desktop background imports and embedded-background materialization,
-- image file copying beyond desktop background imports and embedded-background materialization,
+- image file copying beyond desktop background imports, Save As background relocation, and embedded-background materialization,
 - local asset path migration beyond current background asset references and desktop Save/Save As embedded-background materialization,
-- asset cleanup or duplicate detection,
+- duplicate consolidation or automatic duplicate cleanup,
+- cleanup or duplicate detection for asset categories other than backgrounds,
+- performance optimization, telemetry, persisted metrics, or developer metrics UI,
 - autosave,
 - standalone local-asset packaging,
 - a new playable export format.

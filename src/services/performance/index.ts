@@ -1,11 +1,13 @@
 export {
   OperationTimer,
+  PERFORMANCE_METRIC_RETENTION_LIMIT,
   PerformanceInstrumentationService,
   calculateHistoryMetrics,
   calculateProjectPerformanceMetrics,
   embeddedAssetByteSize,
   getPerformanceInstrumentationService,
   serializedJsonByteSize,
+  serializedJsonStringByteSize,
   type BackgroundImportMetrics,
   type CleanupMetrics,
   type DuplicateMetrics,

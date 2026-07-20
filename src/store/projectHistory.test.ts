@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { Project } from '../types';
 import {
   PROJECT_HISTORY_LIMIT,
@@ -79,6 +79,98 @@ describe('project history', () => {
     }
 
     expect(history.undoStack).toHaveLength(PROJECT_HISTORY_LIMIT);
+    expect(history.undoStackSizes).toHaveLength(PROJECT_HISTORY_LIMIT);
     expect(history.undoStack[0].name).toBe('Snapshot 5');
+  });
+
+  it('calculates each newly pushed snapshot size once without resizing previous snapshots', () => {
+    const calculateSnapshotSize = vi.fn((serializedProject: string) => serializedProject.length);
+    let history = createEmptyProjectHistory('project-1');
+
+    history = pushProjectSnapshot(history, createProject('First'), calculateSnapshotSize);
+    history = pushProjectSnapshot(history, createProject('Second'), calculateSnapshotSize);
+
+    expect(calculateSnapshotSize).toHaveBeenCalledTimes(2);
+    expect(history.undoStack.map((project) => project.name)).toEqual(['First', 'Second']);
+    expect(history.undoStackSizes).toEqual(
+      calculateSnapshotSize.mock.calls.map(([serializedProject]) => serializedProject.length),
+    );
+  });
+
+  it('undo reuses retained undo sizes and only sizes the current redo snapshot', () => {
+    const calculateSnapshotSize = vi.fn((serializedProject: string) => serializedProject.length);
+    let history = createEmptyProjectHistory('project-1');
+
+    history = pushProjectSnapshot(history, createProject('First'), calculateSnapshotSize);
+    history = pushProjectSnapshot(history, createProject('Second'), calculateSnapshotSize);
+    calculateSnapshotSize.mockClear();
+
+    const result = undoProjectHistory(history, createProject('Third'), calculateSnapshotSize);
+
+    expect(calculateSnapshotSize).toHaveBeenCalledTimes(1);
+    expect(result.project?.name).toBe('Second');
+    expect(result.history.undoStack.map((project) => project.name)).toEqual(['First']);
+    expect(result.history.undoStackSizes).toEqual([history.undoStackSizes?.[0]]);
+    expect(result.history.redoStack.map((project) => project.name)).toEqual(['Third']);
+    expect(result.history.redoStackSizes).toEqual([calculateSnapshotSize.mock.results[0].value]);
+  });
+
+  it('redo reuses retained redo sizes and only sizes the current undo snapshot', () => {
+    const calculateSnapshotSize = vi.fn((serializedProject: string) => serializedProject.length);
+    let history = createEmptyProjectHistory('project-1');
+
+    history = pushProjectSnapshot(history, createProject('First'), calculateSnapshotSize);
+    history = pushProjectSnapshot(history, createProject('Second'), calculateSnapshotSize);
+    const undone = undoProjectHistory(history, createProject('Third'), calculateSnapshotSize);
+    calculateSnapshotSize.mockClear();
+
+    const redone = redoProjectHistory(undone.history, undone.project, calculateSnapshotSize);
+
+    expect(calculateSnapshotSize).toHaveBeenCalledTimes(1);
+    expect(redone.project?.name).toBe('Third');
+    expect(redone.history.redoStack).toEqual([]);
+    expect(redone.history.redoStackSizes).toEqual([]);
+    expect(redone.history.undoStack.map((project) => project.name)).toEqual(['First', 'Second']);
+    expect(redone.history.undoStackSizes?.[0]).toBe(history.undoStackSizes?.[0]);
+  });
+
+  it('trimming at the history limit removes matching stored sizes', () => {
+    const calculateSnapshotSize = vi.fn((serializedProject: string) => JSON.parse(serializedProject).name.length);
+    let history = createEmptyProjectHistory('project-1');
+
+    for (let index = 0; index < PROJECT_HISTORY_LIMIT + 5; index += 1) {
+      history = pushProjectSnapshot(history, createProject(`Snapshot ${index}`), calculateSnapshotSize);
+    }
+
+    expect(history.undoStack).toHaveLength(PROJECT_HISTORY_LIMIT);
+    expect(history.undoStackSizes).toHaveLength(PROJECT_HISTORY_LIMIT);
+    expect(history.undoStack[0].name).toBe('Snapshot 5');
+    expect(history.undoStackSizes?.[0]).toBe('Snapshot 5'.length);
+  });
+
+  it('keeps history metrics correct from retained sizes after undo and redo', () => {
+    const calculateSnapshotSize = vi.fn((serializedProject: string) => JSON.parse(serializedProject).name.length);
+    let history = createEmptyProjectHistory('project-1');
+
+    history = pushProjectSnapshot(history, createProject('First'), calculateSnapshotSize);
+    history = pushProjectSnapshot(history, createProject('Second'), calculateSnapshotSize);
+    const undone = undoProjectHistory(history, createProject('Third'), calculateSnapshotSize);
+    const redone = redoProjectHistory(undone.history, undone.project, calculateSnapshotSize);
+
+    expect(undone.history.undoStack).toHaveLength(1);
+    expect(undone.history.redoStack).toHaveLength(1);
+    expect(undone.history.undoStackSizes).toEqual(['First'.length]);
+    expect(undone.history.redoStackSizes).toEqual(['Third'.length]);
+    expect(redone.history.undoStack).toHaveLength(2);
+    expect(redone.history.redoStack).toHaveLength(0);
+    expect(redone.history.undoStackSizes).toEqual(['First'.length, 'Second'.length]);
+  });
+
+  it('does not add size metadata to project snapshots', () => {
+    const history = pushProjectSnapshot(createEmptyProjectHistory('project-1'), createProject('First'));
+
+    expect(history.undoStack[0]).not.toHaveProperty('serializedSnapshotSize');
+    expect(history.undoStack[0]).not.toHaveProperty('snapshotSize');
+    expect(JSON.stringify(history.undoStack[0])).not.toContain('undoStackSizes');
   });
 });

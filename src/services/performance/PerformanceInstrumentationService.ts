@@ -82,6 +82,8 @@ export interface PerformanceSnapshot {
   duplicates: DuplicateMetrics[];
 }
 
+export const PERFORMANCE_METRIC_RETENTION_LIMIT = 250;
+
 const textEncoder = new TextEncoder();
 
 export const defaultMonotonicClock: MonotonicClock = {
@@ -148,7 +150,7 @@ export class PerformanceInstrumentationService {
 
   calculateProjectMetrics(project: Project): ProjectPerformanceMetrics {
     const metrics = calculateProjectPerformanceMetrics(project);
-    this.projectMetrics.push(metrics);
+    appendWithRetention(this.projectMetrics, metrics);
 
     return metrics;
   }
@@ -157,35 +159,37 @@ export class PerformanceInstrumentationService {
     projectId: string | null;
     undoStack: Project[];
     redoStack: Project[];
+    undoStackSizes?: number[];
+    redoStackSizes?: number[];
   }): HistoryMetrics {
     const metrics = calculateHistoryMetrics(input);
-    this.historyMetrics.push(metrics);
+    appendWithRetention(this.historyMetrics, metrics);
 
     return metrics;
   }
 
   recordOperation(metrics: OperationMetrics): void {
-    this.operations.push(metrics);
+    appendWithRetention(this.operations, metrics);
   }
 
   recordSave(metrics: ProjectSaveMetrics): void {
-    this.saves.push(metrics);
+    appendWithRetention(this.saves, metrics);
   }
 
   recordBackgroundImport(metrics: BackgroundImportMetrics): void {
-    this.backgroundImports.push(metrics);
+    appendWithRetention(this.backgroundImports, metrics);
   }
 
   recordThumbnailGeneration(metrics: ThumbnailGenerationMetrics): void {
-    this.thumbnails.push(metrics);
+    appendWithRetention(this.thumbnails, metrics);
   }
 
   recordCleanup(metrics: CleanupMetrics): void {
-    this.cleanups.push(metrics);
+    appendWithRetention(this.cleanups, metrics);
   }
 
   recordDuplicate(metrics: DuplicateMetrics): void {
-    this.duplicates.push(metrics);
+    appendWithRetention(this.duplicates, metrics);
   }
 
   getSnapshot(): PerformanceSnapshot {
@@ -235,24 +239,29 @@ export function calculateHistoryMetrics(input: {
   projectId: string | null;
   undoStack: Project[];
   redoStack: Project[];
+  undoStackSizes?: number[];
+  redoStackSizes?: number[];
 }): HistoryMetrics {
-  const snapshots = [...input.undoStack, ...input.redoStack];
-  const totalHistorySize = snapshots.reduce((total, project) => total + serializedJsonByteSize(project), 0);
+  const undoStackSizes = input.undoStackSizes ?? input.undoStack.map((project) => serializedJsonByteSize(project));
+  const redoStackSizes = input.redoStackSizes ?? input.redoStack.map((project) => serializedJsonByteSize(project));
+  const totalHistorySize = [...undoStackSizes, ...redoStackSizes].reduce((total, size) => total + safeByteSize(size), 0);
 
   return {
     projectId: input.projectId,
     undoSnapshotCount: input.undoStack.length,
     redoSnapshotCount: input.redoStack.length,
-    snapshotCount: snapshots.length,
-    serializedSnapshotSize: input.undoStack.length > 0
-      ? serializedJsonByteSize(input.undoStack[input.undoStack.length - 1])
-      : 0,
+    snapshotCount: input.undoStack.length + input.redoStack.length,
+    serializedSnapshotSize: undoStackSizes.length > 0 ? safeByteSize(undoStackSizes[undoStackSizes.length - 1]) : 0,
     totalHistorySize,
   };
 }
 
 export function serializedJsonByteSize(value: unknown): number {
-  return textEncoder.encode(JSON.stringify(value)).length;
+  return serializedJsonStringByteSize(JSON.stringify(value));
+}
+
+export function serializedJsonStringByteSize(serializedJson: string): number {
+  return textEncoder.encode(serializedJson).length;
 }
 
 export function embeddedAssetByteSize(source: string): number {
@@ -272,4 +281,16 @@ const performanceInstrumentationService = new PerformanceInstrumentationService(
 
 export function getPerformanceInstrumentationService(): PerformanceInstrumentationService {
   return performanceInstrumentationService;
+}
+
+function appendWithRetention<T>(items: T[], item: T): void {
+  items.push(item);
+
+  if (items.length > PERFORMANCE_METRIC_RETENTION_LIMIT) {
+    items.splice(0, items.length - PERFORMANCE_METRIC_RETENTION_LIMIT);
+  }
+}
+
+function safeByteSize(size: number): number {
+  return Number.isFinite(size) && size > 0 ? size : 0;
 }

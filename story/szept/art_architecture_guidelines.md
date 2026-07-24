@@ -6,13 +6,13 @@ Ten dokument jest dodatkiem do:
 - `story/szept/art_generation_notes.md`
 - `story/szept/art_prop_guidelines.md`
 
-Cel: utrwalić zasadę wynikającą z iteracji sceny `SC10 — Brama Latarni`, gdzie pierwsza wersja sugerowała dwie osobne latarnie, a finalna wersja zadziałała dopiero po uproszczeniu i uczytelnieniu bryły.
+Cel: utrwalić zasady wynikające z iteracji scen landmarkowych oraz finalnie zaakceptowanych ilustracji rozszerzonej historii, szczególnie wnętrz Latarni, wielkich bram serwisowych i scen pościgu.
 
 ---
 
 ## 1. Core Rule
 
-Dla landmarków architektonicznych najważniejsza jest najpierw czytelna sylwetka, a dopiero potem detal.
+Dla landmarków architektonicznych najważniejsza jest najpierw czytelna sylwetka i logika konstrukcji, a dopiero potem detal.
 
 Prompt rule:
 
@@ -80,7 +80,88 @@ The structure should feel capable of surviving storms, salt, wind and waves for 
 
 ---
 
-## 5. SC10 Reference — Lighthouse Gate
+## 5. Great Service Gate Rule
+
+Wielkie okrągłe bramy serwisowe pod Veyr nie były projektowane dla ludzi. Służyły do transportowania ogromnych elementów infrastruktury Latarni.
+
+Worldbuilding note:
+
+```text
+The great circular gates were never intended for people.
+They were maintenance portals used centuries ago to transport massive optical conduits, counterweights and mechanical components beneath Veyr.
+```
+
+Prompt rule:
+
+```text
+When showing a great circular service gate, make its scale feel practical rather than decorative.
+The gate should read as a maintenance portal for moving massive lighthouse components, not as a fantasy portal or ceremonial doorway.
+Use stone rollers, iron locking ribs, counterweights, chains and restrained brass hardware.
+```
+
+---
+
+## 6. Lighthouse Interior Engineering Rule
+
+Wnętrza Latarni powinny wyglądać jak jedna ogromna, rozbudowywana przez stulecia maszyna.
+
+Prompt rule:
+
+```text
+The lighthouse interior must feel like one coherent engineered structure.
+Use weathered coastal stone, dark iron, restrained brass, chains, optical glass, ladders, walkways, counterweights and maintenance platforms.
+Every visible element should appear to have a clear structural or maintenance purpose.
+Avoid random pipes, decorative machinery, impossible supports and fantasy-dungeon geometry.
+```
+
+---
+
+## 7. Dynamic Route Readability Rule
+
+Sceny pościgu i ucieczki muszą być czytelne przestrzennie. Kierunek ruchu jest ważniejszy niż rozmach architektury.
+
+Prompt rule:
+
+```text
+For dynamic route scenes, make the path physically understandable at a glance.
+Use one continuous staircase or route whenever possible.
+Show who is ahead, who is behind and where the route continues.
+Do not place pursuers ahead of escaping characters unless the scene is intentionally an ambush.
+Avoid Escher-like staircases, branching routes, floating platforms and maze-like bridges.
+```
+
+---
+
+## 8. One Main Route Rule
+
+Najlepszy kierunek dla `Chase Along the Spiral` potwierdził, że jedna czytelna trasa działa lepiej niż panoramiczny przekrój całego wnętrza.
+
+Prompt rule:
+
+```text
+Use one main continuous spiral staircase as the dominant route.
+Limit the scene to one lower platform and at most one secondary bridge.
+The viewer should immediately understand how the characters can physically move through the space.
+The architecture should support the chase rather than compete with it.
+```
+
+---
+
+## 9. Avoid Surreal Monumentality
+
+Monumentalność powinna wynikać z wysokości, materiałów i skali, a nie z niemożliwej geometrii.
+
+Prompt rule:
+
+```text
+Preserve monumentality through scale, vertical depth, structural supports and atmospheric perspective.
+Do not create impossible staircases, floating architecture, disconnected bridges or abstract mechanical forms.
+The structure should feel buildable, maintainable and historically evolved.
+```
+
+---
+
+## 10. SC10 Reference — Lighthouse Gate
 
 Zaakceptowana wersja `SC10 — Brama Latarni` potwierdza właściwy kierunek:
 
@@ -98,7 +179,7 @@ Match the accepted SC10 lighthouse gate direction: one continuous monumental lig
 
 ---
 
-## 6. Edit Prompt Add-on For Landmark Architecture
+## 11. Edit Prompt Add-on For Landmark Architecture
 
 Do używania przy poprawkach architektury landmarków:
 

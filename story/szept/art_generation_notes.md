@@ -2,7 +2,7 @@
 
 Ten dokument jest dodatkiem do `story/szept/art_bible.md`.
 
-Cel: utrwalić praktyczne zasady wynikające z zaakceptowanych scen `SC01 — Archiwum po północy`, `SC02 — Rynek we mgle`, `SC03 — Spotkanie z Mirą`, `SC04 — Kaplica Soli`, `SC05 — Dziecko na brzegu` i `SC06 — Zakazane archiwum`, aby kolejne prompty i edycje były bardziej spójne, czytelne i lepiej dopasowane do visual novel.
+Cel: utrwalić praktyczne zasady wynikające z zaakceptowanych scen podstawowych oraz finalnie zaakceptowanych ilustracji rozszerzonej historii, aby kolejne prompty i edycje były bardziej spójne, czytelne i lepiej dopasowane do visual novel.
 
 ---
 
@@ -25,7 +25,7 @@ Najważniejsze cechy, które warto utrzymać:
 
 ### SC02 — Rynek we mgle
 
-`SC02 — Rynek we mgle` zostaje zaakceptowana jako referencja dla scen typu **Decision Composition**, czyli scen, w których obraz pokazuje kilka możliwych ścieżek wyboru.
+`SC02 — Rynek we mgle` zostaje zaakceptowana jako referencja dla scen typu **Decision Composition**.
 
 Najważniejsze cechy, które warto utrzymać:
 
@@ -42,7 +42,7 @@ Najważniejsze cechy, które warto utrzymać:
 Najważniejsze cechy, które warto utrzymać:
 
 - Mira i Lio pochylają się nad mapą,
-- mapa leży na naturalnym podparciu, np. skrzyni lub beczce,
+- mapa leży na naturalnym podparciu,
 - Mira wskazuje konkretny punkt,
 - Lio aktywnie analizuje trasę,
 - scena wygląda jak tajna narada, nie jak pozowana prezentacja pergaminu.
@@ -67,10 +67,10 @@ Najważniejsze cechy, które warto utrzymać:
 
 - szeroki kadr z dużą ilością oddechu i przestrzeni,
 - Lio jako obserwator wchodzący do sceny z lewej strony,
-- Noa pokazana z dystansu, od tyłu lub częściowego profilu, bez eksponowania twarzy,
-- rozbita łódź jako hero prop i naturalne wsparcie kompozycji,
+- Noa pokazana z dystansu, od tyłu lub częściowego profilu,
+- rozbita łódź jako hero prop,
 - klify, Veyr i latarnia jako silne story anchors,
-- samotność i tajemnica budowane przez lokację, pogodę, skalę i rekwizyty zamiast przez horrorowe efekty.
+- samotność i tajemnica budowane przez lokację, pogodę, skalę i rekwizyty.
 
 ### SC06 — Zakazane archiwum
 
@@ -78,36 +78,19 @@ Najważniejsze cechy, które warto utrzymać:
 
 Najważniejsze cechy, które warto utrzymać:
 
-- Lio aktywnie porównuje dokumenty z mapą, zamiast statycznie stać w lokacji,
+- Lio aktywnie porównuje dokumenty z mapą,
 - rejestr ofiar jest głównym dowodem odkrycia,
-- mapa Veyr z nićmi i pinezkami działa jako wtórne potwierdzenie spisku,
+- mapa Veyr z nićmi i pinezkami działa jako wtórne potwierdzenie,
 - archiwum wygląda jak stare, wilgotne i długo ukrywane miejsce,
-- czerwone nici i stare pieczęcie sugerują wzór zaginięć bez czytelnego tekstu,
 - pojedyncza świeca oraz zimne okno tworzą silną hierarchię światła.
 
-Te zaakceptowane sceny powinny być traktowane jako **quality bar** dla kolejnych backgroundów / scene CG.
+Te zaakceptowane sceny powinny być traktowane jako quality bar dla kolejnych backgroundów / scene CG.
 
 ---
 
 ## 2. Hero Prop Rule
 
 Każda ważna scena powinna mieć jeden główny rekwizyt fabularny.
-
-Ten rekwizyt powinien być natychmiast czytelny dla gracza, ale nie powinien wyglądać jak przesadnie magiczny obiekt, chyba że dana scena tego wymaga.
-
-Przykłady:
-
-| Scena | Hero Prop |
-|---|---|
-| SC01 — Archiwum po północy | Księga bez tytułu |
-| SC03 — Spotkanie z Mirą | Stara mapa tuneli |
-| SC04 — Kaplica Soli | Misa z solanką |
-| SC05 — Dziecko na brzegu | Rozbita łódź |
-| SC06 — Zakazane archiwum | Rejestr ofiar |
-| SC08 — Gabinet Vossa | Biały klucz latarni |
-| SC11 — Serce Latarni | Rdzeń latarni |
-
-Prompt rule:
 
 ```text
 The primary story prop must immediately draw the viewer's attention.
@@ -121,58 +104,12 @@ Do not add exaggerated magical glow unless the scene explicitly requires superna
 
 Każda kluczowa scena powinna mieć trzy czytelne punkty kompozycji:
 
-1. **Hero Character** — najważniejsza postać w scenie.
-2. **Hero Prop** — najważniejszy rekwizyt fabularny.
-3. **Story Anchor** — element świata, który wzmacnia temat sceny.
-
-Dla SC01:
+1. Hero Character
+2. Hero Prop albo Protected / Conflicted Character
+3. Story Anchor
 
 ```text
-Hero Character: Lio
-Hero Prop: The nameless ledger
-Story Anchor: The lighthouse visible through the window
-```
-
-Dla SC04:
-
-```text
-Hero Character: Lio
-Conflicted Character: Father Cael
-Hero Prop: The salt-water bowl
-Story Anchor: The sealed crypt door / lighthouse window
-```
-
-Dla SC05:
-
-```text
-Hero Character: Lio
-Mystery Character: Noa
-Hero Prop: The broken boat
-Story Anchor: The distant lighthouse and Veyr cliffs
-```
-
-Dla SC06:
-
-```text
-Hero Character: Lio
-Primary Discovery: The victim register
-Secondary Confirmation: The red-thread wall map
-Story Anchor: The hidden underground archive
-```
-
-Schemat:
-
-```text
-        Story Anchor
-             ▲
-             │
-Hero Prop ◄──────► Hero Character
-```
-
-Prompt rule:
-
-```text
-Build the composition around a clear visual story triangle: the main character, the primary story prop and the story anchor.
+Build the composition around a clear visual story triangle: the main character, the primary story prop or relationship, and the story anchor.
 The viewer's eye should naturally move between these three elements.
 ```
 
@@ -180,21 +117,7 @@ The viewer's eye should naturally move between these three elements.
 
 ## 4. Decision Composition
 
-Niektóre sceny nie mają jednego prostego hero propa. Zamiast tego ich funkcją jest pokazanie kilku ścieżek wyboru.
-
-W takich scenach obraz powinien działać jak **mapa decyzji ukryta w kadrze**.
-
-Dla SC02:
-
-```text
-Hero Character: Lio
-Visible Choice A: Mira in the alley
-Visible Choice B: Father Cael near the doorway
-Visible Threat: Harbor guards
-Story Anchor: Lighthouse glow in the distance
-```
-
-Prompt rule:
+Dla scen wyboru obraz powinien działać jak ukryta mapa decyzji.
 
 ```text
 For choice-heavy scenes, use Decision Composition.
@@ -207,55 +130,21 @@ The player should understand the possible directions by looking at the image bef
 
 ## 5. Natural Interaction Rule
 
-Sceny z dwoma lub więcej postaciami nie powinny wyglądać jak pozowane ilustracje. Postacie powinny naturalnie używać rekwizytów i reagować na siebie.
-
-Problem do unikania:
-
-```text
-Two characters standing frontally and holding an object toward the camera.
-```
-
-Lepszy kierunek:
-
-```text
-One character uses the object naturally while the other reacts, leans, points, hesitates, reaches, listens or observes.
-```
-
-Prompt rule:
+Sceny z dwiema lub większą liczbą postaci nie powinny wyglądać jak pozowane ilustracje.
 
 ```text
 Whenever two or more characters interact with an object, the object should be used naturally rather than presented to the viewer.
 Avoid symmetrical poses.
 Avoid both characters holding the same object unless physically necessary.
-Prefer natural body language: leaning, pointing, resting objects on furniture, partially unfolded documents, casual gestures, hesitation, interrupted movement.
+Prefer natural body language: leaning, pointing, resting objects on furniture, hesitation, interrupted movement and reaction.
 The scene should feel like a captured moment rather than a posed illustration.
-```
-
-Przykład dla SC03:
-
-```text
-Mira has placed the old tunnel map on top of a weathered wooden crate.
-The map is only partially unfolded.
-Its corners curl naturally.
-The parchment is damp, worn and uneven.
-Mira points at one specific location with one finger.
-Lio leans closer to inspect the marked route.
-The conversation feels secretive, intimate and tense.
-The map is a working object, not something displayed to the viewer.
-Avoid symmetrical poses.
-Avoid presenting the map toward the camera.
-The characters should appear naturally engaged with the map rather than posing for it.
 ```
 
 ---
 
 ## 6. Action Moment Rule
 
-Najlepsze sceny wyglądają jak zatrzymana klatka filmu, a nie jak statyczny portret postaci w lokacji.
-
-Każda scena powinna opisywać **konkretny moment działania**.
-
-Prompt rule:
+Najlepsze sceny wyglądają jak zatrzymana klatka filmu.
 
 ```text
 Capture the exact moment of an action rather than a static pose.
@@ -264,98 +153,30 @@ Avoid characters simply standing and looking at each other.
 The scene should feel like a still frame from a dark fantasy film.
 ```
 
-Przykłady dobrych czasowników:
-
-- opening a book,
-- lowering a bowl,
-- pointing at a map,
-- leaning closer,
-- hesitating before answering,
-- reaching for a key,
-- turning toward a sound,
-- placing an object on a table,
-- looking over a shoulder,
-- interrupting a ritual.
-
-Przykład dla SC04:
-
-```text
-Father Cael has just interrupted his ritual after hearing Lio's question.
-He lowers the salt-water bowl slightly and looks down at the water before answering.
-Lio takes one cautious step closer and leans forward, waiting for the truth.
-The scene captures the moment of hesitation before confession.
-```
-
 ---
 
 ## 7. Environmental Storytelling Rule
-
-Nie każda scena musi opowiadać przede wszystkim przez gest lub rekwizyt. W scenach plenerowych i przejściowych bardzo ważne jest, aby sama lokacja opowiadała emocjonalny stan historii.
-
-Dla SC05 najlepiej zadziałało to, że samotność Noi wynika z szerokiej przestrzeni, rozbitej łodzi, klifów Veyr, zimnego morza i światła latarni, a nie z horrorowego wyglądu postaci.
-
-Prompt rule:
 
 ```text
 Whenever possible, let the environment tell part of the story before the characters do.
 The player should understand the emotional tone of the scene by looking at the location, weather, lighting, scale and props before reading the dialogue.
 Characters should feel like they exist inside the world rather than standing in front of a background.
-Use environmental storytelling especially for wide exterior scenes, transitions, lonely moments and discoveries.
-```
-
-Dobre elementy narracji środowiskowej:
-
-- rozbita łódź,
-- porzucone sieci,
-- mokre kamienie,
-- puste nabrzeże,
-- klify miasta,
-- światło latarni jako odległy nadzór,
-- mgła układająca rytm sceny,
-- skala postaci względem lokacji.
-
-Przykład dla SC05:
-
-```text
-The environment should tell the story before the characters speak.
-The broken boat, wet rocks, empty shoreline, distant city cliffs and lighthouse beam should make the scene feel lonely and important.
-Noa should remain small in the frame, making the viewer wonder why she is alone there.
 ```
 
 ---
 
 ## 8. Discovery Hierarchy Rule
 
-Sceny śledztwa powinny mieć jasną hierarchię informacji. Gracz musi najpierw zauważyć **główne odkrycie**, a dopiero potem element, który je potwierdza lub rozszerza.
-
-W SC06 głównym odkryciem jest rejestr ofiar, a mapa Veyr z czerwonymi nićmi jest wtórnym potwierdzeniem, że zaginięcia tworzą wzór.
-
-Prompt rule:
-
 ```text
 Every investigation scene should contain a clear discovery hierarchy.
 Primary Discovery: the object that reveals the new information.
 Secondary Confirmation: the environmental element that reinforces or proves the discovery.
 The primary discovery should attract the viewer before the secondary confirmation.
-Do not let a large background clue overpower the smaller object that carries the key revelation.
-```
-
-Przykład dla SC06:
-
-```text
-Primary Discovery: the open victim register on the table.
-Secondary Confirmation: the red-thread wall map of Veyr.
-The register should be naturally emphasized by candlelight and Lio's hand placement.
-The wall map should remain powerful and readable, but it should feel like confirmation of what Lio found in the register, not the first thing the viewer notices.
 ```
 
 ---
 
 ## 9. Asymmetry and Vertical Staging
-
-Modele generatywne często ustawiają postacie na tej samej wysokości i w podobnych pozach. To szybko daje efekt sztucznej, pozowanej sceny.
-
-Prompt rule:
 
 ```text
 Avoid perfectly mirrored standing compositions.
@@ -363,38 +184,19 @@ Whenever possible, create asymmetry through posture, height, leaning, seated pos
 Characters should occupy different vertical levels and body angles to create a more cinematic composition.
 ```
 
-Przykłady:
-
-- jedna postać pochyla się nad mapą, druga wskazuje trasę,
-- jedna postać stoi, druga siedzi lub opiera się o ołtarz,
-- jedna postać odwraca wzrok, druga czeka na odpowiedź,
-- jedna postać jest bliżej kamery, druga częściowo ukryta w cieniu.
-
 ---
 
 ## 10. Background Hierarchy
 
-Tło powinno wspierać scenę, ale nie może konkurować z postacią i głównym rekwizytem.
-
-Dla scen bogatych w detale, takich jak archiwum, gabinet Vossa lub kaplica, trzeba pilnować hierarchii ostrości i kontrastu.
-
-Prompt rule:
-
 ```text
 Background details should support the scene but never compete with the main character or the primary story prop.
-Keep the main character and hero prop sharper and more contrasted than the background.
-Slightly soften and darken distant bookshelves, walls and secondary props.
+Keep the main character and hero element sharper and more contrasted than the background.
+Slightly soften and darken distant architecture and secondary props.
 ```
 
 ---
 
 ## 11. Visual Novel Dialogue Area
-
-Każdy obraz musi działać z dialogue boxem na dole ekranu.
-
-Dolne 25–30% obrazu powinno być spokojniejsze, ciemniejsze i mniej szczegółowe. Nie należy umieszczać tam ważnych twarzy, dłoni, rekwizytów ani tropów fabularnych.
-
-Prompt rule:
 
 ```text
 Keep the lower 25–30% of the image visually calm, darker and less detailed for visual novel dialogue box overlay.
@@ -405,10 +207,6 @@ A dark wooden table, stone floor, shadow or empty foreground is preferred.
 ---
 
 ## 12. Character Identity Preservation
-
-Podczas edycji istniejących obrazów lub tworzenia kolejnych scen z tą samą postacią generator może przypadkowo zmienić twarz, wiek, fryzurę lub ubranie. Trzeba temu aktywnie zapobiegać.
-
-Prompt rule:
 
 ```text
 Preserve the exact identity of the character.
@@ -447,11 +245,69 @@ Let the environment and composition create mystery rather than changing the chil
 
 ---
 
-## 13. Edit Prompt Template
+## 13. Dynamic Chase Readability Rule
 
-Do edycji istniejącego obrazu nie należy przepisywać całego promptu sceny. Edycja powinna jasno mówić, że obraz ma zostać zachowany, a zmienione mają być tylko konkretne elementy.
+Sceny pościgu muszą być zrozumiałe bez analizowania całej architektury.
 
-Template:
+```text
+For chase scenes, direction of movement must be immediately readable.
+Escaping characters must remain clearly ahead of pursuers.
+Do not place pursuers on upper landings, upper bridges or in front of the escape route unless the scene is intentionally an ambush.
+Use one continuous route whenever possible.
+Keep the path above the escaping characters open and visually readable.
+```
+
+Dla `Chase Along the Spiral`:
+
+```text
+Lio and Noa are escaping upward.
+Every harbor guard must be below and behind them.
+The path above them must remain open and empty.
+The guards should pursue them on the same continuous staircase or a clearly connected lower segment.
+```
+
+---
+
+## 14. Protected Character Rule
+
+Gdy emocjonalnym centrum sceny jest relacja opiekun–chroniona postać, obie muszą być czytelne.
+
+```text
+When one character protects another, make the relationship readable through distance, hand placement, eye line and interrupted movement.
+Do not let the protected character disappear into the background.
+The emotional action should remain clearer than the architecture.
+```
+
+---
+
+## 15. Architecture Must Serve Action
+
+```text
+In action scenes, architecture exists to support movement, danger and emotional clarity.
+Do not turn the image into an architectural showcase.
+Limit bridges, staircases and machinery to the elements needed to explain the route.
+If the environment becomes more memorable than the action, simplify it.
+```
+
+---
+
+## 16. Accepted New Reference Directions
+
+Finalnie zaakceptowane rozszerzone sceny potwierdzają dodatkowe kierunki:
+
+- `The Tide Chamber` — monumentalna infrastruktura działa najlepiej, gdy jeden hero element dominuje i cała mechanika wygląda jak jeden system.
+- `Crypt Beneath the Chapel` — nieobecność i zwykłe przedmioty mogą być silniejsze niż horror.
+- `Warehouse Thirteen` — tłum powinien reagować naturalnie, bez symetrycznego ustawienia.
+- `The Keeper's Supper` — emocjonalny dystans może być hero elementem bez fizycznego rekwizytu.
+- `Night in the Chapel` — pusta przestrzeń i samotna postać mogą nieść całą scenę.
+- `Bells Without a Priest` — narracja środowiskowa może działać bez żadnej postaci.
+- `Last Meeting in the Archive` — zamknięty rejestr i światło Latarni mogą domknąć wizualną klamrę historii.
+- `Pact with the Keeper` — mechanizm powinien wspierać relację Voss–Lio, nie ją zastępować.
+- `Chase Along the Spiral` — kierunek pościgu i logiczna trasa są ważniejsze niż panoramiczny rozmach.
+
+---
+
+## 17. Edit Prompt Template
 
 ```text
 Keep the overall composition, atmosphere, architecture, character, lighting style and color palette exactly as they are.
@@ -459,7 +315,6 @@ Do NOT regenerate the scene.
 This is an edit of the existing image only.
 
 Apply only the following changes:
-
 1. [Specific change]
 2. [Specific change]
 3. [Specific change]
@@ -472,78 +327,24 @@ The final image should remain almost identical to the original, only improved ac
 
 ---
 
-## 14. Accepted Quality Direction
+## 18. Accepted Quality Direction
 
-SC01 is accepted even if it is slightly more realistic than the initial target style.
-
-SC02, SC03, SC04, SC05 and SC06 confirm that the preferred target style is:
+Prefer:
 
 - cinematic dark fantasy realism,
 - subtle painterly finish,
 - realistic but not photographic character rendering,
 - strong location identity,
 - one clear story action per scene,
-- one clear rekwizyt / decision structure per scene,
-- consistent Lio, Mira and Cael identities,
-- environmental storytelling that makes the world of Veyr feel alive before dialogue begins,
-- investigation scenes with a clear primary discovery and secondary confirmation.
-
-For future scenes:
-
-- keep the same mood and quality,
-- keep the cinematic realism,
-- avoid going more photorealistic than SC01–SC06,
-- prefer a subtle painterly finish,
-- maintain consistent lighting and color grading,
-- add an action moment rather than static posing,
-- use the environment to communicate emotional tone,
-- keep the main clue hierarchy readable.
-
-Prompt rule:
+- one clear hero element or decision structure,
+- consistent character identities,
+- environmental storytelling,
+- readable architecture and action direction.
 
 ```text
-Match the quality, mood and cinematic dark fantasy realism of the accepted SC01 archive scene, SC02 foggy marketplace scene, SC03 alley map scene, SC04 salt chapel scene, SC05 rocky shore scene and SC06 forbidden archive scene.
+Match the quality, mood and cinematic dark fantasy realism of the accepted scene set.
 Use a subtle painterly finish, but do not make the image anime, cartoon or overly stylized.
 Capture a natural action moment, not a static pose.
 Let the environment tell part of the story before the characters do.
-For investigation scenes, make the primary discovery visually read before the secondary confirmation.
-```
-
----
-
-## 15. Practical Prompt Add-on
-
-Ten blok można dopisywać do kolejnych promptów scen:
-
-```text
-Composition guidance:
-Build the scene around a clear visual story triangle: main character, primary story prop and story anchor.
-The primary story prop must be immediately readable and naturally emphasized by light and contrast.
-For choice-heavy scenes, use Decision Composition so routes, allies and threats are readable in the frame.
-For investigation scenes, use Discovery Hierarchy: primary discovery first, secondary confirmation second.
-Characters should be captured in a natural action moment, not a posed illustration.
-Whenever characters interact with an object, the object should be used naturally rather than presented to the viewer.
-Avoid symmetrical standing poses; use posture, leaning, height differences and interaction with the environment.
-Let the environment tell part of the story through location, weather, lighting, scale and props.
-Background details should support the scene but never compete with the character or the hero prop.
-Keep the lower 25–30% darker, calmer and less detailed for visual novel dialogue overlay.
-Preserve character identity across scenes.
-Match the quality, mood and cinematic dark fantasy realism of the accepted SC01–SC06 scenes.
-```
-
----
-
-## 16. Practical Edit Add-on
-
-Ten blok można dopisywać do promptów edycyjnych:
-
-```text
-Do not regenerate the whole image.
-Preserve the exact composition, character identity, architecture, camera angle, color palette and mood.
-Only adjust the specific requested elements.
-If the scene feels posed, turn it into a captured action moment using natural body language and object interaction.
-If the scene feels empty or decorative, strengthen environmental storytelling through props, weather, lighting and scale.
-For investigation scenes, ensure the primary discovery attracts attention before the secondary confirmation.
-Keep the final image very close to the original.
-Do not add UI, text, logos, extra characters, modern objects or unrelated props.
+Keep route direction, character hierarchy and scene logic immediately readable.
 ```
